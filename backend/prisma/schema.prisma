@@ -1,0 +1,255 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ===== USERS & AUTHENTICATION =====
+
+model Utilisateur {
+  id        String     @id @default(cuid())
+  nom       String
+  email     String     @unique
+  motDePasse String
+  role      String     // PROPRIETAIRE, DIRECTEUR, SECRETAIRE, ENSEIGNANT
+  actif     Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relations
+  enseignant Enseignant?
+}
+
+// ===== SCHOOL STRUCTURE =====
+
+model Ecole {
+  id                    String   @id @default(cuid())
+  nom                   String   @default("Collège Rosa-Parks")
+  lieu                  String   @default("Yaoundé, Cameroun")
+  telephone             String   @default("+237 6 XX XXX XXXX")
+  email                 String   @default("info@collegerosparks.cm")
+  anneeScolaireEnCours  String   @default("2024-2025")
+
+  // Relations
+  personnel     Personnel[]
+  parametres    Parametres?
+}
+
+model Section {
+  id        String   @id @default(cuid())
+  nom       String   // ex: "Francophone", "Maternelle", "Primaire"
+  emoji     String   @default("📚")
+  ordre     Int      @default(0)
+  actif     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  classes              Classe[]
+  matieres             Matiere[]
+  configurationsFrais  ConfigurationFrais[]
+}
+
+model Classe {
+  id        String   @id @default(cuid())
+  nom       String   // ex: "6ème A", "Form 1 B"
+  section   String   // FRANCOPHONE, ANGLOPHONE, TECHNIQUE (kept for backward compatibility)
+  sectionId String?  // Foreign key to Section table
+  sectionRel Section? @relation(fields: [sectionId], references: [id])
+  niveau    String   // ex: "6ème", "Form 1"
+  createdAt DateTime @default(now())
+
+  // Relations
+  eleves                Eleve[]
+  enseignantClasseMatieres EnseignantClasseMatiere[]
+  presences             Presence[]
+}
+
+// ===== STUDENTS =====
+
+model Eleve {
+  id              String   @id @default(cuid())
+  matricule       String   @unique
+  nom             String
+  prenom          String
+  sexe            String   // MASCULIN, FEMININ
+  dateNaissance   DateTime
+  classe          Classe   @relation(fields: [classeId], references: [id])
+  classeId        String
+
+  // Parent/Tuteur
+  nomParent       String
+  lieuParente     String?  // Lien: Mère, Père, Tuteur, Oncle, etc.
+  telephoneParent String
+  emailParent     String?
+  adresseParent   String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  inscriptionsFrais InscriptionFrais[]
+  notes             Note[]
+  presences         Presence[]
+}
+
+// ===== PAYMENTS & FEES =====
+
+model InscriptionFrais {
+  id                  String             @id @default(cuid())
+  eleve               Eleve              @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleveId             String
+  tranche             String             // "inscription", "tranche1", "tranche2", etc.
+  montantDu           Int                // montant en FCFA
+  montantPaye         Int    @default(0) // montant payé en FCFA
+  modePayement        String?            // ORANGE_MONEY, MTN_MOMO, WAVE, ESPECES, VIREMENT_BANCAIRE
+  datePayement        DateTime?
+  statut              String @default("IMPAYE") // IMPAYE, PARTIEL, SOLDE
+  statutValidation    String @default("BROUILLON") // BROUILLON, VALIDE, REJETE
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// ===== TEACHING & GRADES =====
+
+model Enseignant {
+  id          String @id @default(cuid())
+  utilisateur Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  utilisateurId String @unique
+  telephone   String
+  dateEmbauche DateTime @default(now())
+
+  // Relations
+  classesMatieres EnseignantClasseMatiere[]
+}
+
+model Matiere {
+  id             String @id @default(cuid())
+  nom            String
+  section        Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  sectionId      String
+  coefficient    Int    @default(3)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  enseignantClasseMatieres EnseignantClasseMatiere[]
+}
+
+model EnseignantClasseMatiere {
+  id             String @id @default(cuid())
+  enseignant     Enseignant @relation(fields: [enseignantId], references: [id], onDelete: Cascade)
+  enseignantId   String
+  classe         Classe @relation(fields: [classeId], references: [id], onDelete: Cascade)
+  classeId       String
+  matiere        Matiere @relation(fields: [matiereId], references: [id], onDelete: Cascade)
+  matiereId      String
+  createdAt      DateTime @default(now())
+
+  // Relations back-reference
+  notes          Note[]
+}
+
+model Note {
+  id                 String   @id @default(cuid())
+  eleve              Eleve    @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleveId            String
+  enseignantClasseMatiere EnseignantClasseMatiere @relation(fields: [ecmId], references: [id], onDelete: Cascade)
+  ecmId              String
+  trimestre          Int      // 1, 2, ou 3
+  valeur             Float    // Note sur 20
+  observation        String?
+  statutValidation   String @default("BROUILLON") // BROUILLON, VALIDE, REJETE
+  dateValidation     DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+// ===== ATTENDANCE =====
+
+model Presence {
+  id          String   @id @default(cuid())
+  eleve       Eleve    @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleveId     String
+  classe      Classe   @relation(fields: [classeId], references: [id], onDelete: Cascade)
+  classeId    String
+  date        DateTime
+  statut      String   @default("ABSENT") // PRESENT, ABSENT, JUSTIFIE
+  observation String?
+  createdAt   DateTime @default(now())
+}
+
+// ===== STAFF & PAYROLL =====
+
+model Personnel {
+  id              String   @id @default(cuid())
+  ecole           Ecole    @relation(fields: [ecoleId], references: [id])
+  ecoleId         String
+  nom             String
+  fonction        String   // Directeur, Surveillance, Intendant, etc.
+  telephone       String
+  salaireMensuel  Int      // montant en FCFA
+  dateEmbauche    DateTime @default(now())
+  actif           Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Finance {
+  id              String   @id @default(cuid())
+  description     String
+  montant         Int      // montant en FCFA
+  type            String   // ENTREE, SORTIE
+  dateTransaction DateTime @default(now())
+  createdAt       DateTime @default(now())
+}
+
+// ===== FRAIS CONFIGURATION =====
+
+model ConfigurationFrais {
+  id             String @id @default(cuid())
+  section        Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  sectionId      String
+  montantInscription Int @default(50000)
+  montantFraisTotal  Int @default(80000)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  tranches       Tranche[]
+
+  @@unique([sectionId])
+}
+
+model Tranche {
+  id                String @id @default(cuid())
+  configurationFrais ConfigurationFrais @relation(fields: [configurationFraisId], references: [id], onDelete: Cascade)
+  configurationFraisId String
+  numero            Int    // 1, 2, 3
+  montant           Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([configurationFraisId, numero])
+}
+
+// ===== CONFIGURATION =====
+
+model Parametres {
+  id                    String  @id @default(cuid())
+  ecole                 Ecole   @relation(fields: [ecoleId], references: [id])
+  ecoleId               String  @unique
+  baremeNotation        String // JSON
+  echances              String // JSON
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// Relation back-reference pour Note
+// (Déjà incluse dans la définition de Note)
