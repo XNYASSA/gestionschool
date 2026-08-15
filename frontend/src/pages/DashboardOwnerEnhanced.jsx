@@ -82,9 +82,9 @@ export default function DashboardOwnerEnhanced({ filters }) {
   const [editingSectionId, setEditingSectionId] = useState(null)
   const [loadingSections, setLoadingSections] = useState(false)
 
-  // État pour les classes
+  // État pour les classes (chargement depuis API)
   const [classes, setClasses] = useState([])
-  const [loadingClasses, setLoadingClasses] = useState(false)
+  const [loadingAllClasses, setLoadingAllClasses] = useState(false)
 
   // Charger les données au montage
   useEffect(() => {
@@ -136,13 +136,13 @@ export default function DashboardOwnerEnhanced({ filters }) {
 
   const loadClasses = async () => {
     try {
-      setLoadingClasses(true)
+      setLoadingAllClasses(true)
       const data = await apiClient.getClasses()
       setClasses(data || [])
     } catch (err) {
       console.error('Erreur chargement classes:', err)
     } finally {
-      setLoadingClasses(false)
+      setLoadingAllClasses(false)
     }
   }
 
