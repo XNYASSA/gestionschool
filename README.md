@@ -1,24 +1,39 @@
-# TDB École Privée - Démo Application Web Multi-Rôles
+# 🎓 TDB École - Système de Gestion Scolaire
 
-Démonstration complète d'une **application multi-utilisateurs avec système de rôles et permissions** pour la gestion scolaire dans les écoles privées d'Afrique francophone/anglophone.
+Application web complète de gestion scolaire pour les écoles privées francophones, anglophones et techniques au Cameroun. Système de rôles et permissions complet avec dashboards adaptés à chaque utilisateur.
 
-## 🎯 Argument Principal de Vente
+## 📁 Structure du projet
 
-**"À différence d'un Google Sheet où tout le monde voit tout et peut tout modifier, TDB École sécurise et structure le travail de chaque acteur de l'école avec un système complet de rôles et permissions."**
+Le projet est maintenant organisé en **2 dossiers principaux**:
 
-## 🚀 Démarrage Rapide
+```
+gestionschool/
+├── frontend/          🎨 React + Vite + Tailwind CSS
+├── backend/           🔌 Node.js + Express + Prisma
+└── README.md          📖 Ce fichier
+```
+
+## 🚀 Démarrage Rapide (Développement local)
 
 ### Prérequis
-- Node.js 16+ installé
 
-### Installation et Lancement
+- Node.js 16+ et npm
+- Git
+
+### Installation
 
 ```bash
-# Installer les dépendances
+# Terminal 1 - Backend
+cd backend
 npm install
-
-# Lancer l'application en mode développement
 npm run dev
+# Écoute sur http://localhost:3001
+
+# Terminal 2 - Frontend
+cd frontend
+npm install
+npm run dev
+# Accessible sur http://localhost:5173
 ```
 
 L'application s'ouvrira automatiquement dans votre navigateur sur `http://localhost:5173`.
