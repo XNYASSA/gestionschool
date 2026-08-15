@@ -14,6 +14,7 @@ import configurationsFraisRoutes from './routes/configurationsFrais.js'
 import notesRoutes from './routes/notes.js'
 import presenceRoutes from './routes/presences.js'
 import personnelRoutes from './routes/personnel.js'
+import depensesRoutes from './routes/depenses.js'
 import dashboardRoutes from './routes/dashboard.js'
 
 dotenv.config()
@@ -46,6 +47,7 @@ app.use('/api/configurations-frais', configurationsFraisRoutes)
 app.use('/api/notes', notesRoutes)
 app.use('/api/presences', presenceRoutes)
 app.use('/api/personnel', personnelRoutes)
+app.use('/api/depenses', depensesRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 
 // Health check

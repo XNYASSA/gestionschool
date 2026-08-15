@@ -19,6 +19,7 @@ async function main() {
   await prisma.enseignant.deleteMany()
   await prisma.utilisateur.deleteMany()
   await prisma.personnel.deleteMany()
+  await prisma.depense.deleteMany()
   await prisma.finance.deleteMany()
   await prisma.parametres.deleteMany()
   await prisma.section.deleteMany()
@@ -645,6 +646,76 @@ async function main() {
   ])
 
   console.log('✓ Personnel créé')
+
+  // Créer des dépenses de test
+  await Promise.all([
+    prisma.depense.create({
+      data: {
+        description: 'Achat de fournitures scolaires (cahiers, stylos)',
+        categorie: 'FOURNITURES',
+        montant: 250000,
+        dateDepense: new Date('2024-08-15')
+      }
+    }),
+    prisma.depense.create({
+      data: {
+        description: 'Maintenance toiture - réparation fuite',
+        categorie: 'MAINTENANCE',
+        montant: 800000,
+        dateDepense: new Date('2024-07-20')
+      }
+    }),
+    prisma.depense.create({
+      data: {
+        description: 'Achat de matériel informatique (ordinateurs)',
+        categorie: 'MATERIEL',
+        montant: 3500000,
+        dateDepense: new Date('2024-08-01')
+      }
+    }),
+    prisma.depense.create({
+      data: {
+        description: 'Facture électricité - août 2024',
+        categorie: 'ENERGIE',
+        montant: 450000,
+        dateDepense: new Date('2024-08-31')
+      }
+    }),
+    prisma.depense.create({
+      data: {
+        description: 'Facture eau - août 2024',
+        categorie: 'ENERGIE',
+        montant: 150000,
+        dateDepense: new Date('2024-08-31')
+      }
+    }),
+    prisma.depense.create({
+      data: {
+        description: 'Achat de mobilier (tables, chaises)',
+        categorie: 'MATERIEL',
+        montant: 1200000,
+        dateDepense: new Date('2024-07-10')
+      }
+    }),
+    prisma.depense.create({
+      data: {
+        description: 'Achat de livres pour la bibliothèque',
+        categorie: 'FOURNITURES',
+        montant: 600000,
+        dateDepense: new Date('2024-06-15')
+      }
+    }),
+    prisma.depense.create({
+      data: {
+        description: 'Réparation système de climatisation',
+        categorie: 'MAINTENANCE',
+        montant: 500000,
+        dateDepense: new Date('2024-07-05')
+      }
+    })
+  ])
+
+  console.log('✓ Dépenses créées')
 
   // Créer des paramètres
   await prisma.parametres.create({

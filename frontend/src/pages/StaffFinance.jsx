@@ -1,18 +1,29 @@
 import React, { useState, useEffect, useContext } from 'react'
 import { AuthContext } from '../context/AuthContext'
 import { apiClient } from '../api/client'
-import { Users, DollarSign, Plus, Edit2, Trash2, Lock, Unlock, AlertCircle, Save, X, TrendingUp, TrendingDown } from 'lucide-react'
+import { Users, DollarSign, Plus, Edit2, Trash2, Lock, Unlock, AlertCircle, Save, X, TrendingUp, TrendingDown, Loader } from 'lucide-react'
 import { formatFCFALong } from '../utils/formatters'
 import { useDashboard } from '../hooks/useDashboard'
+
+const CATEGORIES_DEPENSES = [
+  { value: 'MATERIEL', label: '🖥️ Matériel' },
+  { value: 'FOURNITURES', label: '📚 Fournitures' },
+  { value: 'MAINTENANCE', label: '🔧 Maintenance' },
+  { value: 'ENERGIE', label: '⚡ Énergie (Électricité/Eau)' },
+  { value: 'AUTRE', label: '📦 Autre' }
+]
 
 export default function StaffFinance({ filters }) {
   const { user } = useContext(AuthContext)
   const { data: dashboardData } = useDashboard()
   const [personnel, setPersonnel] = useState([])
+  const [depenses, setDepenses] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const [showDepenseForm, setShowDepenseForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [editingDepenseId, setEditingDepenseId] = useState(null)
   const [actioningId, setActioningId] = useState(null)
 
   const [formData, setFormData] = useState({
@@ -23,20 +34,49 @@ export default function StaffFinance({ filters }) {
     dateEmbauche: new Date().toISOString().split('T')[0]
   })
 
-  // Charger le personnel
+  const [depenseFormData, setDepenseFormData] = useState({
+    description: '',
+    categorie: 'AUTRE',
+    montant: '',
+    dateDepense: new Date().toISOString().split('T')[0]
+  })
+
+  // Charger le personnel et les dépenses
   useEffect(() => {
-    fetchPersonnel()
+    loadData()
   }, [])
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      const [personnelData, depensesData] = await Promise.all([
+        apiClient.getPersonnel(),
+        apiClient.getDepenses()
+      ])
+      setPersonnel(personnelData || [])
+      setDepenses(depensesData || [])
+    } catch (err) {
+      setError('Erreur chargement données')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const fetchPersonnel = async () => {
     try {
-      setLoading(true)
       const data = await apiClient.getPersonnel()
       setPersonnel(data || [])
     } catch (err) {
       setError('Erreur chargement personnel')
-    } finally {
-      setLoading(false)
+    }
+  }
+
+  const fetchDepenses = async () => {
+    try {
+      const data = await apiClient.getDepenses()
+      setDepenses(data || [])
+    } catch (err) {
+      setError('Erreur chargement dépenses')
     }
   }
 
@@ -110,6 +150,69 @@ export default function StaffFinance({ filters }) {
     }
   }
 
+  // DÉPENSES
+  const handleDepenseFormChange = (e) => {
+    const { name, value } = e.target
+    setDepenseFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleDepenseSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      if (!depenseFormData.description || !depenseFormData.montant) {
+        setError('Tous les champs sont obligatoires')
+        return
+      }
+
+      const dataToSend = {
+        ...depenseFormData,
+        montant: parseInt(depenseFormData.montant)
+      }
+
+      if (editingDepenseId) {
+        await apiClient.updateDepense(editingDepenseId, dataToSend)
+      } else {
+        await apiClient.createDepense(
+          dataToSend.description,
+          dataToSend.categorie,
+          dataToSend.montant,
+          dataToSend.dateDepense
+        )
+      }
+
+      setShowDepenseForm(false)
+      setEditingDepenseId(null)
+      setDepenseFormData({ description: '', categorie: 'AUTRE', montant: '', dateDepense: new Date().toISOString().split('T')[0] })
+      await fetchDepenses()
+    } catch (err) {
+      setError(err.message || 'Erreur sauvegarde dépense')
+    }
+  }
+
+  const handleEditDepense = (d) => {
+    setEditingDepenseId(d.id)
+    setDepenseFormData({
+      description: d.description,
+      categorie: d.categorie,
+      montant: d.montant,
+      dateDepense: d.dateDepense?.split('T')[0] || ''
+    })
+    setShowDepenseForm(true)
+  }
+
+  const handleDeleteDepense = async (id) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette dépense?')) return
+    setActioningId(id)
+    try {
+      await apiClient.deleteDepense(id)
+      await fetchDepenses()
+    } catch (err) {
+      setError('Erreur suppression dépense')
+    } finally {
+      setActioningId(null)
+    }
+  }
+
   const totalSalaries = personnel.reduce((sum, p) => sum + (p.salaireMensuel || 0), 0)
   const avgSalary = personnel.length > 0 ? totalSalaries / personnel.length : 0
   const activePersonnel = personnel.filter(p => p.actif).length
@@ -119,7 +222,21 @@ export default function StaffFinance({ filters }) {
   const totalFraisCollectes = frais.reduce((sum, f) => sum + (f.montantPaye || 0), 0)
   const totalFraisDus = frais.reduce((sum, f) => sum + (f.montantDu || 0), 0)
   const totalFraisRestants = totalFraisDus - totalFraisCollectes
-  const bilan = totalFraisCollectes - totalSalaries
+
+  // Dépenses par catégorie
+  const depenseParCategorie = {}
+  const totalDepenses = depenses.reduce((sum, d) => {
+    sum += d.montant || 0
+    if (!depenseParCategorie[d.categorie]) {
+      depenseParCategorie[d.categorie] = 0
+    }
+    depenseParCategorie[d.categorie] += d.montant
+    return sum
+  }, 0)
+
+  // Bilan: Frais collectés - Salaires - Autres dépenses
+  const totalDepenseHors = totalDepenses
+  const bilan = totalFraisCollectes - totalSalaries - totalDepenseHors
 
   return (
     <div className="space-y-6">

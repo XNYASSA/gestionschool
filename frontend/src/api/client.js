@@ -286,6 +286,39 @@ class APIClient {
     })
   }
 
+  // DEPENSES
+  async getDepenses() {
+    return this.request('/depenses')
+  }
+
+  async getDepensesByCategorie(categorie) {
+    return this.request(`/depenses/categorie/${categorie}`)
+  }
+
+  async createDepense(description, categorie, montant, dateDepense) {
+    return this.request('/depenses', {
+      method: 'POST',
+      body: JSON.stringify({ description, categorie, montant, dateDepense })
+    })
+  }
+
+  async updateDepense(id, data) {
+    return this.request(`/depenses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async deleteDepense(id) {
+    return this.request(`/depenses/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async getDepenseStats() {
+    return this.request('/depenses/stats/summary')
+  }
+
   // DASHBOARD
   async getDashboard() {
     return this.request('/dashboard')
