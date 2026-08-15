@@ -71,19 +71,43 @@ async function getDashboardProprietaire(req, res) {
 
 async function getDashboardDirecteur(req, res) {
   try {
-    // Données similaires au propriétaire mais moins de détails stratégiques
+    // Directeur a les mêmes données que le Propriétaire
     const totalEleves = await req.prisma.eleve.count()
+    const fraisCollectes = await req.prisma.inscriptionFrais.aggregate({
+      _sum: { montantPaye: true }
+    })
+    const fraisRestant = await req.prisma.inscriptionFrais.aggregate({
+      _sum: { montantDu: true }
+    })
+    const masseSalariale = await req.prisma.personnel.aggregate({
+      _sum: { salaireMensuel: true }
+    })
     const impayés = await req.prisma.inscriptionFrais.count({
       where: { statut: 'IMPAYE' }
     })
-    const notesEnBrouillon = await req.prisma.note.count({
-      where: { statutValidation: 'BROUILLON' }
+
+    const totalFraisCollectes = fraisCollectes._sum.montantPaye || 0
+    const totalFraisDu = fraisRestant._sum.montantDu || 0
+
+    // Récupérer les listes pour les tableaux
+    const eleves = await req.prisma.eleve.findMany({
+      include: { classe: true }
+    })
+
+    const frais = await req.prisma.inscriptionFrais.findMany({
+      include: { eleve: true }
     })
 
     res.json({
       totalEleves,
+      totalFraisCollectes,
+      totalFraisDu,
+      totalFraisRestant: totalFraisDu - totalFraisCollectes,
+      percentageCollected: totalFraisDu > 0 ? ((totalFraisCollectes / totalFraisDu) * 100).toFixed(1) : 0,
+      totalSalaries: masseSalariale._sum.salaireMensuel || 0,
       impayés,
-      notesEnBrouillon
+      eleves,
+      frais
     })
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -92,7 +116,7 @@ async function getDashboardDirecteur(req, res) {
 
 async function getDashboardSecretaire(req, res) {
   try {
-    const inscriptionsAujourd = await req.prisma.eleve.count()
+    const totalEleves = await req.prisma.eleve.count()
     const paiementsEnAttente = await req.prisma.inscriptionFrais.count({
       where: { statut: 'PARTIEL' }
     })
@@ -100,10 +124,27 @@ async function getDashboardSecretaire(req, res) {
       where: { statut: 'IMPAYE' }
     })
 
+    // Secrétaire peut voir les élèves et les frais
+    const eleves = await req.prisma.eleve.findMany({
+      include: { classe: true }
+    })
+
+    const frais = await req.prisma.inscriptionFrais.findMany({
+      include: { eleve: true }
+    })
+
+    const totalFraisCollectes = frais.reduce((sum, f) => sum + (f.montantPaye || 0), 0)
+    const totalFraisDu = frais.reduce((sum, f) => sum + (f.montantDu || 0), 0)
+
     res.json({
-      inscriptionsAujourd,
+      totalEleves,
       paiementsEnAttente,
-      impayés
+      impayés,
+      totalFraisCollectes,
+      totalFraisDu,
+      percentageCollected: totalFraisDu > 0 ? ((totalFraisCollectes / totalFraisDu) * 100).toFixed(1) : 0,
+      eleves,
+      frais
     })
   } catch (error) {
     res.status(500).json({ error: error.message })

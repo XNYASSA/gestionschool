@@ -55,7 +55,7 @@ export default function SecretairePage() {
     let filtered = eleves
 
     if (selectedSection) {
-      filtered = filtered.filter(e => e.classe?.section === selectedSection)
+      filtered = filtered.filter(e => e.classe?.section?.toUpperCase() === selectedSection?.toUpperCase())
     }
 
     if (selectedClass) {
@@ -76,7 +76,7 @@ export default function SecretairePage() {
   const getClassesForSection = (section) => {
     if (!section) return []
     const classes = eleves
-      .filter(e => e.classe?.section === section)
+      .filter(e => e.classe?.section?.toUpperCase() === section?.toUpperCase())
       .map(e => e.classe?.nom)
       .filter((v, i, a) => a.indexOf(v) === i)
     return classes
