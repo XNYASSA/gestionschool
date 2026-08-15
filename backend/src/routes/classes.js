@@ -35,15 +35,24 @@ router.post('/', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async (r
   try {
     const { nom, section, sectionId, niveau } = req.body
 
-    if (!nom || !section || !niveau) {
-      return res.status(400).json({ error: 'Les champs nom, section et niveau sont obligatoires' })
+    if (!nom || !sectionId || !niveau) {
+      return res.status(400).json({ error: 'Les champs nom, sectionId et niveau sont obligatoires' })
+    }
+
+    // Récupérer la section pour obtenir le code (majuscules)
+    const selectedSection = await req.prisma.section.findUnique({
+      where: { id: sectionId }
+    })
+
+    if (!selectedSection) {
+      return res.status(400).json({ error: 'Section non trouvée' })
     }
 
     const classe = await req.prisma.classe.create({
       data: {
         nom,
-        section,
-        sectionId: sectionId || section,
+        section: selectedSection.id, // Utiliser l'ID (code majuscule)
+        sectionId: selectedSection.id,
         niveau
       },
       include: { sectionRel: true }

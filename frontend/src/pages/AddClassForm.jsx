@@ -10,7 +10,6 @@ export default function AddClassForm({ onBack, onSuccess }) {
 
   const [formData, setFormData] = useState({
     nom: '',
-    section: '',
     sectionId: '',
     niveau: ''
   })
@@ -41,11 +40,9 @@ export default function AddClassForm({ onBack, onSuccess }) {
   const handleChange = (e) => {
     const { name, value } = e.target
     if (name === 'section') {
-      const selectedSection = sections.find(s => s.nom === value)
       setFormData(prev => ({
         ...prev,
-        section: value,
-        sectionId: selectedSection?.id || ''
+        sectionId: value
       }))
     } else {
       setFormData(prev => ({ ...prev, [name]: value }))
@@ -55,7 +52,7 @@ export default function AddClassForm({ onBack, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      if (!formData.nom || !formData.section || !formData.niveau) {
+      if (!formData.nom || !formData.sectionId || !formData.niveau) {
         setError('Tous les champs sont obligatoires')
         return
       }
@@ -63,13 +60,13 @@ export default function AddClassForm({ onBack, onSuccess }) {
       setLoading(true)
       const newClass = await apiClient.createClasse(
         formData.nom,
-        formData.section,
+        formData.sectionId,
         formData.sectionId,
         formData.niveau
       )
 
       setCreatedClasses([...createdClasses, newClass])
-      setFormData({ nom: '', section: '', sectionId: '', niveau: '' })
+      setFormData({ nom: '', sectionId: '', niveau: '' })
       setError(null)
 
       if (onSuccess) onSuccess()
@@ -106,14 +103,14 @@ export default function AddClassForm({ onBack, onSuccess }) {
             <label className="block text-sm font-medium text-gray-300 mb-1">Section *</label>
             <select
               name="section"
-              value={formData.section}
+              value={formData.sectionId}
               onChange={handleChange}
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
               required
             >
               <option value="">Sélectionner une section</option>
               {sections.map(sec => (
-                <option key={sec.id} value={sec.nom}>
+                <option key={sec.id} value={sec.id}>
                   {sec.emoji} {sec.nom}
                 </option>
               ))}
