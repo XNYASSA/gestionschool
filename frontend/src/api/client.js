@@ -325,6 +325,41 @@ class APIClient {
     return this.request('/depenses/stats/summary')
   }
 
+  // UTILISATEURS
+  async getUtilisateurs() {
+    return this.request('/utilisateurs')
+  }
+
+  async getUtilisateurById(id) {
+    return this.request(`/utilisateurs/${id}`)
+  }
+
+  async createUtilisateur(nom, email, motDePasse, role) {
+    return this.request('/utilisateurs', {
+      method: 'POST',
+      body: JSON.stringify({ nom, email, motDePasse, role })
+    })
+  }
+
+  async updateUtilisateur(id, data) {
+    return this.request(`/utilisateurs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async toggleUtilisateurStatut(id) {
+    return this.request(`/utilisateurs/${id}/toggle-statut`, {
+      method: 'PUT'
+    })
+  }
+
+  async deleteUtilisateur(id) {
+    return this.request(`/utilisateurs/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
   // DASHBOARD
   async getDashboard() {
     return this.request('/dashboard')
