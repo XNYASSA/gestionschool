@@ -143,6 +143,12 @@ class APIClient {
     })
   }
 
+  async deleteEleve(id) {
+    return this.request(`/eleves/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
   // FRAIS
   async getFrais() {
     return this.request('/frais')

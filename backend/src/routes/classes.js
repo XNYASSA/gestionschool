@@ -78,8 +78,8 @@ router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async 
   }
 })
 
-// DELETE CLASSE (Admin only)
-router.delete('/:id', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async (req, res) => {
+// DELETE CLASSE (Admin/Proprietaire only)
+router.delete('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
   try {
     // Check if classe has students
     const elevesCount = await req.prisma.eleve.count({

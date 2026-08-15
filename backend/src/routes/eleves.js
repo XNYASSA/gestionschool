@@ -29,8 +29,8 @@ router.get('/:id', verifyToken, async (req, res) => {
   }
 })
 
-// CREATE ELEVE (Secretaire uniquement)
-router.post('/', verifyToken, checkRole(['SECRETAIRE']), async (req, res) => {
+// CREATE ELEVE (Proprietaire, Directeur, Secretaire)
+router.post('/', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR', 'SECRETAIRE']), async (req, res) => {
   try {
     const { matricule, nom, prenom, sexe, dateNaissance, classeId, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
 
@@ -62,16 +62,49 @@ router.post('/', verifyToken, checkRole(['SECRETAIRE']), async (req, res) => {
   }
 })
 
-// UPDATE ELEVE (Secretaire)
-router.put('/:id', verifyToken, checkRole(['SECRETAIRE']), async (req, res) => {
+// UPDATE ELEVE (Proprietaire, Directeur, Secretaire)
+router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR', 'SECRETAIRE']), async (req, res) => {
   try {
     const eleve = await req.prisma.eleve.update({
       where: { id: req.params.id },
-      data: req.body
+      data: req.body,
+      include: { classe: true }
     })
     res.json(eleve)
   } catch (error) {
     res.status(400).json({ error: error.message })
+  }
+})
+
+// DELETE ELEVE (Proprietaire only)
+router.delete('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+  try {
+    // Supprimer les frais liés
+    await req.prisma.inscriptionFrais.deleteMany({
+      where: { eleveId: req.params.id }
+    })
+
+    // Supprimer les notes
+    await req.prisma.note.deleteMany({
+      where: { eleveId: req.params.id }
+    })
+
+    // Supprimer les présences
+    await req.prisma.presence.deleteMany({
+      where: { eleveId: req.params.id }
+    })
+
+    // Supprimer l'élève
+    await req.prisma.eleve.delete({
+      where: { id: req.params.id }
+    })
+
+    res.json({ message: 'Élève supprimé avec succès' })
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Élève non trouvé' })
+    }
+    res.status(500).json({ error: error.message })
   }
 })
 
