@@ -82,11 +82,16 @@ export default function DashboardOwnerEnhanced({ filters }) {
   const [editingSectionId, setEditingSectionId] = useState(null)
   const [loadingSections, setLoadingSections] = useState(false)
 
+  // État pour les classes
+  const [classes, setClasses] = useState([])
+  const [loadingClasses, setLoadingClasses] = useState(false)
+
   // Charger les données au montage
   useEffect(() => {
     loadSections()
     loadMatieres()
     loadConfigurationsFrais()
+    loadClasses()
   }, [])
 
   const loadMatieres = async () => {
@@ -126,6 +131,18 @@ export default function DashboardOwnerEnhanced({ filters }) {
       console.error('Erreur chargement configurations frais:', err)
     } finally {
       setLoadingConfigFrais(false)
+    }
+  }
+
+  const loadClasses = async () => {
+    try {
+      setLoadingClasses(true)
+      const data = await apiClient.getClasses()
+      setClasses(data || [])
+    } catch (err) {
+      console.error('Erreur chargement classes:', err)
+    } finally {
+      setLoadingClasses(false)
     }
   }
 
@@ -378,12 +395,10 @@ export default function DashboardOwnerEnhanced({ filters }) {
 
   // Données par section
   const getClassesBySection = (section) => {
-    if (!dashboardData?.eleves) return []
     const sectionCode = sectionNameToCode(section)
-    return dashboardData.eleves
-      .filter(e => e.classe?.section === sectionCode)
-      .map(e => e.classe?.nom)
-      .filter((v, i, a) => a.indexOf(v) === i)
+    return classes
+      .filter(c => c.section === sectionCode)
+      .map(c => c.nom)
   }
 
   const getStudentsByClass = (className) => {
@@ -418,6 +433,7 @@ export default function DashboardOwnerEnhanced({ filters }) {
   if (currentPage === 'addClass') {
     return <AddClassForm onBack={() => setCurrentPage(null)} onSuccess={() => {
       refetch()
+      loadClasses()
       setCurrentPage(null)
     }} />
   }
