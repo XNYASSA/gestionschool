@@ -157,8 +157,7 @@ export default function DashboardOwnerEnhanced({ filters }) {
       // Initialiser fraisData
       const newFraisData = {}
       sections.forEach(sec => {
-        const sectionCode = sectionNameToCode(sec.nom)
-        newFraisData[sectionCode] = fraisData[sectionCode] || {
+        newFraisData[sec.id] = fraisData[sec.id] || {
           inscription: 50000,
           fraisTotal: 80000,
           nbTranches: 3,
@@ -227,13 +226,12 @@ export default function DashboardOwnerEnhanced({ filters }) {
 
     try {
       setLoadingClasses(true)
-      const sectionCode = sectionNameToCode(newClass.section)
-      await apiClient.createClasse(newClass.nom, sectionCode, sectionCode, newClass.niveau)
+      await apiClient.createClasse(newClass.nom, newClass.section, newClass.section, newClass.niveau)
       alert(`✓ Classe "${newClass.nom}" créée avec succès !`)
-      setNewClass({nom: '', section: 'Francophone', niveau: ''})
+      setNewClass({nom: '', section: '', niveau: ''})
       setEditingClass(null)
-      // Recharger les données du dashboard
-      window.location.reload()
+      // Recharger les données
+      loadClasses()
     } catch (err) {
       alert('❌ Erreur: ' + (err.message || 'Impossible de créer la classe'))
     } finally {
@@ -356,15 +354,6 @@ export default function DashboardOwnerEnhanced({ filters }) {
   }
 
   // Map section names to codes for backward compatibility
-  const sectionNameToCode = (name) => {
-    const mapping = {
-      'Francophone': 'FRANCOPHONE',
-      'Anglophone': 'ANGLOPHONE',
-      'Technique': 'TECHNIQUE'
-    }
-    return mapping[name] || name
-  }
-
   // Format numbered list with totals
   const renderNumberedListWithTotal = (items, renderItem, showMontant = false) => {
     const total = showMontant ? items.reduce((sum, item) => sum + (item.montantDu || item.montant || 0), 0) : 0
@@ -394,10 +383,9 @@ export default function DashboardOwnerEnhanced({ filters }) {
   }
 
   // Données par section
-  const getClassesBySection = (section) => {
-    const sectionCode = sectionNameToCode(section)
+  const getClassesBySection = (sectionId) => {
     return classes
-      .filter(c => c.section === sectionCode)
+      .filter(c => c.sectionId === sectionId)
       .map(c => c.nom)
   }
 
@@ -469,19 +457,18 @@ export default function DashboardOwnerEnhanced({ filters }) {
     { id: 'parametres', label: 'Paramètres', icon: BookOpen }
   ]
 
-  // Fonction pour compter les élèves par section (accepte le nom et le convertit en code)
-  const getStudentsBySection = (sectionNameOrCode) => {
+  // Fonction pour récupérer les élèves par ID de section
+  const getStudentsBySection = (sectionId) => {
     if (!dashboardData?.eleves) return []
-    const sectionCode = sectionNameToCode(sectionNameOrCode)
-    return dashboardData.eleves.filter(e => e.classe?.section === sectionCode || e.classe?.section === sectionNameOrCode)
+    return dashboardData.eleves.filter(e => e.classe?.sectionId === sectionId) || []
   }
 
-  const getStudentsCountBySection = (sectionNameOrCode) => {
-    return getStudentsBySection(sectionNameOrCode).length
+  const getStudentsCountBySection = (sectionId) => {
+    return getStudentsBySection(sectionId).length
   }
 
-  const getTotalFeesBySection = (sectionNameOrCode) => {
-    const students = getStudentsBySection(sectionNameOrCode)
+  const getTotalFeesBySection = (sectionId) => {
+    const students = getStudentsBySection(sectionId)
     const studentIds = students.map(s => s.id)
     return (dashboardData?.frais || [])
       .filter(f => studentIds.includes(f.eleveId))
@@ -686,12 +673,12 @@ export default function DashboardOwnerEnhanced({ filters }) {
                 {sections.map(sec => (
                   <button
                     key={sec.id}
-                    onClick={() => setSelectedSection(sectionNameToCode(sec.nom))}
+                    onClick={() => setSelectedSection(sec.id)}
                     className="bg-gradient-to-br from-blue-700 to-blue-800 hover:from-blue-800 hover:to-blue-900 rounded-lg p-4 text-white cursor-pointer transition-all transform hover:scale-105 text-left"
                   >
                     <p className="text-lg font-bold">{sec.emoji} {sec.nom}</p>
-                    <p className="text-blue-200 text-sm mt-1">{getStudentsCountBySection(sec.nom)} élèves</p>
-                    <p className="text-blue-300 text-xs mt-2">Total: {formatFCFALong(getTotalFeesBySection(sec.nom))}</p>
+                    <p className="text-blue-200 text-sm mt-1">{getStudentsCountBySection(sec.id)} élèves</p>
+                    <p className="text-blue-300 text-xs mt-2">Total: {formatFCFALong(getTotalFeesBySection(sec.id))}</p>
                   </button>
                 ))}
 
@@ -879,7 +866,7 @@ export default function DashboardOwnerEnhanced({ filters }) {
             <h2 className="text-2xl font-bold text-white mb-4">📊 Sommes par Section</h2>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {sections.map(sec => {
-                const sectionCode = sectionNameToCode(sec.nom)
+                const sectionCode = sec.id
                 return (
                 <div key={sec.id} className="bg-gray-800 border border-gray-700 rounded-lg p-6">
                   <h3 className="text-lg font-bold text-blue-400 mb-4">
@@ -925,7 +912,7 @@ export default function DashboardOwnerEnhanced({ filters }) {
                 {sections.map(sec => (
                   <button
                     key={sec.id}
-                    onClick={() => setSelectedSection(sectionNameToCode(sec.nom))}
+                    onClick={() => setSelectedSection(sec.id)}
                     className="bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-lg p-6 text-white cursor-pointer transition-all transform hover:scale-105"
                   >
                     <p className="text-2xl font-bold">{sec.emoji} {sec.nom}</p>
@@ -1506,7 +1493,7 @@ export default function DashboardOwnerEnhanced({ filters }) {
                       >
                         <option value="">-- Sélectionner une section --</option>
                         {sections.map(sec => (
-                          <option key={sec.id} value={sec.nom}>
+                          <option key={sec.id} value={sec.id}>
                             {sec.emoji} {sec.nom}
                           </option>
                         ))}
@@ -1602,7 +1589,7 @@ export default function DashboardOwnerEnhanced({ filters }) {
                   {/* Édition par section */}
                   <div className="space-y-6 max-h-[600px] overflow-y-auto">
                     {sections.map(sec => {
-                      const sectionCode = sectionNameToCode(sec.nom)
+                      const sectionCode = sec.id
                       return (
                       <div key={sec.id} className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
                         <h4 className="font-bold text-green-300 mb-4">
@@ -1703,7 +1690,7 @@ export default function DashboardOwnerEnhanced({ filters }) {
                     <h4 className="font-bold text-green-300 mb-4">📊 Résumé des Configurations</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {sections.map(sec => {
-                        const sectionCode = sectionNameToCode(sec.nom)
+                        const sectionCode = sec.id
                         return (
                         <div key={sec.id} className="bg-gray-700 rounded-lg p-4 text-sm">
                           <h5 className="font-bold text-green-300 mb-3">
@@ -1753,7 +1740,7 @@ export default function DashboardOwnerEnhanced({ filters }) {
                       >
                         <option value="">-- Sélectionner une section --</option>
                         {sections.map(sec => (
-                          <option key={sec.id} value={sectionNameToCode(sec.nom)}>
+                          <option key={sec.id} value={sec.id}>
                             {sec.emoji} {sec.nom}
                           </option>
                         ))}

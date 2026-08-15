@@ -15,24 +15,29 @@ export default function SecretairePage() {
   const [editingEleveId, setEditingEleveId] = useState(null)
   const [selectedSection, setSelectedSection] = useState('')
   const [selectedClass, setSelectedClass] = useState('')
+  const [sections, setSections] = useState([])
 
   const [frais, setFrais] = useState([])
 
-  // Charger les élèves
+  // Charger les sections et élèves
   useEffect(() => {
-    const fetchEleves = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true)
-        const data = await apiClient.getEleves()
-        setEleves(data || [])
-        setFilteredEleves(data || [])
+        const [sectionsData, elevesData] = await Promise.all([
+          apiClient.getSections(),
+          apiClient.getEleves()
+        ])
+        setSections(sectionsData || [])
+        setEleves(elevesData || [])
+        setFilteredEleves(elevesData || [])
       } catch (err) {
-        setError('Erreur chargement élèves')
+        setError('Erreur chargement données')
       } finally {
         setLoading(false)
       }
     }
-    fetchEleves()
+    fetchData()
   }, [])
 
   // Charger les frais
@@ -55,7 +60,7 @@ export default function SecretairePage() {
     let filtered = eleves
 
     if (selectedSection) {
-      filtered = filtered.filter(e => e.classe?.section?.toUpperCase() === selectedSection?.toUpperCase())
+      filtered = filtered.filter(e => e.classe?.sectionId === selectedSection)
     }
 
     if (selectedClass) {
@@ -73,10 +78,10 @@ export default function SecretairePage() {
   }, [searchTerm, eleves, selectedSection, selectedClass])
 
   // Obtenir les classes pour la section sélectionnée
-  const getClassesForSection = (section) => {
-    if (!section) return []
+  const getClassesForSection = (sectionId) => {
+    if (!sectionId) return []
     const classes = eleves
-      .filter(e => e.classe?.section?.toUpperCase() === section?.toUpperCase())
+      .filter(e => e.classe?.sectionId === sectionId)
       .map(e => e.classe?.nom)
       .filter((v, i, a) => a.indexOf(v) === i)
     return classes
@@ -138,9 +143,11 @@ export default function SecretairePage() {
                 className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-blue-500"
               >
                 <option value="">Toutes les sections</option>
-                <option value="FRANCOPHONE">🇫🇷 Francophone</option>
-                <option value="ANGLOPHONE">🇬🇧 Anglophone</option>
-                <option value="TECHNIQUE">⚙️ Technique</option>
+                {sections.map(sec => (
+                  <option key={sec.id} value={sec.id}>
+                    {sec.emoji} {sec.nom}
+                  </option>
+                ))}
               </select>
             </div>
 
