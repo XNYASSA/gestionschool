@@ -5,13 +5,17 @@ import SectionSelector from '../components/SectionSelector'
 import ClassSelector from '../components/ClassSelector'
 import { useDashboard } from '../hooks/useDashboard'
 import { apiClient } from '../api/client'
+import AddStudentForm from './AddStudentForm'
+import AddClassForm from './AddClassForm'
+import UserManagement from './UserManagement'
 
 export default function DashboardOwnerEnhanced({ filters }) {
-  const { data: dashboardData, loading, error } = useDashboard()
+  const { data: dashboardData, loading, error, refetch } = useDashboard()
   const stats = dashboardData || {}
 
   // Onglets du dashboard
   const [activeTab, setActiveTab] = useState('synthese')
+  const [currentPage, setCurrentPage] = useState(null) // 'addStudent', 'addClass', 'users'
 
   // Navigation hiérarchique
   const [selectedSection, setSelectedSection] = useState(null)
@@ -403,6 +407,25 @@ export default function DashboardOwnerEnhanced({ filters }) {
     setShowParamModal(true)
   }
 
+  // Afficher les pages de gestion
+  if (currentPage === 'addStudent') {
+    return <AddStudentForm onBack={() => setCurrentPage(null)} onSuccess={() => {
+      refetch()
+      setCurrentPage(null)
+    }} />
+  }
+
+  if (currentPage === 'addClass') {
+    return <AddClassForm onBack={() => setCurrentPage(null)} onSuccess={() => {
+      refetch()
+      setCurrentPage(null)
+    }} />
+  }
+
+  if (currentPage === 'users') {
+    return <UserManagement />
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -637,6 +660,12 @@ export default function DashboardOwnerEnhanced({ filters }) {
         <div className="space-y-6">
           {!selectedSection ? (
             <>
+              <button
+                onClick={() => setCurrentPage('addStudent')}
+                className="w-full bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-colors font-semibold flex items-center justify-center gap-2"
+              >
+                ➕ Ajouter un Élève
+              </button>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {sections.map(sec => (
                   <button
@@ -1113,8 +1142,23 @@ export default function DashboardOwnerEnhanced({ filters }) {
                 const className = e.classe?.nom
                 return acc.includes(className) ? acc : [...acc, className]
               }, []).length || 0}</p>
-              <button onClick={() => handleOpenParamModal('classes', '📚 Gestion des Classes')} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-all">
-                Gérer les Classes
+              <div className="space-y-2">
+                <button onClick={() => setCurrentPage('addClass')} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded transition-all">
+                  ➕ Ajouter une Classe
+                </button>
+                <button onClick={() => handleOpenParamModal('classes', '📚 Gestion des Classes')} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-all">
+                  Gérer les Classes
+                </button>
+              </div>
+            </div>
+
+            {/* Gestion des Utilisateurs */}
+            <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-lg p-6 text-white">
+              <h3 className="text-xl font-bold mb-4">👥 Gestion des Utilisateurs</h3>
+              <p className="text-red-100 text-sm mb-4">Créer des comptes, suspendre ou activer les utilisateurs</p>
+              <p className="text-red-200 text-xs mb-4">Réservé aux administrateurs</p>
+              <button onClick={() => setCurrentPage('users')} className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded transition-all">
+                Gérer les Utilisateurs
               </button>
             </div>
 
