@@ -534,6 +534,187 @@ export default function StaffFinance({ filters }) {
           </div>
         </div>
       )}
+
+      {/* ===== SECTION DÉPENSES ===== */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-white">📊 Dépenses (Matériel, Fournitures, etc.)</h2>
+          <button
+            onClick={() => {
+              setShowDepenseForm(!showDepenseForm)
+              setEditingDepenseId(null)
+              setDepenseFormData({ description: '', categorie: 'AUTRE', montant: '', dateDepense: new Date().toISOString().split('T')[0] })
+            }}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Ajouter une dépense
+          </button>
+        </div>
+
+        {/* Statistiques des dépenses */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+          <div className="bg-gradient-to-br from-orange-600 to-orange-700 rounded-lg p-4 text-white">
+            <p className="text-orange-100 text-sm font-medium">Total Dépenses</p>
+            <p className="text-3xl font-bold mt-2">{formatFCFALong(totalDepenses)}</p>
+            <p className="text-orange-200 text-xs mt-1">{depenses.length} entrées</p>
+          </div>
+          {CATEGORIES_DEPENSES.map(cat => (
+            <div key={cat.value} className="bg-gray-700/50 rounded-lg p-4 border border-gray-600">
+              <p className="text-gray-300 text-sm font-medium">{cat.label}</p>
+              <p className="text-xl font-bold text-gray-100 mt-1">
+                {formatFCFALong(depenseParCategorie[cat.value] || 0)}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Formulaire ajout/modification dépense */}
+        {showDepenseForm && (
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-4">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              {editingDepenseId ? '✏️ Modifier une dépense' : '➕ Ajouter une dépense'}
+            </h3>
+            <form onSubmit={handleDepenseSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                  <input
+                    type="text"
+                    name="description"
+                    value={depenseFormData.description}
+                    onChange={handleDepenseFormChange}
+                    placeholder="Ex: Achat de fournitures scolaires"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Catégorie</label>
+                  <select
+                    name="categorie"
+                    value={depenseFormData.categorie}
+                    onChange={handleDepenseFormChange}
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                  >
+                    {CATEGORIES_DEPENSES.map(cat => (
+                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Montant (FCFA)</label>
+                  <input
+                    type="number"
+                    name="montant"
+                    value={depenseFormData.montant}
+                    onChange={handleDepenseFormChange}
+                    placeholder="50000"
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
+                  <input
+                    type="date"
+                    name="dateDepense"
+                    value={depenseFormData.dateDepense}
+                    onChange={handleDepenseFormChange}
+                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDepenseForm(false)
+                    setEditingDepenseId(null)
+                  }}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+                >
+                  <Save className="w-4 h-4" />
+                  Enregistrer
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Tableau des dépenses */}
+        {depenses.length > 0 ? (
+          <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-700 border-b border-gray-600">
+                    <th className="px-4 py-3 text-left font-semibold text-white">N°</th>
+                    <th className="px-4 py-3 text-left font-semibold text-white">Description</th>
+                    <th className="px-4 py-3 text-left font-semibold text-white">Catégorie</th>
+                    <th className="px-4 py-3 text-right font-semibold text-white">Montant</th>
+                    <th className="px-4 py-3 text-left font-semibold text-white">Date</th>
+                    <th className="px-4 py-3 text-center font-semibold text-white">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {depenses.map((dep, idx) => {
+                    const cat = CATEGORIES_DEPENSES.find(c => c.value === dep.categorie)
+                    return (
+                      <tr key={dep.id} className="hover:bg-gray-700/30 transition-colors">
+                        <td className="px-4 py-3 font-semibold text-gray-400">{idx + 1}</td>
+                        <td className="px-4 py-3 text-gray-300">{dep.description}</td>
+                        <td className="px-4 py-3 text-gray-400">{cat?.label}</td>
+                        <td className="px-4 py-3 text-right font-bold text-orange-400">
+                          {formatFCFALong(dep.montant)}
+                        </td>
+                        <td className="px-4 py-3 text-gray-400 text-sm">
+                          {new Date(dep.dateDepense).toLocaleDateString('fr-FR')}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex gap-2 justify-center">
+                            <button
+                              onClick={() => handleEditDepense(dep)}
+                              className="text-blue-400 hover:text-blue-300 transition-colors p-1"
+                              disabled={actioningId === dep.id}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            {user?.role === 'owner' && (
+                              <button
+                                onClick={() => handleDeleteDepense(dep.id)}
+                                className="text-red-400 hover:text-red-300 transition-colors p-1"
+                                disabled={actioningId === dep.id}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot className="bg-gray-700/50">
+                  <tr className="font-bold">
+                    <td colSpan="3" className="px-4 py-3 text-right text-white">TOTAL DÉPENSES:</td>
+                    <td className="px-4 py-3 text-right text-orange-400">{formatFCFALong(totalDepenses)}</td>
+                    <td colSpan="2"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-8 text-center text-gray-400">
+            <p>Aucune dépense enregistrée</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
