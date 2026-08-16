@@ -153,16 +153,15 @@ export default function EleveForm({ eleveId, onSuccess, onCancel }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Matricule <span className="text-red-500">*</span>
+                  Matricule (optionnel - auto-généré si vide)
                 </label>
                 <input
                   type="text"
                   name="matricule"
                   value={formData.matricule}
                   onChange={handleChange}
-                  required
                   className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  placeholder="ex. MAT001"
+                  placeholder="Laisser vide pour auto-génération (ex. MAT001)"
                 />
               </div>
 

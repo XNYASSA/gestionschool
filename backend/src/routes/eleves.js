@@ -32,11 +32,38 @@ router.get('/:id', verifyToken, async (req, res) => {
 // CREATE ELEVE (Proprietaire, Directeur, Secretaire)
 router.post('/', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR', 'SECRETAIRE']), async (req, res) => {
   try {
-    const { matricule, nom, prenom, sexe, dateNaissance, classeId, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
+    let { matricule, nom, prenom, sexe, dateNaissance, classeId, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
 
     // Valider les champs requis
-    if (!matricule || !nom || !prenom || !sexe || !dateNaissance || !classeId || !nomParent || !telephoneParent) {
+    if (!nom || !prenom || !sexe || !dateNaissance || !classeId || !nomParent || !telephoneParent) {
       return res.status(400).json({ error: 'Champs obligatoires manquants' })
+    }
+
+    // Si matricule vide, générer un matricule unique
+    if (!matricule || matricule.trim() === '') {
+      let maxNum = 0
+      const allEleves = await req.prisma.eleve.findMany({ select: { matricule: true } })
+
+      // Extraire les numéros des matricules existants (ex: "MAT001" → 1)
+      allEleves.forEach(e => {
+        const match = e.matricule.match(/\d+/)
+        if (match) {
+          const num = parseInt(match[0])
+          if (num > maxNum) maxNum = num
+        }
+      })
+
+      // Générer le prochain matricule unique
+      matricule = `MAT${String(maxNum + 1).padStart(3, '0')}`
+    } else {
+      // Si matricule fourni, vérifier qu'il n'existe pas
+      const existing = await req.prisma.eleve.findUnique({
+        where: { matricule }
+      })
+
+      if (existing) {
+        return res.status(400).json({ error: `Matricule ${matricule} déjà utilisé` })
+      }
     }
 
     const eleve = await req.prisma.eleve.create({

@@ -44,7 +44,7 @@ export default function AddStudentForm({ onBack, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      if (!formData.matricule || !formData.nom || !formData.prenom || !formData.classeId) {
+      if (!formData.nom || !formData.prenom || !formData.classeId) {
         setError('Champs obligatoires manquants')
         return
       }
@@ -101,15 +101,14 @@ export default function AddStudentForm({ onBack, onSuccess }) {
             <h3 className="text-lg font-semibold text-white mb-4">👤 Identité</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Matricule *</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Matricule (optionnel - auto-généré si vide)</label>
                 <input
                   type="text"
                   name="matricule"
                   value={formData.matricule}
                   onChange={handleChange}
-                  placeholder="EL2024001"
+                  placeholder="Laisser vide pour auto-génération"
                   className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
-                  required
                 />
               </div>
               <div>
