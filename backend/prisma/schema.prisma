@@ -61,7 +61,7 @@ model Classe {
   nom       String   // ex: "6ème A", "Form 1 B"
   section   String   // FRANCOPHONE, ANGLOPHONE, TECHNIQUE (kept for backward compatibility)
   sectionId String?  // Foreign key to Section table
-  sectionRel Section? @relation(fields: [sectionId], references: [id])
+  sectionRel Section? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   niveau    String   // ex: "6ème", "Form 1"
   createdAt DateTime @default(now())
 
@@ -80,7 +80,7 @@ model Eleve {
   prenom          String
   sexe            String   // MASCULIN, FEMININ
   dateNaissance   DateTime
-  classe          Classe   @relation(fields: [classeId], references: [id])
+  classe          Classe   @relation(fields: [classeId], references: [id], onDelete: Cascade)
   classeId        String
 
   // Parent/Tuteur

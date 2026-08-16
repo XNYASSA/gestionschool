@@ -73,24 +73,13 @@ router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) =>
   }
 })
 
-// DELETE SECTION (Admin only)
+// DELETE SECTION (Admin only) - CASCADE deletes classes and their data
 router.delete('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
   try {
-    // Check if section has classes
-    const classesCount = await req.prisma.classe.count({
-      where: { sectionId: req.params.id }
-    })
-
-    if (classesCount > 0) {
-      return res.status(400).json({
-        error: `Impossible de supprimer: ${classesCount} classe(s) utilisent cette section`
-      })
-    }
-
     await req.prisma.section.delete({
       where: { id: req.params.id }
     })
-    res.json({ message: 'Section supprimée avec succès' })
+    res.json({ message: 'Section supprimée avec succès (classes associées supprimées)' })
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Section non trouvée' })

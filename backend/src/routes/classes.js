@@ -87,24 +87,13 @@ router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async 
   }
 })
 
-// DELETE CLASSE (Admin/Proprietaire only)
+// DELETE CLASSE (Admin/Proprietaire only) - CASCADE deletes students and their data
 router.delete('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
   try {
-    // Check if classe has students
-    const elevesCount = await req.prisma.eleve.count({
-      where: { classeId: req.params.id }
-    })
-
-    if (elevesCount > 0) {
-      return res.status(400).json({
-        error: `Impossible de supprimer: ${elevesCount} élève(s) utilisent cette classe`
-      })
-    }
-
     await req.prisma.classe.delete({
       where: { id: req.params.id }
     })
-    res.json({ message: 'Classe supprimée avec succès' })
+    res.json({ message: 'Classe supprimée avec succès (élèves et données associées supprimés)' })
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Classe non trouvée' })
