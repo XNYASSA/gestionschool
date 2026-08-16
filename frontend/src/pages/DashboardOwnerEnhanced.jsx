@@ -204,13 +204,24 @@ export default function DashboardOwnerEnhanced({ filters }) {
   }
 
   const handleDeleteSection = async (sectionId) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette section ?')) return
+    const section = sections.find(s => s.id === sectionId)
+    const classesInSection = classes.filter(c => c.sectionId === sectionId).length || 0
+
+    let confirmMsg = `Êtes-vous sûr de vouloir supprimer la section "${section?.nom}" ?`
+    if (classesInSection > 0) {
+      confirmMsg = `⚠️ ATTENTION: Cette section contient ${classesInSection} classe(s).\n\nLa suppression de la section supprimera aussi TOUTES les classes et leurs élèves avec leurs données (notes, frais, présences).\n\nÊtes-vous sûr ?`
+    }
+
+    if (!confirm(confirmMsg)) return
 
     try {
       setLoadingSections(true)
       await apiClient.deleteSection(sectionId)
       setSections(sections.filter(s => s.id !== sectionId))
+      setClasses(classes.filter(c => c.sectionId !== sectionId))
       alert('✓ Section supprimée avec succès !')
+      loadClasses()
+      loadSections()
     } catch (err) {
       alert('❌ ' + (err.message || 'Erreur lors de la suppression'))
     } finally {
@@ -329,12 +340,12 @@ export default function DashboardOwnerEnhanced({ filters }) {
 
   const handleDeleteClass = async (className) => {
     const eleveCount = dashboardData?.eleves?.filter(e => e.classe?.nom === className).length || 0
+    let confirmMsg = `Êtes-vous sûr de vouloir supprimer la classe "${className}" ?`
     if (eleveCount > 0) {
-      alert(`⚠️ Impossible de supprimer "${className}" car elle contient ${eleveCount} élève(s)`)
-      return
+      confirmMsg = `⚠️ ATTENTION: Cette classe contient ${eleveCount} élève(s).\n\nLa suppression de la classe supprimera aussi TOUS les élèves et leurs données (notes, frais, présences).\n\nÊtes-vous sûr ?`
     }
 
-    if (!confirm(`Êtes-vous sûr de vouloir supprimer la classe "${className}" ?`)) return
+    if (!confirm(confirmMsg)) return
 
     try {
       setLoadingClasses(true)
@@ -344,7 +355,8 @@ export default function DashboardOwnerEnhanced({ filters }) {
       if (classeToDelete) {
         await apiClient.deleteClasse(classeToDelete.id)
         alert(`✓ Classe "${className}" supprimée avec succès !`)
-        window.location.reload()
+        loadClasses()
+        refetch()
       }
     } catch (err) {
       alert('❌ ' + (err.message || 'Erreur lors de la suppression'))
