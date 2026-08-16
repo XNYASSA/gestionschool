@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: gestionschool-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run dev
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:./prisma/dev.db
+      - key: JWT_SECRET
+        value: your_jwt_secret_change_this_in_production_12345
+    staticSite: false
+    previewUrl: false
+    region: oregon
