@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { CheckCircle, AlertCircle, XCircle, Loader, Search, Users } from 'lucide-react'
+import { CheckCircle, XCircle, Loader, Users, ChevronRight, ArrowLeft, School, Layers } from 'lucide-react'
 import { apiClient } from '../../api/client'
 
 function calculerStatutEleve(fraisEleve) {
@@ -13,13 +13,15 @@ function calculerStatutEleve(fraisEleve) {
   return { montantDu, montantPaye, statut }
 }
 
+const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
+
 export default function SuiviPaiements() {
   const [frais, setFrais] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterEcole, setFilterEcole] = useState('')
-  const [filterStatut, setFilterStatut] = useState('')
+
+  const [selectedEcole, setSelectedEcole] = useState(null) // { id, nom }
+  const [selectedClasse, setSelectedClasse] = useState(null) // { id, nom }
 
   useEffect(() => {
     loadFrais()
@@ -38,15 +40,13 @@ export default function SuiviPaiements() {
     }
   }
 
-  // Regrouper les frais par élève et calculer le statut global
+  // Regrouper les frais par élève avec toutes les infos utiles
   const elevesAvecStatut = useMemo(() => {
     const parEleve = {}
     for (const f of frais) {
       if (!f.eleve) continue
       const id = f.eleve.id
-      if (!parEleve[id]) {
-        parEleve[id] = { eleve: f.eleve, frais: [] }
-      }
+      if (!parEleve[id]) parEleve[id] = { eleve: f.eleve, frais: [] }
       parEleve[id].frais.push(f)
     }
 
@@ -58,7 +58,8 @@ export default function SuiviPaiements() {
         prenom: eleve.prenom,
         matricule: eleve.matricule,
         sexe: eleve.sexe,
-        classe: eleve.classe?.nom || '-',
+        classeId: eleve.classeId,
+        classeNom: eleve.classe?.nom || '-',
         ecoleId: eleve.classe?.ecole?.id,
         ecoleNom: eleve.classe?.ecole?.nomCourt || '-',
         parent: eleve.nomParent,
@@ -66,39 +67,51 @@ export default function SuiviPaiements() {
         tel: eleve.telephoneParent,
         montantDu,
         montantPaye,
+        restant: montantDu - montantPaye,
         statut
       }
     })
   }, [frais])
 
-  const ecoles = useMemo(() => {
-    const map = new Map()
+  // Niveau 1 : agrégation par école
+  const ecolesSummary = useMemo(() => {
+    const map = {}
     elevesAvecStatut.forEach(e => {
-      if (e.ecoleId) map.set(e.ecoleId, e.ecoleNom)
+      if (!e.ecoleId) return
+      if (!map[e.ecoleId]) {
+        map[e.ecoleId] = { id: e.ecoleId, nom: e.ecoleNom, percu: 0, restant: 0, nbEleves: 0 }
+      }
+      map[e.ecoleId].percu += e.montantPaye
+      map[e.ecoleId].restant += e.restant
+      map[e.ecoleId].nbEleves += 1
     })
-    return Array.from(map.entries()).map(([id, nom]) => ({ id, nom }))
+    return Object.values(map).sort((a, b) => a.nom.localeCompare(b.nom))
   }, [elevesAvecStatut])
 
-  const filtered = elevesAvecStatut.filter(e => {
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase()
-      if (!`${e.prenom} ${e.nom}`.toLowerCase().includes(term) && !e.matricule?.toLowerCase().includes(term)) {
-        return false
+  // Niveau 2 : agrégation par classe (pour l'école sélectionnée)
+  const classesSummary = useMemo(() => {
+    if (!selectedEcole) return []
+    const map = {}
+    elevesAvecStatut.filter(e => e.ecoleId === selectedEcole.id).forEach(e => {
+      if (!map[e.classeId]) {
+        map[e.classeId] = { id: e.classeId, nom: e.classeNom, percu: 0, restant: 0, nbEleves: 0 }
       }
+      map[e.classeId].percu += e.montantPaye
+      map[e.classeId].restant += e.restant
+      map[e.classeId].nbEleves += 1
+    })
+    return Object.values(map).sort((a, b) => a.nom.localeCompare(b.nom))
+  }, [elevesAvecStatut, selectedEcole])
+
+  // Niveau 3 : élèves de la classe sélectionnée, séparés solvables / insolvables
+  const elevesClasse = useMemo(() => {
+    if (!selectedClasse) return { solvables: [], insolvables: [] }
+    const eleves = elevesAvecStatut.filter(e => e.classeId === selectedClasse.id)
+    return {
+      solvables: eleves.filter(e => e.statut === 'SOLDE'),
+      insolvables: eleves.filter(e => e.statut !== 'SOLDE')
     }
-    if (filterEcole && e.ecoleId !== filterEcole) return false
-    if (filterStatut && e.statut !== filterStatut) return false
-    return true
-  })
-
-  const counts = {
-    SOLDE: elevesAvecStatut.filter(e => e.statut === 'SOLDE').length,
-    PARTIEL: elevesAvecStatut.filter(e => e.statut === 'PARTIEL').length,
-    IMPAYE: elevesAvecStatut.filter(e => e.statut === 'IMPAYE').length
-  }
-
-  const garcons = filtered.filter(e => e.sexe === 'MASCULIN').length
-  const filles = filtered.filter(e => e.sexe === 'FEMININ').length
+  }, [elevesAvecStatut, selectedClasse])
 
   const getStatusBadge = (statut) => {
     if (statut === 'SOLDE') return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">✓ Soldé</span>
@@ -106,132 +119,204 @@ export default function SuiviPaiements() {
     return <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">✗ Non soldé</span>
   }
 
-  const getStatusColor = (statut) => {
-    if (statut === 'SOLDE') return 'border-l-4 border-green-500 bg-green-50'
-    if (statut === 'PARTIEL') return 'border-l-4 border-orange-500 bg-orange-50'
-    return 'border-l-4 border-red-500 bg-red-50'
+  if (loading) {
+    return (
+      <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-2 bg-white rounded-lg shadow-md">
+        <Loader className="w-5 h-5 animate-spin" /> Chargement...
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-slate-900">💰 Suivi des paiements élèves</h2>
+      <div className="flex items-center gap-2 text-sm text-slate-500">
+        <button
+          onClick={() => { setSelectedEcole(null); setSelectedClasse(null) }}
+          className={`hover:text-blue-600 transition ${!selectedEcole ? 'font-bold text-slate-900' : ''}`}
+        >
+          🏫 Écoles
+        </button>
+        {selectedEcole && (
+          <>
+            <ChevronRight className="w-4 h-4" />
+            <button
+              onClick={() => setSelectedClasse(null)}
+              className={`hover:text-blue-600 transition ${!selectedClasse ? 'font-bold text-slate-900' : ''}`}
+            >
+              {selectedEcole.nom}
+            </button>
+          </>
+        )}
+        {selectedClasse && (
+          <>
+            <ChevronRight className="w-4 h-4" />
+            <span className="font-bold text-slate-900">{selectedClasse.nom}</span>
+          </>
+        )}
+      </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">⚠️ {error}</div>
       )}
 
-      {/* Résumé */}
-      <div className="grid grid-cols-3 gap-4">
-        <button
-          onClick={() => setFilterStatut(filterStatut === 'SOLDE' ? '' : 'SOLDE')}
-          className={`text-left rounded-lg shadow-md p-4 transition ${getStatusColor('SOLDE')} ${filterStatut === 'SOLDE' ? 'ring-2 ring-green-500' : ''}`}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="w-5 h-5 text-green-600" />
-            <p className="text-sm font-medium text-slate-600">Soldés</p>
+      {/* NIVEAU 1 : Écoles */}
+      {!selectedEcole && (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-slate-900">💰 Statuts de paiement par école</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {ecolesSummary.map(ecole => (
+              <button
+                key={ecole.id}
+                onClick={() => setSelectedEcole({ id: ecole.id, nom: ecole.nom })}
+                className="bg-white rounded-lg shadow-md p-5 text-left hover:shadow-lg hover:ring-2 hover:ring-blue-400 transition group"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <School className="w-5 h-5 text-blue-600" />
+                    <h3 className="font-bold text-slate-900">{ecole.nom}</h3>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition" />
+                </div>
+                <p className="text-xs text-slate-500 mb-3">{ecole.nbEleves} élève{ecole.nbEleves > 1 ? 's' : ''}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-slate-500">Frais perçus</p>
+                    <p className="font-bold text-green-600">{formatFCFA(ecole.percu)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Restant à percevoir</p>
+                    <p className="font-bold text-red-600">{formatFCFA(ecole.restant)}</p>
+                  </div>
+                </div>
+              </button>
+            ))}
           </div>
-          <p className="text-2xl font-bold text-green-600">{counts.SOLDE}</p>
-        </button>
-        <button
-          onClick={() => setFilterStatut(filterStatut === 'PARTIEL' ? '' : 'PARTIEL')}
-          className={`text-left rounded-lg shadow-md p-4 transition ${getStatusColor('PARTIEL')} ${filterStatut === 'PARTIEL' ? 'ring-2 ring-orange-500' : ''}`}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle className="w-5 h-5 text-orange-600" />
-            <p className="text-sm font-medium text-slate-600">Partiellement soldés</p>
-          </div>
-          <p className="text-2xl font-bold text-orange-600">{counts.PARTIEL}</p>
-        </button>
-        <button
-          onClick={() => setFilterStatut(filterStatut === 'IMPAYE' ? '' : 'IMPAYE')}
-          className={`text-left rounded-lg shadow-md p-4 transition ${getStatusColor('IMPAYE')} ${filterStatut === 'IMPAYE' ? 'ring-2 ring-red-500' : ''}`}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <XCircle className="w-5 h-5 text-red-600" />
-            <p className="text-sm font-medium text-slate-600">Non soldés</p>
-          </div>
-          <p className="text-2xl font-bold text-red-600">{counts.IMPAYE}</p>
-        </button>
-      </div>
-
-      {/* Filtres */}
-      <div className="bg-white rounded-lg shadow-md p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Rechercher par nom ou matricule..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg"
-          />
         </div>
-        <select
-          value={filterEcole}
-          onChange={(e) => setFilterEcole(e.target.value)}
-          className="px-3 py-2 border border-slate-300 rounded-lg"
-        >
-          <option value="">Toutes les écoles</option>
-          {ecoles.map(e => (
-            <option key={e.id} value={e.id}>{e.nom}</option>
-          ))}
-        </select>
-      </div>
+      )}
 
-      {/* Liste des élèves */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="bg-slate-50 border-b border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-bold text-slate-900">Liste des élèves ({filtered.length})</h3>
+      {/* NIVEAU 2 : Classes de l'école sélectionnée */}
+      {selectedEcole && !selectedClasse && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSelectedEcole(null)} className="p-2 hover:bg-slate-100 rounded-lg transition">
+              <ArrowLeft className="w-5 h-5 text-slate-600" />
+            </button>
+            <h2 className="text-2xl font-bold text-slate-900">Classes — {selectedEcole.nom}</h2>
+          </div>
+          {classesSummary.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-md p-8 text-center text-slate-500">Aucune classe avec des frais enregistrés</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {classesSummary.map(classe => (
+                <button
+                  key={classe.id}
+                  onClick={() => setSelectedClasse({ id: classe.id, nom: classe.nom })}
+                  className="bg-white rounded-lg shadow-md p-4 text-left hover:shadow-lg hover:ring-2 hover:ring-blue-400 transition group"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-blue-600" />
+                      <h3 className="font-bold text-slate-900">{classe.nom}</h3>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition" />
+                  </div>
+                  <p className="text-xs text-slate-500 mb-2">{classe.nbEleves} élève{classe.nbEleves > 1 ? 's' : ''}</p>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Perçu</span>
+                      <span className="font-semibold text-green-600">{formatFCFA(classe.percu)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Restant</span>
+                      <span className="font-semibold text-red-600">{formatFCFA(classe.restant)}</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* NIVEAU 3 : Élèves de la classe sélectionnée */}
+      {selectedClasse && (
+        <div className="space-y-6">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSelectedClasse(null)} className="p-2 hover:bg-slate-100 rounded-lg transition">
+              <ArrowLeft className="w-5 h-5 text-slate-600" />
+            </button>
+            <h2 className="text-2xl font-bold text-slate-900">Élèves — {selectedClasse.nom}</h2>
+          </div>
+
           <div className="flex items-center gap-4 text-sm text-slate-600">
             <span className="flex items-center gap-1.5">
-              <Users className="w-4 h-4 text-blue-500" /> Garçons : <strong className="text-slate-900">{garcons}</strong>
+              <Users className="w-4 h-4 text-blue-500" /> Garçons : <strong className="text-slate-900">{[...elevesClasse.solvables, ...elevesClasse.insolvables].filter(e => e.sexe === 'MASCULIN').length}</strong>
             </span>
             <span className="flex items-center gap-1.5">
-              <Users className="w-4 h-4 text-pink-500" /> Filles : <strong className="text-slate-900">{filles}</strong>
+              <Users className="w-4 h-4 text-pink-500" /> Filles : <strong className="text-slate-900">{[...elevesClasse.solvables, ...elevesClasse.insolvables].filter(e => e.sexe === 'FEMININ').length}</strong>
             </span>
           </div>
+
+          {/* Élèves solvables */}
+          <EleveGroupTable
+            title="Élèves solvables (à jour)"
+            icon={<CheckCircle className="w-5 h-5 text-green-600" />}
+            eleves={elevesClasse.solvables}
+            getStatusBadge={getStatusBadge}
+          />
+
+          {/* Élèves insolvables */}
+          <EleveGroupTable
+            title="Élèves insolvables (solde restant)"
+            icon={<XCircle className="w-5 h-5 text-red-600" />}
+            eleves={elevesClasse.insolvables}
+            getStatusBadge={getStatusBadge}
+          />
         </div>
-        {loading ? (
-          <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-2">
-            <Loader className="w-5 h-5 animate-spin" /> Chargement...
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">Aucun élève trouvé</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-3 text-left font-semibold text-slate-700">Élève</th>
-                  <th className="px-6 py-3 text-center font-semibold text-slate-700">Sexe</th>
-                  <th className="px-6 py-3 text-left font-semibold text-slate-700">Classe</th>
-                  <th className="px-6 py-3 text-left font-semibold text-slate-700">École</th>
-                  <th className="px-6 py-3 text-left font-semibold text-slate-700">Parent</th>
-                  <th className="px-6 py-3 text-left font-semibold text-slate-700">Téléphone</th>
-                  <th className="px-6 py-3 text-center font-semibold text-slate-700">Montant dû</th>
-                  <th className="px-6 py-3 text-center font-semibold text-slate-700">Montant payé</th>
-                  <th className="px-6 py-3 text-center font-semibold text-slate-700">Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(eleve => (
-                  <tr key={eleve.id} className="border-b border-slate-200 hover:bg-slate-50">
-                    <td className="px-6 py-3 text-slate-900">{eleve.prenom} {eleve.nom}</td>
-                    <td className="px-6 py-3 text-center text-slate-600">{eleve.sexe === 'MASCULIN' ? '♂ M' : eleve.sexe === 'FEMININ' ? '♀ F' : '-'}</td>
-                    <td className="px-6 py-3 text-slate-600">{eleve.classe}</td>
-                    <td className="px-6 py-3 text-slate-600">{eleve.ecoleNom}</td>
-                    <td className="px-6 py-3 text-slate-600">{eleve.parent}{eleve.lieuParente ? ` (${eleve.lieuParente})` : ''}</td>
-                    <td className="px-6 py-3 text-slate-600">{eleve.tel}</td>
-                    <td className="px-6 py-3 text-center font-mono">{eleve.montantDu.toLocaleString('fr-FR')} FCFA</td>
-                    <td className="px-6 py-3 text-center font-mono font-bold text-green-600">{eleve.montantPaye.toLocaleString('fr-FR')} FCFA</td>
-                    <td className="px-6 py-3 text-center">{getStatusBadge(eleve.statut)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      )}
+    </div>
+  )
+}
+
+function EleveGroupTable({ title, icon, eleves, getStatusBadge }) {
+  return (
+    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="bg-slate-50 border-b border-slate-200 p-4 flex items-center gap-2">
+        {icon}
+        <h3 className="font-bold text-slate-900">{title} ({eleves.length})</h3>
       </div>
+      {eleves.length === 0 ? (
+        <div className="p-6 text-center text-slate-500">Aucun élève dans cette catégorie</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-6 py-3 text-left font-semibold text-slate-700">Élève</th>
+                <th className="px-6 py-3 text-center font-semibold text-slate-700">Sexe</th>
+                <th className="px-6 py-3 text-left font-semibold text-slate-700">Parent</th>
+                <th className="px-6 py-3 text-left font-semibold text-slate-700">Téléphone</th>
+                <th className="px-6 py-3 text-center font-semibold text-slate-700">Montant dû</th>
+                <th className="px-6 py-3 text-center font-semibold text-slate-700">Montant payé</th>
+                <th className="px-6 py-3 text-center font-semibold text-slate-700">Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {eleves.map(eleve => (
+                <tr key={eleve.id} className="border-b border-slate-200 hover:bg-slate-50">
+                  <td className="px-6 py-3 text-slate-900">{eleve.prenom} {eleve.nom}</td>
+                  <td className="px-6 py-3 text-center text-slate-600">{eleve.sexe === 'MASCULIN' ? '♂ M' : eleve.sexe === 'FEMININ' ? '♀ F' : '-'}</td>
+                  <td className="px-6 py-3 text-slate-600">{eleve.parent}{eleve.lieuParente ? ` (${eleve.lieuParente})` : ''}</td>
+                  <td className="px-6 py-3 text-slate-600">{eleve.tel}</td>
+                  <td className="px-6 py-3 text-center font-mono">{formatFCFA(eleve.montantDu)}</td>
+                  <td className="px-6 py-3 text-center font-mono font-bold text-green-600">{formatFCFA(eleve.montantPaye)}</td>
+                  <td className="px-6 py-3 text-center">{getStatusBadge(eleve.statut)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
