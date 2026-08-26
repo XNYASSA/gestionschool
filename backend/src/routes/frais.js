@@ -7,7 +7,7 @@ const router = express.Router()
 router.get('/', verifyToken, checkRole(['SECRETAIRE', 'SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'ECONOMAT']), async (req, res) => {
   try {
     const frais = await req.prisma.inscriptionFrais.findMany({
-      include: { eleve: { include: { classe: true } } }
+      include: { eleve: { include: { classe: { include: { ecole: true } } } } }
     })
     res.json(frais)
   } catch (error) {
