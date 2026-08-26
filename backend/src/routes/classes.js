@@ -7,8 +7,8 @@ const router = express.Router()
 router.get('/', verifyToken, async (req, res) => {
   try {
     const classes = await req.prisma.classe.findMany({
-      orderBy: [{ section: 'asc' }, { nom: 'asc' }],
-      include: { sectionRel: true }
+      orderBy: [{ ecoleId: 'asc' }, { nom: 'asc' }],
+      include: { ecole: true }
     })
     res.json(classes)
   } catch (error) {
@@ -21,7 +21,7 @@ router.get('/:id', verifyToken, async (req, res) => {
   try {
     const classe = await req.prisma.classe.findUnique({
       where: { id: req.params.id },
-      include: { eleves: true, enseignantClasseMatieres: true, sectionRel: true }
+      include: { eleves: true, enseignantClasseMatieres: true, ecole: true }
     })
     if (!classe) return res.status(404).json({ error: 'Classe non trouvée' })
     res.json(classe)
@@ -33,29 +33,20 @@ router.get('/:id', verifyToken, async (req, res) => {
 // CREATE CLASSE (Admin only)
 router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
-    const { nom, section, sectionId, niveau } = req.body
+    const { nom, ecoleId, niveau } = req.body
 
-    if (!nom || !sectionId || !niveau) {
-      return res.status(400).json({ error: 'Les champs nom, sectionId et niveau sont obligatoires' })
+    if (!nom || !ecoleId || !niveau) {
+      return res.status(400).json({ error: 'Les champs nom, ecoleId et niveau sont obligatoires' })
     }
 
-    // Récupérer la section pour obtenir le code (majuscules)
-    const selectedSection = await req.prisma.section.findUnique({
-      where: { id: sectionId }
-    })
-
-    if (!selectedSection) {
-      return res.status(400).json({ error: 'Section non trouvée' })
+    const ecole = await req.prisma.ecole.findUnique({ where: { id: ecoleId } })
+    if (!ecole) {
+      return res.status(400).json({ error: 'École non trouvée' })
     }
 
     const classe = await req.prisma.classe.create({
-      data: {
-        nom,
-        section: selectedSection.id, // Utiliser l'ID (code majuscule)
-        sectionId: selectedSection.id,
-        niveau
-      },
-      include: { sectionRel: true }
+      data: { nom, ecoleId, niveau },
+      include: { ecole: true }
     })
     res.status(201).json(classe)
   } catch (error) {
@@ -66,17 +57,16 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
 // UPDATE CLASSE (Admin only)
 router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
-    const { nom, section, sectionId, niveau } = req.body
+    const { nom, ecoleId, niveau } = req.body
 
     const classe = await req.prisma.classe.update({
       where: { id: req.params.id },
       data: {
         ...(nom && { nom }),
-        ...(section && { section }),
-        ...(sectionId && { sectionId }),
+        ...(ecoleId && { ecoleId }),
         ...(niveau && { niveau })
       },
-      include: { sectionRel: true }
+      include: { ecole: true }
     })
     res.json(classe)
   } catch (error) {
@@ -87,7 +77,7 @@ router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRI
   }
 })
 
-// DELETE CLASSE (Admin/Proprietaire only) - CASCADE deletes students and their data
+// DELETE CLASSE (Super Admin only) - CASCADE deletes students and their data
 router.delete('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     await req.prisma.classe.delete({

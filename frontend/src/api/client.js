@@ -62,6 +62,11 @@ class APIClient {
     return this.request('/auth/me')
   }
 
+  // ECOLES
+  async getEcoles() {
+    return this.request('/ecoles')
+  }
+
   // SECTIONS
   async getSections() {
     return this.request('/sections')
@@ -100,10 +105,10 @@ class APIClient {
     return this.request(`/classes/${id}`)
   }
 
-  async createClasse(nom, section, sectionId, niveau) {
+  async createClasse(nom, ecoleId, niveau) {
     return this.request('/classes', {
       method: 'POST',
-      body: JSON.stringify({ nom, section, sectionId, niveau })
+      body: JSON.stringify({ nom, ecoleId, niveau })
     })
   }
 
@@ -301,10 +306,10 @@ class APIClient {
     return this.request(`/depenses/categorie/${categorie}`)
   }
 
-  async createDepense(description, categorie, montant, dateDepense) {
+  async createDepense(data) {
     return this.request('/depenses', {
       method: 'POST',
-      body: JSON.stringify({ description, categorie, montant, dateDepense })
+      body: JSON.stringify(data)
     })
   }
 

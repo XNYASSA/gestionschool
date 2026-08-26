@@ -486,6 +486,55 @@ async function main() {
 
   console.log('✓ 50 Élèves créés avec frais')
 
+  // Créer des dépenses de démonstration (charges fixes et variables) par école
+  const depensesVariables = [
+    { description: 'Achat de fournitures scolaires', categorie: 'FOURNITURES', montant: 350000 },
+    { description: 'Réparation toiture', categorie: 'MAINTENANCE', montant: 500000 },
+    { description: 'Facture électricité', categorie: 'ENERGIE', montant: 180000 },
+    { description: "Facture d'eau", categorie: 'ENERGIE', montant: 60000 },
+    { description: 'Achat matériel informatique', categorie: 'MATERIEL', montant: 750000 },
+    { description: 'Peinture salles de classe', categorie: 'MAINTENANCE', montant: 280000 }
+  ]
+
+  for (const ecole of ecoles) {
+    // Charge fixe : masse salariale mensuelle du personnel de l'école (déjà en base via Personnel)
+    const masseSalariale = await prisma.personnel.aggregate({
+      where: { ecoleId: ecole.id },
+      _sum: { salaireMensuel: true }
+    })
+
+    await prisma.depense.create({
+      data: {
+        description: `Salaires du personnel - ${ecole.nomCourt}`,
+        categorie: 'AUTRE',
+        type: 'FIXE',
+        montant: masseSalariale._sum.salaireMensuel || 0,
+        ecoleId: ecole.id,
+        dateDepense: new Date()
+      }
+    })
+
+    // Charges variables : quelques dépenses ponctuelles réparties sur les 3 derniers mois
+    for (let i = 0; i < 3; i++) {
+      const depense = depensesVariables[Math.floor(Math.random() * depensesVariables.length)]
+      const dateDepense = new Date()
+      dateDepense.setDate(dateDepense.getDate() - Math.floor(Math.random() * 60))
+
+      await prisma.depense.create({
+        data: {
+          description: `${depense.description} - ${ecole.nomCourt}`,
+          categorie: depense.categorie,
+          type: 'VARIABLE',
+          montant: depense.montant,
+          ecoleId: ecole.id,
+          dateDepense
+        }
+      })
+    }
+  }
+
+  console.log('✓ Dépenses (fixes et variables) créées pour chaque école')
+
   console.log('✅ Seed réussi ! Base de données restructurée pour multi-écoles')
 }
 

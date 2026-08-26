@@ -7,6 +7,7 @@ const router = express.Router()
 router.get('/', verifyToken, async (req, res) => {
   try {
     const depenses = await req.prisma.depense.findMany({
+      include: { ecole: true },
       orderBy: { dateDepense: 'desc' }
     })
     res.json(depenses)
@@ -31,7 +32,7 @@ router.get('/categorie/:categorie', verifyToken, async (req, res) => {
 // POST - Créer une dépense
 router.post('/', verifyToken, async (req, res) => {
   try {
-    const { description, categorie, montant, dateDepense } = req.body
+    const { description, categorie, type, montant, dateDepense, ecoleId } = req.body
 
     if (!description || !categorie || !montant) {
       return res.status(400).json({ error: 'Champs obligatoires: description, categorie, montant' })
@@ -41,8 +42,10 @@ router.post('/', verifyToken, async (req, res) => {
       data: {
         description,
         categorie,
+        type: type === 'FIXE' ? 'FIXE' : 'VARIABLE',
         montant: parseInt(montant),
-        dateDepense: dateDepense ? new Date(dateDepense) : new Date()
+        dateDepense: dateDepense ? new Date(dateDepense) : new Date(),
+        ecoleId: ecoleId || null
       }
     })
 
@@ -55,15 +58,17 @@ router.post('/', verifyToken, async (req, res) => {
 // PUT - Modifier une dépense
 router.put('/:id', verifyToken, async (req, res) => {
   try {
-    const { description, categorie, montant, dateDepense } = req.body
+    const { description, categorie, type, montant, dateDepense, ecoleId } = req.body
 
     const depense = await req.prisma.depense.update({
       where: { id: req.params.id },
       data: {
         ...(description && { description }),
         ...(categorie && { categorie }),
+        ...(type && { type: type === 'FIXE' ? 'FIXE' : 'VARIABLE' }),
         ...(montant && { montant: parseInt(montant) }),
-        ...(dateDepense && { dateDepense: new Date(dateDepense) })
+        ...(dateDepense && { dateDepense: new Date(dateDepense) }),
+        ...(ecoleId !== undefined && { ecoleId: ecoleId || null })
       }
     })
 

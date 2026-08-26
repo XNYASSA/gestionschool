@@ -172,12 +172,7 @@ export default function StaffFinance({ filters }) {
       if (editingDepenseId) {
         await apiClient.updateDepense(editingDepenseId, dataToSend)
       } else {
-        await apiClient.createDepense(
-          dataToSend.description,
-          dataToSend.categorie,
-          dataToSend.montant,
-          dataToSend.dateDepense
-        )
+        await apiClient.createDepense(dataToSend)
       }
 
       setShowDepenseForm(false)

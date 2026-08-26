@@ -68,6 +68,7 @@ model Ecole {
   anomaliesDetectees     AnomalieDetetee[]
   annonces               Annonce[]
   parametres             Parametres?
+  depenses               Depense[]
 }
 
 model Classe {
@@ -221,8 +222,11 @@ model Depense {
   id              String   @id @default(cuid())
   description     String   // ex: "Achat de fournitures", "Réparation toit"
   categorie       String   // MATERIEL, FOURNITURES, MAINTENANCE, ENERGIE, AUTRE
+  type            String   @default("VARIABLE") // FIXE ou VARIABLE
   montant         Int      // montant en FCFA
   dateDepense     DateTime @default(now())
+  ecole           Ecole?   @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
+  ecoleId         String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
