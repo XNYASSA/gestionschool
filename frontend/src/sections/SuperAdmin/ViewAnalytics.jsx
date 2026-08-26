@@ -98,7 +98,7 @@ export default function ViewAnalytics() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-slate-900">📈 Vue analytique multi-niveaux</h2>
+      <h2 className="text-2xl font-bold text-slate-900">💰 Revenus & Dépenses</h2>
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">⚠️ {error}</div>

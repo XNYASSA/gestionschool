@@ -27,7 +27,6 @@ export default function SidebarSuperAdmin({ currentSection, setCurrentSection, l
       label: '📈 Analytics',
       icon: BarChart3,
       submenu: [
-        { id: 'view-analytics', label: 'Vue analytique multi-niveaux' },
         { id: 'paiements', label: 'Suivi des paiements' },
         { id: 'revenus', label: 'Revenus/Dépenses' }
       ]

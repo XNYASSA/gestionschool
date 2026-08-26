@@ -63,7 +63,6 @@ export default function DashboardSuperAdminEnhanced() {
     switch (currentSection) {
       case 'dashboard':
         return <DashboardOverview stats={stats} frais={frais} depenses={depenses} period={period} setPeriod={setPeriod} />
-      case 'view-analytics':
       case 'revenus':
         return <ViewAnalytics />
       case 'paiements':
