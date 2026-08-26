@@ -4,7 +4,7 @@ import { verifyToken, checkRole } from '../middleware/auth.js'
 const router = express.Router()
 
 // GET ALL PERSONNEL
-router.get('/', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async (req, res) => {
+router.get('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const personnel = await req.prisma.personnel.findMany({
       orderBy: { dateEmbauche: 'desc' }
@@ -16,7 +16,7 @@ router.get('/', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async (re
 })
 
 // GET PERSONNEL BY ID
-router.get('/:id', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async (req, res) => {
+router.get('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const personnel = await req.prisma.personnel.findUnique({
       where: { id: req.params.id }
@@ -31,7 +31,7 @@ router.get('/:id', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async 
 })
 
 // CREATE PERSONNEL (Admin ou Directeur)
-router.post('/', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async (req, res) => {
+router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const { nom, fonction, telephone, salaireMensuel, dateEmbauche } = req.body
 
@@ -61,7 +61,7 @@ router.post('/', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async (r
 })
 
 // UPDATE PERSONNEL (Admin ou Directeur)
-router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async (req, res) => {
+router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const { nom, fonction, telephone, salaireMensuel } = req.body
 
@@ -82,7 +82,7 @@ router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async 
 })
 
 // TOGGLE ACTIF/INACTIF (Admin ou Directeur)
-router.put('/:id/toggle-statut', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async (req, res) => {
+router.put('/:id/toggle-statut', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const personnel = await req.prisma.personnel.findUnique({
       where: { id: req.params.id }
@@ -107,7 +107,7 @@ router.put('/:id/toggle-statut', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECT
 })
 
 // DELETE PERSONNEL (Admin uniquement)
-router.delete('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.delete('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const personnel = await req.prisma.personnel.delete({
       where: { id: req.params.id }

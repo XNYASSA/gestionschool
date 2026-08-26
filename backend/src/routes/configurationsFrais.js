@@ -39,7 +39,7 @@ router.get('/section/:sectionId', verifyToken, async (req, res) => {
 })
 
 // CREATE CONFIGURATION (Admin only)
-router.post('/', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const { sectionId, montantInscription, montantFraisTotal, tranches } = req.body
 
@@ -72,7 +72,7 @@ router.post('/', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
 })
 
 // UPDATE CONFIGURATION (Admin only)
-router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const { montantInscription, montantFraisTotal } = req.body
 
@@ -97,7 +97,7 @@ router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) =>
 })
 
 // UPDATE TRANCHE (Admin only)
-router.put('/:configId/tranches/:trancheNum', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.put('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const { montant } = req.body
     const { configId, trancheNum } = req.params

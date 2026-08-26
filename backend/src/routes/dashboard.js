@@ -8,14 +8,16 @@ router.get('/', verifyToken, async (req, res) => {
   try {
     const role = req.user.role
 
-    if (role === 'PROPRIETAIRE') {
+    if (role === 'SUPER_ADMIN') {
       return getDashboardProprietaire(req, res)
-    } else if (role === 'DIRECTEUR') {
+    } else if (role === 'PRINCIPAL' || role === 'DIRECTRICE') {
       return getDashboardDirecteur(req, res)
     } else if (role === 'SECRETAIRE') {
       return getDashboardSecretaire(req, res)
     } else if (role === 'ENSEIGNANT') {
       return getDashboardEnseignant(req, res)
+    } else if (role === 'ECONOMAT') {
+      return getDashboardSecretaire(req, res)
     }
 
     res.status(403).json({ error: 'Rôle non supporté' })

@@ -4,7 +4,7 @@ import { verifyToken, checkRole } from '../middleware/auth.js'
 const router = express.Router()
 
 // GET ALL ELEVES (Directeur, Proprietaire, Secretaire)
-router.get('/', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR', 'SECRETAIRE']), async (req, res) => {
+router.get('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE', 'ECONOMAT']), async (req, res) => {
   try {
     const eleves = await req.prisma.eleve.findMany({
       include: { classe: true }
@@ -29,8 +29,8 @@ router.get('/:id', verifyToken, async (req, res) => {
   }
 })
 
-// CREATE ELEVE (Proprietaire, Directeur, Secretaire)
-router.post('/', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR', 'SECRETAIRE']), async (req, res) => {
+// CREATE ELEVE (Super Admin, Principal/Directrice, Secretaire)
+router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
     let { matricule, nom, prenom, sexe, dateNaissance, classeId, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
 
@@ -89,8 +89,8 @@ router.post('/', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR', 'SECRETAIR
   }
 })
 
-// UPDATE ELEVE (Proprietaire, Directeur, Secretaire)
-router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR', 'SECRETAIRE']), async (req, res) => {
+// UPDATE ELEVE (Super Admin, Principal/Directrice, Secretaire)
+router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
     const eleve = await req.prisma.eleve.update({
       where: { id: req.params.id },
@@ -104,7 +104,7 @@ router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR', 'SECRETA
 })
 
 // DELETE ELEVE (Proprietaire only)
-router.delete('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.delete('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     // Supprimer les frais liés
     await req.prisma.inscriptionFrais.deleteMany({

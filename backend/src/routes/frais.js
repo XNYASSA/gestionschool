@@ -4,7 +4,7 @@ import { verifyToken, checkRole } from '../middleware/auth.js'
 const router = express.Router()
 
 // GET FRAIS (Secretaire, Proprietaire)
-router.get('/', verifyToken, checkRole(['SECRETAIRE', 'PROPRIETAIRE', 'DIRECTEUR']), async (req, res) => {
+router.get('/', verifyToken, checkRole(['SECRETAIRE', 'SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'ECONOMAT']), async (req, res) => {
   try {
     const frais = await req.prisma.inscriptionFrais.findMany({
       include: { eleve: { include: { classe: true } } }
@@ -52,7 +52,7 @@ router.post('/enregistrer-paiement', verifyToken, checkRole(['SECRETAIRE']), asy
 })
 
 // VALIDER PAIEMENT (Directeur uniquement)
-router.put('/:id/valider', verifyToken, checkRole(['DIRECTEUR']), async (req, res) => {
+router.put('/:id/valider', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const { statutValidation } = req.body // VALIDE ou REJETE
 

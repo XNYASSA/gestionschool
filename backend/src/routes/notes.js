@@ -55,7 +55,7 @@ router.post('/', verifyToken, checkRole(['ENSEIGNANT']), async (req, res) => {
 })
 
 // VALIDER NOTE (Directeur)
-router.put('/:id/valider', verifyToken, checkRole(['DIRECTEUR']), async (req, res) => {
+router.put('/:id/valider', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const note = await req.prisma.note.update({
       where: { id: req.params.id },

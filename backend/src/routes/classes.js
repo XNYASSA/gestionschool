@@ -31,7 +31,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 })
 
 // CREATE CLASSE (Admin only)
-router.post('/', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async (req, res) => {
+router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const { nom, section, sectionId, niveau } = req.body
 
@@ -64,7 +64,7 @@ router.post('/', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async (r
 })
 
 // UPDATE CLASSE (Admin only)
-router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async (req, res) => {
+router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const { nom, section, sectionId, niveau } = req.body
 
@@ -88,7 +88,7 @@ router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE', 'DIRECTEUR']), async 
 })
 
 // DELETE CLASSE (Admin/Proprietaire only) - CASCADE deletes students and their data
-router.delete('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.delete('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     await req.prisma.classe.delete({
       where: { id: req.params.id }

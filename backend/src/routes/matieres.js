@@ -31,7 +31,7 @@ router.get('/section/:sectionId', verifyToken, async (req, res) => {
 })
 
 // CREATE MATIERE (Admin only)
-router.post('/', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const { nom, sectionId, coefficient } = req.body
 
@@ -54,7 +54,7 @@ router.post('/', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
 })
 
 // UPDATE MATIERE (Admin only)
-router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const { nom, coefficient } = req.body
 
@@ -76,7 +76,7 @@ router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) =>
 })
 
 // DELETE MATIERE (Admin only)
-router.delete('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.delete('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     // Check if matiere is used
     const usageCount = await req.prisma.enseignantClasseMatiere.count({

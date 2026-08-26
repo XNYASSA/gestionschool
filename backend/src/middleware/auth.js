@@ -22,6 +22,11 @@ export const checkRole = (allowedRoles) => {
       return res.status(401).json({ error: 'Non authentifié' })
     }
 
+    // Le Super Admin a accès total à toutes les routes (voir CLAUDE.md)
+    if (req.user.role === 'SUPER_ADMIN') {
+      return next()
+    }
+
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Accès non autorisé pour ce rôle' })
     }

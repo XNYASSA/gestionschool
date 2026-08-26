@@ -31,7 +31,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 })
 
 // CREATE SECTION (Admin only)
-router.post('/', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const { nom, emoji, ordre } = req.body
 
@@ -51,7 +51,7 @@ router.post('/', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
 })
 
 // UPDATE SECTION (Admin only)
-router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const { nom, emoji, ordre, actif } = req.body
 
@@ -74,7 +74,7 @@ router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) =>
 })
 
 // DELETE SECTION (Admin only) - CASCADE deletes classes and their data
-router.delete('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.delete('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     await req.prisma.section.delete({
       where: { id: req.params.id }
