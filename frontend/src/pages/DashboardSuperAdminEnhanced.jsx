@@ -2,6 +2,7 @@ import { useContext, useState, useEffect } from 'react'
 import { AuthContext } from '../context/AuthContext'
 import { LogOut, TrendingUp, AlertCircle } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
+import { apiClient } from '../api/client'
 import SidebarSuperAdmin from '../components/SidebarSuperAdmin'
 
 // Sections du dashboard
@@ -34,14 +35,26 @@ export default function DashboardSuperAdminEnhanced() {
 
   const loadStats = async () => {
     try {
-      // Charger les statistiques globales
       const ecolesRes = await fetch(`${API_ENDPOINTS.ecoles}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       })
-      if (ecolesRes.ok) {
-        const ecoles = await ecolesRes.json()
-        setStats(prev => ({ ...prev, totalEcoles: ecoles.length }))
-      }
+      const ecoles = ecolesRes.ok ? await ecolesRes.json() : []
+
+      const [eleves, personnel, frais] = await Promise.all([
+        apiClient.getEleves().catch(() => []),
+        apiClient.getPersonnel().catch(() => []),
+        apiClient.getFrais().catch(() => [])
+      ])
+
+      const fraisCollectes = frais.reduce((sum, f) => sum + (f.montantPaye || 0), 0)
+
+      setStats(prev => ({
+        ...prev,
+        totalEcoles: ecoles.length,
+        totalEleves: eleves.length,
+        personnels: personnel.length,
+        fraisCollectes
+      }))
     } catch (error) {
       console.error('Erreur chargement stats:', error)
     }
