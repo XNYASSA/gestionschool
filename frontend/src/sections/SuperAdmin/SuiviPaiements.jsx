@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { CheckCircle, AlertCircle, XCircle, Loader, Search } from 'lucide-react'
+import { CheckCircle, AlertCircle, XCircle, Loader, Search, Users } from 'lucide-react'
 import { apiClient } from '../../api/client'
 
 function calculerStatutEleve(fraisEleve) {
@@ -57,10 +57,12 @@ export default function SuiviPaiements() {
         nom: eleve.nom,
         prenom: eleve.prenom,
         matricule: eleve.matricule,
+        sexe: eleve.sexe,
         classe: eleve.classe?.nom || '-',
         ecoleId: eleve.classe?.ecole?.id,
         ecoleNom: eleve.classe?.ecole?.nomCourt || '-',
         parent: eleve.nomParent,
+        lieuParente: eleve.lieuParente,
         tel: eleve.telephoneParent,
         montantDu,
         montantPaye,
@@ -94,6 +96,9 @@ export default function SuiviPaiements() {
     PARTIEL: elevesAvecStatut.filter(e => e.statut === 'PARTIEL').length,
     IMPAYE: elevesAvecStatut.filter(e => e.statut === 'IMPAYE').length
   }
+
+  const garcons = filtered.filter(e => e.sexe === 'MASCULIN').length
+  const filles = filtered.filter(e => e.sexe === 'FEMININ').length
 
   const getStatusBadge = (statut) => {
     if (statut === 'SOLDE') return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">✓ Soldé</span>
@@ -175,8 +180,16 @@ export default function SuiviPaiements() {
 
       {/* Liste des élèves */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="bg-slate-50 border-b border-slate-200 p-4">
+        <div className="bg-slate-50 border-b border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-bold text-slate-900">Liste des élèves ({filtered.length})</h3>
+          <div className="flex items-center gap-4 text-sm text-slate-600">
+            <span className="flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-blue-500" /> Garçons : <strong className="text-slate-900">{garcons}</strong>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-pink-500" /> Filles : <strong className="text-slate-900">{filles}</strong>
+            </span>
+          </div>
         </div>
         {loading ? (
           <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-2">
@@ -190,6 +203,7 @@ export default function SuiviPaiements() {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">Élève</th>
+                  <th className="px-6 py-3 text-center font-semibold text-slate-700">Sexe</th>
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">Classe</th>
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">École</th>
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">Parent</th>
@@ -203,9 +217,10 @@ export default function SuiviPaiements() {
                 {filtered.map(eleve => (
                   <tr key={eleve.id} className="border-b border-slate-200 hover:bg-slate-50">
                     <td className="px-6 py-3 text-slate-900">{eleve.prenom} {eleve.nom}</td>
+                    <td className="px-6 py-3 text-center text-slate-600">{eleve.sexe === 'MASCULIN' ? '♂ M' : eleve.sexe === 'FEMININ' ? '♀ F' : '-'}</td>
                     <td className="px-6 py-3 text-slate-600">{eleve.classe}</td>
                     <td className="px-6 py-3 text-slate-600">{eleve.ecoleNom}</td>
-                    <td className="px-6 py-3 text-slate-600">{eleve.parent}</td>
+                    <td className="px-6 py-3 text-slate-600">{eleve.parent}{eleve.lieuParente ? ` (${eleve.lieuParente})` : ''}</td>
                     <td className="px-6 py-3 text-slate-600">{eleve.tel}</td>
                     <td className="px-6 py-3 text-center font-mono">{eleve.montantDu.toLocaleString('fr-FR')} FCFA</td>
                     <td className="px-6 py-3 text-center font-mono font-bold text-green-600">{eleve.montantPaye.toLocaleString('fr-FR')} FCFA</td>

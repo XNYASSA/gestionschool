@@ -65,6 +65,7 @@ export default function DashboardSuperAdminEnhanced() {
       case 'revenus':
         return <ViewAnalytics />
       case 'paiements':
+      case 'paiement-status':
         return <SuiviPaiements />
       case 'list-eleves':
         return <ListeEleves />
