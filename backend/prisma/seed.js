@@ -225,26 +225,73 @@ async function main() {
 
   console.log('✓ Permissions attribuées par école')
 
-  // Créer les classes pour chaque école
+  // Créer les classes pour chaque école selon la spécification camerounaise
   const classesMap = {}
+
+  const classConfig = {
+    'CRP_FRANCOPHONE': [
+      { nom: '6ème A', niveau: '6ème' }, { nom: '6ème B', niveau: '6ème' },
+      { nom: '5ème A', niveau: '5ème' }, { nom: '5ème B', niveau: '5ème' },
+      { nom: '4ème A', niveau: '4ème' }, { nom: '4ème B', niveau: '4ème' },
+      { nom: '3ème A', niveau: '3ème' }, { nom: '3ème B', niveau: '3ème' }
+    ],
+    'CRP_ANGLOPHONE': [
+      { nom: 'Form 1 A', niveau: 'Form 1' }, { nom: 'Form 1 B', niveau: 'Form 1' },
+      { nom: 'Form 2 A', niveau: 'Form 2' }, { nom: 'Form 2 B', niveau: 'Form 2' },
+      { nom: 'Form 3 A', niveau: 'Form 3' }, { nom: 'Form 3 B', niveau: 'Form 3' },
+      { nom: 'Form 4 A', niveau: 'Form 4' }, { nom: 'Form 4 B', niveau: 'Form 4' },
+      { nom: 'Form 5 A', niveau: 'Form 5' }, { nom: 'Form 5 B', niveau: 'Form 5' }
+    ],
+    'CRP_TECHNIQUE': [
+      { nom: '1ère année A', niveau: '1ère année' }, { nom: '1ère année B', niveau: '1ère année' },
+      { nom: '2ème année A', niveau: '2ème année' }, { nom: '2ème année B', niveau: '2ème année' }
+    ],
+    'CBM': [
+      { nom: '6ème A', niveau: '6ème' }, { nom: '6ème B', niveau: '6ème' },
+      { nom: '5ème A', niveau: '5ème' }, { nom: '5ème B', niveau: '5ème' },
+      { nom: '4ème A', niveau: '4ème' }, { nom: '4ème B', niveau: '4ème' },
+      { nom: '3ème A', niveau: '3ème' }, { nom: '3ème B', niveau: '3ème' }
+    ],
+    'EBSB': [
+      { nom: 'Petite Section A', niveau: 'PS' }, { nom: 'Petite Section B', niveau: 'PS' },
+      { nom: 'Moyenne Section A', niveau: 'MS' }, { nom: 'Moyenne Section B', niveau: 'MS' },
+      { nom: 'Grande Section A', niveau: 'GS' }, { nom: 'Grande Section B', niveau: 'GS' },
+      { nom: 'SIL A', niveau: 'SIL' }, { nom: 'SIL B', niveau: 'SIL' },
+      { nom: 'CP A', niveau: 'CP' }, { nom: 'CP B', niveau: 'CP' },
+      { nom: 'CE1 A', niveau: 'CE1' }, { nom: 'CE1 B', niveau: 'CE1' },
+      { nom: 'CE2 A', niveau: 'CE2' }, { nom: 'CE2 B', niveau: 'CE2' },
+      { nom: 'CM1 A', niveau: 'CM1' }, { nom: 'CM1 B', niveau: 'CM1' },
+      { nom: 'CM2 A', niveau: 'CM2' }, { nom: 'CM2 B', niveau: 'CM2' }
+    ],
+    'EBRP': [
+      { nom: 'Petite Section A', niveau: 'PS' }, { nom: 'Petite Section B', niveau: 'PS' },
+      { nom: 'Moyenne Section A', niveau: 'MS' }, { nom: 'Moyenne Section B', niveau: 'MS' },
+      { nom: 'Grande Section A', niveau: 'GS' }, { nom: 'Grande Section B', niveau: 'GS' },
+      { nom: 'SIL A', niveau: 'SIL' }, { nom: 'SIL B', niveau: 'SIL' },
+      { nom: 'CP A', niveau: 'CP' }, { nom: 'CP B', niveau: 'CP' },
+      { nom: 'CE1 A', niveau: 'CE1' }, { nom: 'CE1 B', niveau: 'CE1' },
+      { nom: 'CE2 A', niveau: 'CE2' }, { nom: 'CE2 B', niveau: 'CE2' },
+      { nom: 'CM1 A', niveau: 'CM1' }, { nom: 'CM1 B', niveau: 'CM1' },
+      { nom: 'CM2 A', niveau: 'CM2' }, { nom: 'CM2 B', niveau: 'CM2' }
+    ]
+  }
+
   for (const ecole of ecoles) {
     classesMap[ecole.nomCourt] = []
-    const niveaux = ecole.niveau === 'SECONDAIRE' ? ['6ème', 'Form 1', '4ème'] : ['PS', 'MS', 'GS']
-    for (let i = 0; i < 2; i++) {
-      for (const niveau of niveaux) {
-        const classe = await prisma.classe.create({
-          data: {
-            nom: `${niveau} ${String.fromCharCode(65 + i)}`,
-            niveau,
-            ecoleId: ecole.id
-          }
-        })
-        classesMap[ecole.nomCourt].push(classe)
-      }
+    const config = classConfig[ecole.nomCourt] || []
+    for (const classeConfig of config) {
+      const classe = await prisma.classe.create({
+        data: {
+          nom: classeConfig.nom,
+          niveau: classeConfig.niveau,
+          ecoleId: ecole.id
+        }
+      })
+      classesMap[ecole.nomCourt].push(classe)
     }
   }
 
-  console.log('✓ Classes créées pour chaque école')
+  console.log('✓ Classes créées pour chaque école selon la spécification camerounaise')
 
   // Créer les matières par école
   const matieresFrancophone = ['Mathématiques', 'Français', 'Sciences', 'Anglais', 'Histoire-Géo', 'EPS']
