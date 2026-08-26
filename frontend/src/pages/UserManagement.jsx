@@ -71,12 +71,7 @@ export default function UserManagement() {
         await apiClient.updateUtilisateur(editingId, dataToSend)
       } else {
         dataToSend.email = formData.email
-        await apiClient.createUtilisateur(
-          formData.nom,
-          formData.email,
-          formData.motDePasse,
-          formData.role
-        )
+        await apiClient.createUtilisateur(dataToSend)
       }
 
       setShowForm(false)

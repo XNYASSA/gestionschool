@@ -13,14 +13,17 @@ datasource db {
 // ===== USERS & AUTHENTICATION =====
 
 model Utilisateur {
-  id        String     @id @default(cuid())
-  nom       String
-  email     String     @unique
-  motDePasse String
-  role      String     // Rôle par défaut (pour compatibilité), ex: SUPER_ADMIN, PRINCIPAL, DIRECTRICE, SECRETAIRE, ENSEIGNANT, ECONOMAT
-  actif     Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id             String     @id @default(cuid())
+  nom            String
+  email          String     @unique
+  motDePasse     String
+  role           String     // Rôle par défaut (pour compatibilité), ex: SUPER_ADMIN, PRINCIPAL, DIRECTRICE, SECRETAIRE, ENSEIGNANT, ECONOMAT
+  fonction       String?    // Intitulé de poste précis, ex: "Censeur", "Surveillant Général"
+  telephone      String?
+  salaireMensuel Int?       // montant en FCFA
+  actif          Boolean    @default(true) // false = ne peut plus se connecter à l'application
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   // Relations
   enseignant         Enseignant?

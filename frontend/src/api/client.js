@@ -344,10 +344,10 @@ class APIClient {
     return this.request(`/utilisateurs/${id}`)
   }
 
-  async createUtilisateur(nom, email, motDePasse, role) {
+  async createUtilisateur(data) {
     return this.request('/utilisateurs', {
       method: 'POST',
-      body: JSON.stringify({ nom, email, motDePasse, role })
+      body: JSON.stringify(data)
     })
   }
 
@@ -366,6 +366,19 @@ class APIClient {
 
   async deleteUtilisateur(id) {
     return this.request(`/utilisateurs/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async assignEcoleToUtilisateur(utilisateurId, ecoleId, role) {
+    return this.request(`/utilisateurs-ecoles/${utilisateurId}/assign-ecole`, {
+      method: 'POST',
+      body: JSON.stringify({ ecoleId, role })
+    })
+  }
+
+  async removeEcoleFromUtilisateur(utilisateurId, ecoleId) {
+    return this.request(`/utilisateurs-ecoles/${utilisateurId}/ecoles/${ecoleId}`, {
       method: 'DELETE'
     })
   }

@@ -423,6 +423,39 @@ async function main() {
 
   console.log('✓ Enseignants créés')
 
+  // Créer 8 membres du personnel avec accès à l'application (compte + salaire)
+  const nouveauPersonnel = [
+    { nom: 'Solange Mbida', email: 'senseignante@gestionschool.cm', role: 'ENSEIGNANT', fonction: 'Enseignante', telephone: '+237 677 12 34 56', salaireMensuel: 200000, ecole: ecoles[4] },
+    { nom: 'Bertrand Fotso', email: 'enseignant2@gestionschool.cm', role: 'ENSEIGNANT', fonction: 'Enseignant', telephone: '+237 677 22 33 44', salaireMensuel: 220000, ecole: ecoles[2] },
+    { nom: 'Clarisse Ndjock', email: 'secretaire2@gestionschool.cm', role: 'SECRETAIRE', fonction: 'Secrétaire', telephone: '+237 699 11 22 33', salaireMensuel: 180000, ecole: ecoles[0] },
+    { nom: 'Herve Wanko', email: 'economat2@gestionschool.cm', role: 'ECONOMAT', fonction: 'Économat', telephone: '+237 699 44 55 66', salaireMensuel: 200000, ecole: ecoles[3] },
+    { nom: 'Josephine Ateba', email: 'surveillant@gestionschool.cm', role: 'SURVEILLANT_GENERAL', fonction: 'Surveillant Général', telephone: '+237 655 77 88 99', salaireMensuel: 300000, ecole: ecoles[1] },
+    { nom: 'Raymond Ekwalla', email: 'censeur@gestionschool.cm', role: 'PERSONNEL', fonction: 'Censeur', telephone: '+237 655 12 12 12', salaireMensuel: 450000, ecole: ecoles[2] },
+    { nom: 'Delphine Onana', email: 'secretairegeneral@gestionschool.cm', role: 'PERSONNEL', fonction: 'Secrétaire Général', telephone: '+237 690 33 22 11', salaireMensuel: 200000, ecole: ecoles[5] },
+    { nom: 'Alphonse Belinga', email: 'intendant@gestionschool.cm', role: 'PERSONNEL', fonction: 'Intendant', telephone: '+237 690 44 55 77', salaireMensuel: 250000, ecole: ecoles[4] }
+  ]
+
+  for (const p of nouveauPersonnel) {
+    const membre = await prisma.utilisateur.create({
+      data: {
+        nom: p.nom,
+        email: p.email,
+        motDePasse: hashedPassword,
+        role: p.role,
+        fonction: p.fonction,
+        telephone: p.telephone,
+        salaireMensuel: p.salaireMensuel,
+        actif: true
+      }
+    })
+
+    await prisma.utilisateurEcole.create({
+      data: { utilisateurId: membre.id, ecoleId: p.ecole.id, role: p.role }
+    })
+  }
+
+  console.log('✓ 8 membres du personnel créés avec accès à l\'application')
+
   // Créer 30 élèves et les frais
   const noms = ['Nkomo', 'Kamdem', 'Fokou', 'Mbala', 'Tsomé', 'Mouafo', 'Eyambe', 'Tchaptchet', 'Njamen', 'Ouakoume', 'Engono', 'Talla', 'Diouf', 'Keita', 'Sow', 'Kone', 'Coulibaly', 'Ba', 'Diop', 'Faye']
   const prenoms = ['Jean', 'Marie', 'Pierre', 'Sophie', 'Marc', 'Anne', 'Paul', 'Léa', 'Michel', 'Carole', 'Alain', 'Brigitte', 'Claude', 'Danielle', 'Émile', 'Françoise', 'Gérard', 'Hélène', 'Irène', 'Jacques']
