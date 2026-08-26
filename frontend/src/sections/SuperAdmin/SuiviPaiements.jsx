@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { CheckCircle, XCircle, Loader, Users, ChevronRight, ArrowLeft, School, Layers } from 'lucide-react'
+import { CheckCircle, XCircle, Loader, Users, ChevronRight, ArrowLeft, School, Layers, Wallet, PiggyBank } from 'lucide-react'
 import { apiClient } from '../../api/client'
 
 function calculerStatutEleve(fraisEleve) {
@@ -88,6 +88,15 @@ export default function SuiviPaiements() {
     return Object.values(map).sort((a, b) => a.nom.localeCompare(b.nom))
   }, [elevesAvecStatut])
 
+  // Totaux globaux, toutes écoles confondues
+  const totauxGlobaux = useMemo(() => {
+    const totalPercu = elevesAvecStatut.reduce((sum, e) => sum + e.montantPaye, 0)
+    const totalRestant = elevesAvecStatut.reduce((sum, e) => sum + e.restant, 0)
+    const enfantsAyantPaye = elevesAvecStatut.filter(e => e.montantPaye > 0).length
+    const enfantsNonPayes = elevesAvecStatut.filter(e => e.montantPaye === 0).length
+    return { totalPercu, totalRestant, enfantsAyantPaye, enfantsNonPayes }
+  }, [elevesAvecStatut])
+
   // Niveau 2 : agrégation par classe (pour l'école sélectionnée)
   const classesSummary = useMemo(() => {
     if (!selectedEcole) return []
@@ -129,6 +138,38 @@ export default function SuiviPaiements() {
 
   return (
     <div className="space-y-6">
+      {/* Totaux globaux, toutes écoles confondues */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-green-500">
+          <div className="flex items-center gap-2 mb-1">
+            <Wallet className="w-4 h-4 text-green-600" />
+            <p className="text-xs font-medium text-slate-600">Total perçu (toutes écoles)</p>
+          </div>
+          <p className="text-xl font-bold text-green-600">{formatFCFA(totauxGlobaux.totalPercu)}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-red-500">
+          <div className="flex items-center gap-2 mb-1">
+            <PiggyBank className="w-4 h-4 text-red-600" />
+            <p className="text-xs font-medium text-slate-600">Restant à percevoir (toutes écoles)</p>
+          </div>
+          <p className="text-xl font-bold text-red-600">{formatFCFA(totauxGlobaux.totalRestant)}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
+          <div className="flex items-center gap-2 mb-1">
+            <CheckCircle className="w-4 h-4 text-blue-600" />
+            <p className="text-xs font-medium text-slate-600">Enfants ayant payé</p>
+          </div>
+          <p className="text-xl font-bold text-blue-600">{totauxGlobaux.enfantsAyantPaye}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-slate-400">
+          <div className="flex items-center gap-2 mb-1">
+            <XCircle className="w-4 h-4 text-slate-600" />
+            <p className="text-xs font-medium text-slate-600">Enfants n'ayant pas payé</p>
+          </div>
+          <p className="text-xl font-bold text-slate-700">{totauxGlobaux.enfantsNonPayes}</p>
+        </div>
+      </div>
+
       <div className="flex items-center gap-2 text-sm text-slate-500">
         <button
           onClick={() => { setSelectedEcole(null); setSelectedClasse(null) }}
