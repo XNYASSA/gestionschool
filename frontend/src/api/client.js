@@ -67,6 +67,30 @@ class APIClient {
     return this.request('/ecoles')
   }
 
+  async getEcole(id) {
+    return this.request(`/ecoles/${id}`)
+  }
+
+  async createEcole(data) {
+    return this.request('/ecoles', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateEcole(id, data) {
+    return this.request(`/ecoles/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async deleteEcole(id) {
+    return this.request(`/ecoles/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
   // ANOMALIES
   async getAnomalies() {
     return this.request('/anomalies')

@@ -77,6 +77,8 @@ export default function DashboardSuperAdminEnhanced() {
         return <EcolesManagement section="list" />
       case 'create-ecole':
         return <EcolesManagement section="create" />
+      case 'classes':
+        return <EcolesManagement section="classes" />
       case 'depenses':
         return <ModuleDepenses />
       case 'anomalies':
