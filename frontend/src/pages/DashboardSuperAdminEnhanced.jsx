@@ -64,6 +64,7 @@ export default function DashboardSuperAdminEnhanced() {
       case 'dashboard':
         return <DashboardOverview stats={stats} frais={frais} depenses={depenses} period={period} setPeriod={setPeriod} />
       case 'view-analytics':
+      case 'revenus':
         return <ViewAnalytics />
       case 'paiements':
         return <SuiviPaiements />
@@ -88,7 +89,7 @@ export default function DashboardSuperAdminEnhanced() {
       case 'comptes':
         return <UsersManagement />
       default:
-        return <DashboardOverview stats={stats} period={period} setPeriod={setPeriod} />
+        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} period={period} setPeriod={setPeriod} />
     }
   }
 
@@ -130,7 +131,7 @@ export default function DashboardSuperAdminEnhanced() {
 }
 
 // Section Overview du Dashboard
-function DashboardOverview({ stats, frais, depenses, period, setPeriod }) {
+function DashboardOverview({ stats, frais = [], depenses = [], period, setPeriod }) {
   const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
 
   const fraisPeriode = frais.filter(f => f.montantPaye > 0 && isInPeriod(f.datePayement || f.createdAt, period))
