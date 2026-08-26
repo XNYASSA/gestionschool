@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": [
+        "serve",
+        "--mcp"
+      ]
+    },
+    "markitdown": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["mcp_server_markitdown.py"]
+    }
+  }
+}

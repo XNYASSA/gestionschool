@@ -4,6 +4,50 @@
 > session. Il évite d'avoir à réexpliquer le projet à chaque prompt.
 > Ne pas coller ce contexte dans le chat — il est déjà connu.
 
+
+
+# Instructions du projet
+
+## Objectif
+Développer et maintenir cette application sans modifier inutilement le code existant.
+
+## Règles générales
+- Répondre en français, sauf si le code ou la documentation impose l'anglais.
+- Lire uniquement les fichiers nécessaires à la tâche.
+- Ne jamais analyser tout le dépôt sans justification.
+- Avant toute modification, identifier les fichiers concernés et expliquer brièvement le plan.
+- Ne pas réécrire un fichier complet lorsqu'une modification ciblée suffit.
+- Préserver l'architecture, les conventions et les dépendances existantes.
+- Ne pas créer de nouvelle dépendance sans l'expliquer.
+- Ne jamais lire, afficher ou modifier les secrets contenus dans les fichiers `.env`.
+
+## Méthode de travail
+1. Reformuler la tâche en une phrase.
+2. Inspecter uniquement les fichiers directement concernés.
+3. Proposer un plan court si plusieurs fichiers sont impliqués.
+4. Modifier le minimum nécessaire.
+5. Exécuter uniquement les tests pertinents.
+6. Signaler les fichiers modifiés, les tests exécutés et les éventuels risques.
+
+## Recherche de fichiers
+- Utiliser la recherche ciblée plutôt qu'une lecture globale du dépôt.
+- Ne pas lire `node_modules`, `dist`, `build`, `coverage` ou les fichiers générés, sauf demande explicite.
+- Pour une question locale, demander ou utiliser le chemin précis du fichier concerné.
+
+## Format de réponse
+Après chaque tâche, répondre avec :
+- Résultat : une phrase.
+- Fichiers modifiés : liste courte.
+- Tests : commande exécutée et résultat.
+- À vérifier : uniquement s'il reste un risque.
+
+## Compact instructions
+Lors d'une compression de contexte, préserver :
+- Les décisions d'architecture.
+- Les fichiers modifiés.
+- Les erreurs et résultats de tests.
+- Les contraintes explicitement données par l'utilisateur.
+
 ## Résumé en une phrase
 Web app de gestion scolaire (élèves, notes, finances, présences) pour écoles
 privées francophones/anglophones/techniques au Cameroun, avec 4 rôles

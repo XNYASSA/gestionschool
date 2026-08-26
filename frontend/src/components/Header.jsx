@@ -1,9 +1,12 @@
-import React, { useContext } from 'react'
+import React, { useContext, useState } from 'react'
 import { AuthContext } from '../context/AuthContext'
-import { LogOut, Filter } from 'lucide-react'
+import { LogOut, Filter, User, Settings } from 'lucide-react'
+import ProfileModal from './ProfileModal'
 
 export default function Header({ onFilterChange, filters }) {
   const { user, logout } = useContext(AuthContext)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
 
   if (!user) return null
 
@@ -69,15 +72,47 @@ export default function Header({ onFilterChange, filters }) {
           </div>
         )}
 
-        {/* Bouton Changer de compte à droite */}
-        <button
-          onClick={logout}
-          className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 font-medium text-xs md:text-sm flex-shrink-0"
-        >
-          <LogOut className="w-4 h-4" />
-          <span className="hidden md:inline">Changer</span>
-        </button>
+        {/* Menu utilisateur à droite */}
+        <div className="relative">
+          <button
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center gap-1 md:gap-2 px-2 md:px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-all duration-200 font-medium text-xs md:text-sm flex-shrink-0"
+          >
+            <Settings className="w-4 h-4" />
+            <span className="hidden md:inline">Compte</span>
+          </button>
+
+          {/* Menu déroulant */}
+          {showUserMenu && (
+            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+              <button
+                onClick={() => {
+                  setShowProfileModal(true)
+                  setShowUserMenu(false)
+                }}
+                className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700"
+              >
+                <User className="w-4 h-4" />
+                Mon profil
+              </button>
+              <button
+                onClick={logout}
+                className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-red-400"
+              >
+                <LogOut className="w-4 h-4" />
+                Déconnexion
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Profile Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={user}
+      />
     </header>
   )
 }

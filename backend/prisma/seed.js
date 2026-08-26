@@ -4,758 +4,447 @@ import bcryptjs from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Seed: Création des données de démo enrichies...')
+  console.log('🌱 Seed: Restructuration multi-écoles...')
 
-  // Nettoyer les données existantes
-  await prisma.presence.deleteMany()
-  await prisma.note.deleteMany()
-  await prisma.enseignantClasseMatiere.deleteMany()
-  await prisma.tranche.deleteMany()
-  await prisma.configurationFrais.deleteMany()
-  await prisma.matiere.deleteMany()
-  await prisma.inscriptionFrais.deleteMany()
-  await prisma.eleve.deleteMany()
-  await prisma.classe.deleteMany()
-  await prisma.enseignant.deleteMany()
-  await prisma.utilisateur.deleteMany()
-  await prisma.personnel.deleteMany()
-  await prisma.depense.deleteMany()
-  await prisma.finance.deleteMany()
-  await prisma.parametres.deleteMany()
-  await prisma.section.deleteMany()
-  await prisma.ecole.deleteMany()
+  // Créer les 6 écoles
+  const ecoles = await Promise.all([
+    prisma.ecole.create({
+      data: {
+        nomCourt: 'CRP_FRANCOPHONE',
+        nomComplet: 'Collège Rosa Parks francophone',
+        niveau: 'SECONDAIRE',
+        adresse: 'Yaoundé, Cameroun',
+        telephone: '+237 6 XX XXX XXXX',
+        email: 'crp-francophone@school.cm'
+      }
+    }),
+    prisma.ecole.create({
+      data: {
+        nomCourt: 'CRP_ANGLOPHONE',
+        nomComplet: 'Collège Rosa Parks anglophone',
+        niveau: 'SECONDAIRE',
+        adresse: 'Yaoundé, Cameroun',
+        telephone: '+237 6 XX XXX XXXX',
+        email: 'crp-anglophone@school.cm'
+      }
+    }),
+    prisma.ecole.create({
+      data: {
+        nomCourt: 'CRP_TECHNIQUE',
+        nomComplet: 'Collège Rosa Parks technique',
+        niveau: 'SECONDAIRE',
+        adresse: 'Yaoundé, Cameroun',
+        telephone: '+237 6 XX XXX XXXX',
+        email: 'crp-technique@school.cm'
+      }
+    }),
+    prisma.ecole.create({
+      data: {
+        nomCourt: 'CBM',
+        nomComplet: 'Collège bilingue les Master',
+        niveau: 'SECONDAIRE',
+        adresse: 'Yaoundé, Cameroun',
+        telephone: '+237 6 XX XXX XXXX',
+        email: 'cbm@school.cm'
+      }
+    }),
+    prisma.ecole.create({
+      data: {
+        nomCourt: 'EBSB',
+        nomComplet: 'École bilingue Steve Biko',
+        niveau: 'MATERNELLE_PRIMAIRE',
+        adresse: 'Yaoundé, Cameroun',
+        telephone: '+237 6 XX XXX XXXX',
+        email: 'ebsb@school.cm'
+      }
+    }),
+    prisma.ecole.create({
+      data: {
+        nomCourt: 'EBRP',
+        nomComplet: 'École bilingue Rosa Parks',
+        niveau: 'MATERNELLE_PRIMAIRE',
+        adresse: 'Yaoundé, Cameroun',
+        telephone: '+237 6 XX XXX XXXX',
+        email: 'ebrp@school.cm'
+      }
+    })
+  ])
 
-  console.log('✓ Tables vidées')
+  console.log('✓ 6 Écoles créées')
 
-  // Créer l'école
-  const ecole = await prisma.ecole.create({
+  // Créer les utilisateurs
+  const hashedPassword = await bcryptjs.hash('password123', 10)
+
+  const superAdmin = await prisma.utilisateur.create({
     data: {
-      nom: 'Collège Rosa-Parks',
-      lieu: 'Yaoundé, Cameroun',
-      telephone: '+237 6 XX XXX XXXX',
-      email: 'info@collegerosparks.cm',
-      anneeScolaireEnCours: '2024-2025'
+      nom: 'Xavier Nyassa',
+      email: 'admin@gestionschool.cm',
+      motDePasse: hashedPassword,
+      role: 'SUPER_ADMIN',
+      actif: true
     }
   })
 
-  console.log('✓ École créée')
+  const principal1 = await prisma.utilisateur.create({
+    data: {
+      nom: 'Dr. Jean Dupont',
+      email: 'principal1@gestionschool.cm',
+      motDePasse: hashedPassword,
+      role: 'PRINCIPAL',
+      actif: true
+    }
+  })
 
-  // Créer les sections par défaut avec IDs fixes pour compatibilité
-  const sections = await Promise.all([
-    prisma.section.create({
-      data: {
-        id: 'FRANCOPHONE',
-        nom: 'Francophone',
-        emoji: '🇫🇷',
-        ordre: 1
-      }
+  const principal2 = await prisma.utilisateur.create({
+    data: {
+      nom: 'Dr. Marie Durand',
+      email: 'principal2@gestionschool.cm',
+      motDePasse: hashedPassword,
+      role: 'PRINCIPAL',
+      actif: true
+    }
+  })
+
+  const directrice1 = await prisma.utilisateur.create({
+    data: {
+      nom: 'Mme Amélie Bernard',
+      email: 'directrice1@gestionschool.cm',
+      motDePasse: hashedPassword,
+      role: 'DIRECTRICE',
+      actif: true
+    }
+  })
+
+  const directrice2 = await prisma.utilisateur.create({
+    data: {
+      nom: 'Mme Sophie Lebrun',
+      email: 'directrice2@gestionschool.cm',
+      motDePasse: hashedPassword,
+      role: 'DIRECTRICE',
+      actif: true
+    }
+  })
+
+  const secretaire = await prisma.utilisateur.create({
+    data: {
+      nom: 'Alice Martin',
+      email: 'secretaire@gestionschool.cm',
+      motDePasse: hashedPassword,
+      role: 'SECRETAIRE',
+      actif: true
+    }
+  })
+
+  const enseignant = await prisma.utilisateur.create({
+    data: {
+      nom: 'Prof. Michel Leclerc',
+      email: 'enseignant@gestionschool.cm',
+      motDePasse: hashedPassword,
+      role: 'ENSEIGNANT',
+      actif: true
+    }
+  })
+
+  const economat = await prisma.utilisateur.create({
+    data: {
+      nom: 'Pierre Economiste',
+      email: 'economat@gestionschool.cm',
+      motDePasse: hashedPassword,
+      role: 'ECONOMAT',
+      actif: true
+    }
+  })
+
+  console.log('✓ 8 Utilisateurs créés')
+
+  // Attribuer les permissions par école
+  await Promise.all([
+    // Super Admin accès à toutes les écoles
+    ...ecoles.map(ecole =>
+      prisma.utilisateurEcole.create({
+        data: {
+          utilisateurId: superAdmin.id,
+          ecoleId: ecole.id,
+          role: 'SUPER_ADMIN'
+        }
+      })
+    ),
+    // Principal 1 → CRP Francophone + CBM
+    prisma.utilisateurEcole.create({
+      data: { utilisateurId: principal1.id, ecoleId: ecoles[0].id, role: 'PRINCIPAL' }
     }),
-    prisma.section.create({
-      data: {
-        id: 'ANGLOPHONE',
-        nom: 'Anglophone',
-        emoji: '🇬🇧',
-        ordre: 2
-      }
+    prisma.utilisateurEcole.create({
+      data: { utilisateurId: principal1.id, ecoleId: ecoles[3].id, role: 'PRINCIPAL' }
     }),
-    prisma.section.create({
-      data: {
-        id: 'TECHNIQUE',
-        nom: 'Technique',
-        emoji: '⚙️',
-        ordre: 3
-      }
-    })
+    // Principal 2 → CRP Anglophone + CRP Technique
+    prisma.utilisateurEcole.create({
+      data: { utilisateurId: principal2.id, ecoleId: ecoles[1].id, role: 'PRINCIPAL' }
+    }),
+    prisma.utilisateurEcole.create({
+      data: { utilisateurId: principal2.id, ecoleId: ecoles[2].id, role: 'PRINCIPAL' }
+    }),
+    // Directrice 1 → EBSB
+    prisma.utilisateurEcole.create({
+      data: { utilisateurId: directrice1.id, ecoleId: ecoles[4].id, role: 'DIRECTRICE' }
+    }),
+    // Directrice 2 → EBRP
+    prisma.utilisateurEcole.create({
+      data: { utilisateurId: directrice2.id, ecoleId: ecoles[5].id, role: 'DIRECTRICE' }
+    }),
+    // Secrétaire accès à toutes les écoles
+    ...ecoles.map(ecole =>
+      prisma.utilisateurEcole.create({
+        data: {
+          utilisateurId: secretaire.id,
+          ecoleId: ecole.id,
+          role: 'SECRETAIRE'
+        }
+      })
+    ),
+    // Enseignant accès à tous les écoles
+    ...ecoles.map(ecole =>
+      prisma.utilisateurEcole.create({
+        data: {
+          utilisateurId: enseignant.id,
+          ecoleId: ecole.id,
+          role: 'ENSEIGNANT'
+        }
+      })
+    ),
+    // Économat accès à toutes les écoles
+    ...ecoles.map(ecole =>
+      prisma.utilisateurEcole.create({
+        data: {
+          utilisateurId: economat.id,
+          ecoleId: ecole.id,
+          role: 'ECONOMAT'
+        }
+      })
+    )
   ])
 
-  console.log('✓ 3 Sections créées')
+  console.log('✓ Permissions attribuées par école')
 
-  // Créer les matières par section
-  const matieres = await Promise.all([
-    // FRANCOPHONE
-    prisma.matiere.create({ data: { nom: 'Mathématiques', sectionId: 'FRANCOPHONE', coefficient: 4 } }),
-    prisma.matiere.create({ data: { nom: 'Français', sectionId: 'FRANCOPHONE', coefficient: 3 } }),
-    prisma.matiere.create({ data: { nom: 'Sciences', sectionId: 'FRANCOPHONE', coefficient: 3 } }),
-    // ANGLOPHONE
-    prisma.matiere.create({ data: { nom: 'English', sectionId: 'ANGLOPHONE', coefficient: 4 } }),
-    prisma.matiere.create({ data: { nom: 'Mathematics', sectionId: 'ANGLOPHONE', coefficient: 4 } }),
-    // TECHNIQUE
-    prisma.matiere.create({ data: { nom: 'Technologie', sectionId: 'TECHNIQUE', coefficient: 4 } }),
-    prisma.matiere.create({ data: { nom: 'Informatique', sectionId: 'TECHNIQUE', coefficient: 3 } })
-  ])
+  // Créer les classes pour chaque école
+  const classesMap = {}
+  for (const ecole of ecoles) {
+    classesMap[ecole.nomCourt] = []
+    const niveaux = ecole.niveau === 'SECONDAIRE' ? ['6ème', 'Form 1', '4ème'] : ['PS', 'MS', 'GS']
+    for (let i = 0; i < 2; i++) {
+      for (const niveau of niveaux) {
+        const classe = await prisma.classe.create({
+          data: {
+            nom: `${niveau} ${String.fromCharCode(65 + i)}`,
+            niveau,
+            ecoleId: ecole.id
+          }
+        })
+        classesMap[ecole.nomCourt].push(classe)
+      }
+    }
+  }
 
-  console.log('✓ 7 Matières créées')
+  console.log('✓ Classes créées pour chaque école')
 
-  // Créer les configurations de frais par section
-  const configFrais = await Promise.all([
-    prisma.configurationFrais.create({
+  // Créer les matières par école
+  const matieresFrancophone = ['Mathématiques', 'Français', 'Sciences', 'Anglais', 'Histoire-Géo', 'EPS']
+  const matieresAnglophone = ['English', 'Mathematics', 'Sciences', 'French', 'History-Geography', 'Sports']
+  const matieresTechnique = ['Technologie', 'Informatique', 'Mathématiques', 'Sciences', 'Dessin Technique', 'EPS']
+  const matieresPrimaire = ['Français', 'Mathématiques', 'Sciences', 'Histoire-Géo', 'EPS', 'Dessin']
+
+  for (const ecole of ecoles) {
+    let matieres
+    if (ecole.nomCourt === 'CRP_FRANCOPHONE') matieres = matieresFrancophone
+    else if (ecole.nomCourt === 'CRP_ANGLOPHONE') matieres = matieresAnglophone
+    else if (ecole.nomCourt === 'CRP_TECHNIQUE') matieres = matieresTechnique
+    else if (ecole.nomCourt === 'CBM') matieres = matieresFrancophone
+    else matieres = matieresPrimaire
+
+    for (const nomMatiere of matieres) {
+      await prisma.matiere.create({
+        data: {
+          nom: nomMatiere,
+          ecoleId: ecole.id,
+          coefficient: 3
+        }
+      })
+    }
+  }
+
+  console.log('✓ Matières créées pour chaque école')
+
+  // Créer les configurations de frais par école
+  for (const ecole of ecoles) {
+    await prisma.configurationFrais.create({
       data: {
-        sectionId: 'FRANCOPHONE',
+        ecoleId: ecole.id,
         montantInscription: 50000,
-        montantFraisTotal: 80000,
+        montantFraisTotal: 800000,
         tranches: {
           create: [
-            { numero: 1, montant: 30000 },
-            { numero: 2, montant: 25000 },
-            { numero: 3, montant: 25000 }
-          ]
-        }
-      }
-    }),
-    prisma.configurationFrais.create({
-      data: {
-        sectionId: 'ANGLOPHONE',
-        montantInscription: 55000,
-        montantFraisTotal: 85000,
-        tranches: {
-          create: [
-            { numero: 1, montant: 30000 },
-            { numero: 2, montant: 30000 },
-            { numero: 3, montant: 25000 }
-          ]
-        }
-      }
-    }),
-    prisma.configurationFrais.create({
-      data: {
-        sectionId: 'TECHNIQUE',
-        montantInscription: 45000,
-        montantFraisTotal: 75000,
-        tranches: {
-          create: [
-            { numero: 1, montant: 40000 },
-            { numero: 2, montant: 35000 }
+            { numero: 1, montant: 300000 },
+            { numero: 2, montant: 250000 },
+            { numero: 3, montant: 250000 }
           ]
         }
       }
     })
-  ])
+  }
 
   console.log('✓ Configurations de frais créées')
 
-  // Créer les utilisateurs
-  const hashPassword = async (pwd) => bcryptjs.hash(pwd, 10)
+  // Créer les personnels pour chaque école
+  for (const ecole of ecoles) {
+    const personnels = [
+      { nom: 'Directeur', fonction: 'Directeur', salaire: 750000 },
+      { nom: 'Censeur', fonction: 'Censeur', salaire: 450000 },
+      { nom: 'Surveillant', fonction: 'Surveillant Général', salaire: 300000 },
+      { nom: 'Intendant', fonction: 'Intendant', salaire: 250000 },
+      { nom: 'Secrétaire Général', fonction: 'Secrétaire Général', salaire: 200000 }
+    ]
 
-  const utilisateurs = await Promise.all([
-    prisma.utilisateur.create({
-      data: {
-        nom: 'Michel Manga',
-        email: 'michelmanga941@gmail.com',
-        motDePasse: await hashPassword('demo123'),
-        role: 'PROPRIETAIRE'
-      }
-    }),
-    prisma.utilisateur.create({
-      data: {
-        nom: 'Guy Mbakop Roger',
-        email: 'yves@school.cm',
-        motDePasse: await hashPassword('demo123'),
-        role: 'DIRECTEUR'
-      }
-    }),
-    prisma.utilisateur.create({
-      data: {
-        nom: 'Mme Marie AYISSI',
-        email: 'marie@school.cm',
-        motDePasse: await hashPassword('demo123'),
-        role: 'SECRETAIRE'
-      }
-    }),
-    prisma.utilisateur.create({
-      data: {
-        nom: 'Mme Inès AYISSI',
-        email: 'ines.math@school.cm',
-        motDePasse: await hashPassword('demo123'),
-        role: 'ENSEIGNANT'
-      }
-    }),
-    prisma.utilisateur.create({
-      data: {
-        nom: 'Mr. Benjamin NCHANJI',
-        email: 'benjamin.english@school.cm',
-        motDePasse: await hashPassword('demo123'),
-        role: 'ENSEIGNANT'
-      }
-    })
-  ])
+    for (const p of personnels) {
+      await prisma.personnel.create({
+        data: {
+          nom: `${p.nom} - ${ecole.nomCourt}`,
+          fonction: p.fonction,
+          telephone: '+237 6 XX XXX XXXX',
+          salaireMensuel: p.salaire,
+          ecoleId: ecole.id
+        }
+      })
+    }
+  }
 
-  console.log('✓ 5 Utilisateurs créés')
+  console.log('✓ Personnels créés pour chaque école')
 
   // Créer les enseignants
-  const enseignants = await Promise.all([
-    prisma.enseignant.create({
+  const nomsPrenoms = [
+    { nom: 'Dupont', prenom: 'Jean' },
+    { nom: 'Martin', prenom: 'Marie' },
+    { nom: 'Bernard', prenom: 'Pierre' },
+    { nom: 'Thomas', prenom: 'Sophie' },
+    { nom: 'Robert', prenom: 'Marc' }
+  ]
+
+  for (const nomPrenom of nomsPrenoms) {
+    const user = await prisma.utilisateur.create({
       data: {
-        utilisateurId: utilisateurs[3].id,
-        telephone: '+237 690 123 456',
-        dateEmbauche: new Date('2023-09-01')
-      }
-    }),
-    prisma.enseignant.create({
-      data: {
-        utilisateurId: utilisateurs[4].id,
-        telephone: '+237 691 234 567',
-        dateEmbauche: new Date('2023-09-01')
+        nom: `${nomPrenom.prenom} ${nomPrenom.nom}`,
+        email: `prof.${nomPrenom.prenom.toLowerCase()}@school.cm`,
+        motDePasse: hashedPassword,
+        role: 'ENSEIGNANT'
       }
     })
-  ])
+
+    const enseignant = await prisma.enseignant.create({
+      data: {
+        utilisateurId: user.id,
+        telephone: '+237 6 XX XXX XXXX'
+      }
+    })
+
+    // Assigner l'enseignant à 2 écoles
+    const ecole1 = ecoles[Math.floor(Math.random() * 6)]
+    const ecole2 = ecoles[Math.floor(Math.random() * 6)]
+
+    await prisma.utilisateurEcole.create({
+      data: { utilisateurId: user.id, ecoleId: ecole1.id, role: 'ENSEIGNANT' }
+    })
+    if (ecole1.id !== ecole2.id) {
+      await prisma.utilisateurEcole.create({
+        data: { utilisateurId: user.id, ecoleId: ecole2.id, role: 'ENSEIGNANT' }
+      })
+    }
+
+    // Assigner à quelques classes
+    const classesEcole1 = classesMap[ecole1.nomCourt]
+    if (classesEcole1.length > 0) {
+      const classe = classesEcole1[0]
+      const matiere = (await prisma.matiere.findMany({ where: { ecoleId: ecole1.id }, take: 1 }))[0]
+      if (matiere) {
+        await prisma.enseignantClasseMatiere.create({
+          data: {
+            enseignantId: enseignant.id,
+            classeId: classe.id,
+            matiereId: matiere.id
+          }
+        })
+      }
+    }
+  }
 
   console.log('✓ Enseignants créés')
 
-  // Créer 8 classes (3 sections)
-  const classes = await Promise.all([
-    // FRANCOPHONE (3 classes)
-    prisma.classe.create({ data: { nom: '6ème A', section: 'FRANCOPHONE', sectionId: 'FRANCOPHONE', niveau: '6ème' } }),
-    prisma.classe.create({ data: { nom: '5ème B', section: 'FRANCOPHONE', sectionId: 'FRANCOPHONE', niveau: '5ème' } }),
-    prisma.classe.create({ data: { nom: '3ème A', section: 'FRANCOPHONE', sectionId: 'FRANCOPHONE', niveau: '3ème' } }),
-    // ANGLOPHONE (2 classes)
-    prisma.classe.create({ data: { nom: 'Form 1 A', section: 'ANGLOPHONE', sectionId: 'ANGLOPHONE', niveau: 'Form 1' } }),
-    prisma.classe.create({ data: { nom: 'Form 3 B', section: 'ANGLOPHONE', sectionId: 'ANGLOPHONE', niveau: 'Form 3' } }),
-    // TECHNIQUE (2 classes)
-    prisma.classe.create({ data: { nom: '2nde Maintenance', section: 'TECHNIQUE', sectionId: 'TECHNIQUE', niveau: '2nde' } }),
-    prisma.classe.create({ data: { nom: 'Terminale Electro', section: 'TECHNIQUE', sectionId: 'TECHNIQUE', niveau: 'Terminale' } })
-  ])
+  // Créer 50 élèves et les frais
+  const noms = ['Nkomo', 'Kamdem', 'Fokou', 'Mbala', 'Tsomé', 'Mouafo', 'Eyambe', 'Tchaptchet', 'Njamen', 'Ouakoume', 'Engono', 'Talla', 'Diouf', 'Keita', 'Sow', 'Kone', 'Coulibaly', 'Ba', 'Diop', 'Faye']
+  const prenoms = ['Jean', 'Marie', 'Pierre', 'Sophie', 'Marc', 'Anne', 'Paul', 'Léa', 'Michel', 'Carole', 'Alain', 'Brigitte', 'Claude', 'Danielle', 'Émile', 'Françoise', 'Gérard', 'Hélène', 'Irène', 'Jacques']
 
-  console.log('✓ 8 Classes créées')
+  for (let i = 0; i < 50; i++) {
+    const ecole = ecoles[i % 6]
+    const classesEcole = classesMap[ecole.nomCourt]
+    const classe = classesEcole[i % classesEcole.length]
 
-  // Lier enseignants aux classes et matieres
-  // matieres[0] = Mathématiques (FRANCOPHONE)
-  // matieres[1] = Français (FRANCOPHONE)
-  // matieres[2] = Sciences (FRANCOPHONE)
-  // matieres[3] = English (ANGLOPHONE)
-  // matieres[4] = Mathematics (ANGLOPHONE)
-  // matieres[5] = Technologie (TECHNIQUE)
-  // matieres[6] = Informatique (TECHNIQUE)
-
-  await Promise.all([
-    // Math - Inès (FRANCOPHONE)
-    prisma.enseignantClasseMatiere.create({
-      data: { enseignantId: enseignants[0].id, classeId: classes[0].id, matiereId: matieres[0].id }
-    }),
-    prisma.enseignantClasseMatiere.create({
-      data: { enseignantId: enseignants[0].id, classeId: classes[1].id, matiereId: matieres[0].id }
-    }),
-    prisma.enseignantClasseMatiere.create({
-      data: { enseignantId: enseignants[0].id, classeId: classes[2].id, matiereId: matieres[0].id }
-    }),
-    // English - Benjamin (ANGLOPHONE)
-    prisma.enseignantClasseMatiere.create({
-      data: { enseignantId: enseignants[1].id, classeId: classes[3].id, matiereId: matieres[3].id }
-    }),
-    prisma.enseignantClasseMatiere.create({
-      data: { enseignantId: enseignants[1].id, classeId: classes[4].id, matiereId: matieres[3].id }
-    }),
-    // Technologie - Benjamin (TECHNIQUE)
-    prisma.enseignantClasseMatiere.create({
-      data: { enseignantId: enseignants[1].id, classeId: classes[5].id, matiereId: matieres[5].id }
-    })
-  ])
-
-  console.log('✓ Affectations enseignant-classe-matiere créées')
-
-  // Créer 30 élèves répartis réalistement
-  const eleves = await Promise.all([
-    // 6ème A (8 élèves)
-    prisma.eleve.create({
+    const eleve = await prisma.eleve.create({
       data: {
-        matricule: 'MAT001',
-        nom: 'KENGNI', prenom: 'Nadia', sexe: 'FEMININ',
-        dateNaissance: new Date('2012-05-15'),
-        classeId: classes[0].id,
-        nomParent: 'M. Jean KENGNI', lieuParente: 'Père',
-        telephoneParent: '+237 670 123 456', adresseParent: 'Yaoundé, Bastos'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT002',
-        nom: 'NGUEMA', prenom: 'Alain', sexe: 'MASCULIN',
-        dateNaissance: new Date('2012-08-22'),
-        classeId: classes[0].id,
-        nomParent: 'Mme Sylvie NGUEMA', lieuParente: 'Mère',
-        telephoneParent: '+237 671 234 567', adresseParent: 'Yaoundé, Nlongkak'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT003',
-        nom: 'TCHINDA', prenom: 'Ange', sexe: 'FEMININ',
-        dateNaissance: new Date('2013-02-10'),
-        classeId: classes[0].id,
-        nomParent: 'Dr. Michel TCHINDA', lieuParente: 'Père',
-        telephoneParent: '+237 672 345 678'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT004',
-        nom: 'MBALLA', prenom: 'Léopold', sexe: 'MASCULIN',
-        dateNaissance: new Date('2012-11-03'),
-        classeId: classes[0].id,
-        nomParent: 'M. Paul MBALLA', lieuParente: 'Père',
-        telephoneParent: '+237 673 456 789'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT005',
-        nom: 'KAMENI', prenom: 'Jessica', sexe: 'FEMININ',
-        dateNaissance: new Date('2012-07-14'),
-        classeId: classes[0].id,
-        nomParent: 'Mme Hélène KAMENI', lieuParente: 'Mère',
-        telephoneParent: '+237 674 567 890'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT006',
-        nom: 'SONGA', prenom: 'Marc', sexe: 'MASCULIN',
-        dateNaissance: new Date('2012-09-25'),
-        classeId: classes[0].id,
-        nomParent: 'M. Xavier SONGA', lieuParente: 'Père',
-        telephoneParent: '+237 675 678 901'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT007',
-        nom: 'LIPOGO', prenom: 'Valérie', sexe: 'FEMININ',
-        dateNaissance: new Date('2012-04-18'),
-        classeId: classes[0].id,
-        nomParent: 'Mme Françoise LIPOGO', lieuParente: 'Mère',
-        telephoneParent: '+237 676 789 012'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT008',
-        nom: 'NZOMO', prenom: 'David', sexe: 'MASCULIN',
-        dateNaissance: new Date('2012-12-05'),
-        classeId: classes[0].id,
-        nomParent: 'M. Roger NZOMO', lieuParente: 'Père',
-        telephoneParent: '+237 677 890 123', adresseParent: 'Yaoundé, Emombo'
-      }
-    }),
-
-    // 5ème B (7 élèves)
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT009',
-        nom: 'BAH', prenom: 'Amina', sexe: 'FEMININ',
-        dateNaissance: new Date('2011-03-10'),
-        classeId: classes[1].id,
-        nomParent: 'M. Ibrahim BAH', lieuParente: 'Père',
-        telephoneParent: '+237 678 345 678'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT010',
-        nom: 'FONGCHOE', prenom: 'Hervé', sexe: 'MASCULIN',
-        dateNaissance: new Date('2011-06-20'),
-        classeId: classes[1].id,
-        nomParent: 'M. Antoine FONGCHOE', lieuParente: 'Père',
-        telephoneParent: '+237 679 456 789'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT011',
-        nom: 'MVOGO', prenom: 'Christelle', sexe: 'FEMININ',
-        dateNaissance: new Date('2011-01-28'),
-        classeId: classes[1].id,
-        nomParent: 'Mme Christine MVOGO', lieuParente: 'Mère',
-        telephoneParent: '+237 680 567 890'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT012',
-        nom: 'ETOUNDI', prenom: 'Stéphane', sexe: 'MASCULIN',
-        dateNaissance: new Date('2011-09-15'),
-        classeId: classes[1].id,
-        nomParent: 'M. Luc ETOUNDI', lieuParente: 'Père',
-        telephoneParent: '+237 681 678 901'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT013',
-        nom: 'DIEUDONNE', prenom: 'Laure', sexe: 'FEMININ',
-        dateNaissance: new Date('2011-05-02'),
-        classeId: classes[1].id,
-        nomParent: 'M. Christophe DIEUDONNE', lieuParente: 'Père',
-        telephoneParent: '+237 682 789 012'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT014',
-        nom: 'KEMAYOU', prenom: 'Noël', sexe: 'MASCULIN',
-        dateNaissance: new Date('2011-11-08'),
-        classeId: classes[1].id,
-        nomParent: 'M. Serge KEMAYOU', lieuParente: 'Père',
-        telephoneParent: '+237 683 890 123'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT015',
-        nom: 'KAMGA', prenom: 'Sophie', sexe: 'FEMININ',
-        dateNaissance: new Date('2011-07-12'),
-        classeId: classes[1].id,
-        nomParent: 'Mme Bernadette KAMGA', lieuParente: 'Mère',
-        telephoneParent: '+237 684 901 234'
-      }
-    }),
-
-    // 3ème A (6 élèves)
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT016',
-        nom: 'DONGMO', prenom: 'Cédric', sexe: 'MASCULIN',
-        dateNaissance: new Date('2010-04-20'),
-        classeId: classes[2].id,
-        nomParent: 'M. Bernard DONGMO', lieuParente: 'Père',
-        telephoneParent: '+237 685 012 345'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT017',
-        nom: 'NKOMA', prenom: 'Sandrine', sexe: 'FEMININ',
-        dateNaissance: new Date('2010-08-14'),
-        classeId: classes[2].id,
-        nomParent: 'Mme Marthe NKOMA', lieuParente: 'Mère',
-        telephoneParent: '+237 686 123 456'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT018',
-        nom: 'ENYE', prenom: 'Olivier', sexe: 'MASCULIN',
-        dateNaissance: new Date('2010-02-09'),
-        classeId: classes[2].id,
-        nomParent: 'M. Denis ENYE', lieuParente: 'Père',
-        telephoneParent: '+237 687 234 567'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT019',
-        nom: 'MAKONDE', prenom: 'Fabrice', sexe: 'MASCULIN',
-        dateNaissance: new Date('2010-10-17'),
-        classeId: classes[2].id,
-        nomParent: 'M. Raoul MAKONDE', lieuParente: 'Père',
-        telephoneParent: '+237 688 345 678'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT020',
-        nom: 'FOTSO', prenom: 'Nadège', sexe: 'FEMININ',
-        dateNaissance: new Date('2010-06-23'),
-        classeId: classes[2].id,
-        nomParent: 'M. Armand FOTSO', lieuParente: 'Père',
-        telephoneParent: '+237 689 456 789'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT021',
-        nom: 'ANGOUA', prenom: 'Fabien', sexe: 'MASCULIN',
-        dateNaissance: new Date('2010-12-30'),
-        classeId: classes[2].id,
-        nomParent: 'M. Gérard ANGOUA', lieuParente: 'Père',
-        telephoneParent: '+237 690 567 890'
-      }
-    }),
-
-    // Form 1 A (5 élèves)
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT022',
-        nom: 'NKONGA', prenom: 'Marcus', sexe: 'MASCULIN',
-        dateNaissance: new Date('2012-08-20'),
-        classeId: classes[3].id,
-        nomParent: 'Mrs. Angela NKONGA', lieuParente: 'Mère',
-        telephoneParent: '+237 675 234 567'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT023',
-        nom: 'SANDA', prenom: 'Precious', sexe: 'FEMININ',
-        dateNaissance: new Date('2012-03-15'),
-        classeId: classes[3].id,
-        nomParent: 'Mr. Francis SANDA', lieuParente: 'Père',
-        telephoneParent: '+237 676 345 678'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT024',
-        nom: 'MBUAGBAW', prenom: 'Andrew', sexe: 'MASCULIN',
-        dateNaissance: new Date('2012-11-07'),
-        classeId: classes[3].id,
-        nomParent: 'Mr. Timothy MBUAGBAW', lieuParente: 'Père',
-        telephoneParent: '+237 677 456 789'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT025',
-        nom: 'CHIA', prenom: 'Renée', sexe: 'FEMININ',
-        dateNaissance: new Date('2012-09-28'),
-        classeId: classes[3].id,
-        nomParent: 'Mrs. Sylvia CHIA', lieuParente: 'Mère',
-        telephoneParent: '+237 678 567 890'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT026',
-        nom: 'FONGOH', prenom: 'Kevin', sexe: 'MASCULIN',
-        dateNaissance: new Date('2012-05-12'),
-        classeId: classes[3].id,
-        nomParent: 'Mr. Samuel FONGOH', lieuParente: 'Père',
-        telephoneParent: '+237 679 678 901'
-      }
-    }),
-
-    // Form 3 B (4 élèves)
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT027',
-        nom: 'AGBOR', prenom: 'Vivian', sexe: 'FEMININ',
-        dateNaissance: new Date('2010-07-19'),
-        classeId: classes[4].id,
-        nomParent: 'Mrs. Margaret AGBOR', lieuParente: 'Mère',
-        telephoneParent: '+237 680 789 012'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT028',
-        nom: 'NJOH', prenom: 'Clement', sexe: 'MASCULIN',
-        dateNaissance: new Date('2010-02-25'),
-        classeId: classes[4].id,
-        nomParent: 'Mr. Edward NJOH', lieuParente: 'Père',
-        telephoneParent: '+237 681 890 123'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT029',
-        nom: 'NGONDA', prenom: 'Linda', sexe: 'FEMININ',
-        dateNaissance: new Date('2010-10-11'),
-        classeId: classes[4].id,
-        nomParent: 'Mr. Joseph NGONDA', lieuParente: 'Père',
-        telephoneParent: '+237 682 901 234'
-      }
-    }),
-    prisma.eleve.create({
-      data: {
-        matricule: 'MAT030',
-        nom: 'MUAMBI', prenom: 'Richard', sexe: 'MASCULIN',
-        dateNaissance: new Date('2010-06-03'),
-        classeId: classes[4].id,
-        nomParent: 'Mr. Victor MUAMBI', lieuParente: 'Père',
-        telephoneParent: '+237 683 012 345'
+        matricule: `MAT${String(i + 1).padStart(3, '0')}`,
+        nom: noms[i % noms.length],
+        prenom: prenoms[i % prenoms.length],
+        sexe: i % 2 === 0 ? 'MASCULIN' : 'FEMININ',
+        dateNaissance: new Date(2010 + Math.floor(i / 15), Math.random() * 12, Math.floor(Math.random() * 28) + 1),
+        classeId: classe.id,
+        nomParent: `Parent de ${prenoms[i % prenoms.length]} ${noms[i % noms.length]}`,
+        lieuParente: ['Mère', 'Père', 'Tuteur'][Math.floor(Math.random() * 3)],
+        telephoneParent: '+237 6 ' + String(Math.floor(Math.random() * 100000000)).padStart(8, '0'),
+        emailParent: `parent${i}@email.cm`,
+        adresseParent: 'Yaoundé, Cameroun'
       }
     })
-  ])
 
-  console.log('✓ 30 Élèves créés')
+    // Créer les frais de cet élève
+    const statuts = ['SOLDE', 'PARTIEL', 'IMPAYE']
+    const statut = statuts[Math.floor(Math.random() * 3)]
 
-  // Créer les frais pour tous les élèves (mix de statuts)
-  const feeData = eleves.map((eleve, idx) => {
-    let statut = 'SOLDE'
-    let montantPaye = 80000
-    if (idx % 5 === 0) {
-      statut = 'IMPAYE'
-      montantPaye = 0
-    } else if (idx % 3 === 0) {
-      statut = 'PARTIEL'
-      montantPaye = 50000
-    }
-    return {
-      eleveId: eleve.id,
-      tranche: 'inscription',
-      montantDu: 80000,
-      montantPaye,
-      statut,
-      statutValidation: 'BROUILLON'
-    }
-  })
+    const montantInscription = 50000
+    const montantTranche = 250000
 
-  await prisma.inscriptionFrais.createMany({ data: feeData })
-  console.log('✓ Frais créés pour tous les élèves')
-
-  // Créer du personnel
-  await Promise.all([
-    prisma.personnel.create({
+    await prisma.inscriptionFrais.create({
       data: {
-        ecoleId: ecole.id,
-        nom: 'Dr. Jean-Claude NGADJEU',
-        fonction: 'Directeur General',
-        telephone: '+237 699 999 999',
-        salaireMensuel: 750000,
-        dateEmbauche: new Date('2020-01-15')
-      }
-    }),
-    prisma.personnel.create({
-      data: {
-        ecoleId: ecole.id,
-        nom: 'Mme Alice MAKOTO',
-        fonction: 'Comptable',
-        telephone: '+237 690 000 001',
-        salaireMensuel: 450000,
-        dateEmbauche: new Date('2021-06-10')
-      }
-    }),
-    prisma.personnel.create({
-      data: {
-        ecoleId: ecole.id,
-        nom: 'M. Henri TEKAM',
-        fonction: 'Agent d\'entretien',
-        telephone: '+237 691 000 002',
-        salaireMensuel: 200000,
-        dateEmbauche: new Date('2022-03-20')
-      }
-    }),
-    prisma.personnel.create({
-      data: {
-        ecoleId: ecole.id,
-        nom: 'Mme Rose BIKOMO',
-        fonction: 'Secrétaire Générale',
-        telephone: '+237 692 000 003',
-        salaireMensuel: 300000,
-        dateEmbauche: new Date('2021-09-01')
-      }
-    }),
-    prisma.personnel.create({
-      data: {
-        ecoleId: ecole.id,
-        nom: 'M. David NKENE',
-        fonction: 'Surveillant',
-        telephone: '+237 693 000 004',
-        salaireMensuel: 250000,
-        dateEmbauche: new Date('2023-01-15')
+        eleveId: eleve.id,
+        tranche: 'inscription',
+        montantDu: montantInscription,
+        montantPaye: statut === 'SOLDE' ? montantInscription : statut === 'PARTIEL' ? Math.floor(montantInscription / 2) : 0,
+        modePayement: ['ORANGE_MONEY', 'MTN_MOMO', 'ESPECES'][Math.floor(Math.random() * 3)],
+        statut: statut === 'SOLDE' ? 'SOLDE' : statut === 'PARTIEL' ? 'PARTIEL' : 'IMPAYE',
+        statutValidation: 'VALIDE'
       }
     })
-  ])
 
-  console.log('✓ Personnel créé')
-
-  // Créer des dépenses de test
-  await Promise.all([
-    prisma.depense.create({
-      data: {
-        description: 'Achat de fournitures scolaires (cahiers, stylos)',
-        categorie: 'FOURNITURES',
-        montant: 250000,
-        dateDepense: new Date('2024-08-15')
-      }
-    }),
-    prisma.depense.create({
-      data: {
-        description: 'Maintenance toiture - réparation fuite',
-        categorie: 'MAINTENANCE',
-        montant: 800000,
-        dateDepense: new Date('2024-07-20')
-      }
-    }),
-    prisma.depense.create({
-      data: {
-        description: 'Achat de matériel informatique (ordinateurs)',
-        categorie: 'MATERIEL',
-        montant: 3500000,
-        dateDepense: new Date('2024-08-01')
-      }
-    }),
-    prisma.depense.create({
-      data: {
-        description: 'Facture électricité - août 2024',
-        categorie: 'ENERGIE',
-        montant: 450000,
-        dateDepense: new Date('2024-08-31')
-      }
-    }),
-    prisma.depense.create({
-      data: {
-        description: 'Facture eau - août 2024',
-        categorie: 'ENERGIE',
-        montant: 150000,
-        dateDepense: new Date('2024-08-31')
-      }
-    }),
-    prisma.depense.create({
-      data: {
-        description: 'Achat de mobilier (tables, chaises)',
-        categorie: 'MATERIEL',
-        montant: 1200000,
-        dateDepense: new Date('2024-07-10')
-      }
-    }),
-    prisma.depense.create({
-      data: {
-        description: 'Achat de livres pour la bibliothèque',
-        categorie: 'FOURNITURES',
-        montant: 600000,
-        dateDepense: new Date('2024-06-15')
-      }
-    }),
-    prisma.depense.create({
-      data: {
-        description: 'Réparation système de climatisation',
-        categorie: 'MAINTENANCE',
-        montant: 500000,
-        dateDepense: new Date('2024-07-05')
-      }
-    })
-  ])
-
-  console.log('✓ Dépenses créées')
-
-  // Créer des paramètres
-  await prisma.parametres.create({
-    data: {
-      ecoleId: ecole.id,
-      baremeNotation: JSON.stringify({
-        'Insuffisant': { min: 0, max: 10 },
-        'Passable': { min: 10, max: 13 },
-        'Assez Bien': { min: 13, max: 15 },
-        'Bien': { min: 15, max: 18 },
-        'Tres Bien': { min: 18, max: 20 }
-      }),
-      echances: JSON.stringify({
-        'inscription': '2024-09-01',
-        'tranche1': '2024-10-01',
-        'tranche2': '2024-12-01',
-        'tranche3': '2025-02-01'
+    // Tranches
+    for (let t = 1; t <= 3; t++) {
+      const statutTranche = statuts[Math.floor(Math.random() * 3)]
+      await prisma.inscriptionFrais.create({
+        data: {
+          eleveId: eleve.id,
+          tranche: `tranche${t}`,
+          montantDu: montantTranche,
+          montantPaye: statutTranche === 'SOLDE' ? montantTranche : statutTranche === 'PARTIEL' ? Math.floor(montantTranche / 2) : 0,
+          modePayement: ['ORANGE_MONEY', 'MTN_MOMO', 'ESPECES'][Math.floor(Math.random() * 3)],
+          statut: statutTranche === 'SOLDE' ? 'SOLDE' : statutTranche === 'PARTIEL' ? 'PARTIEL' : 'IMPAYE',
+          statutValidation: 'VALIDE'
+        }
       })
     }
-  })
+  }
 
-  console.log('✓ Paramètres créés')
+  console.log('✓ 50 Élèves créés avec frais')
 
-  console.log('✅ Seed enrichie complétée avec succès!')
-  console.log('\n📊 Statistiques:')
-  console.log('- 8 classes (3 Francophone, 2 Anglophone, 2 Technique)')
-  console.log('- 30 élèves répartis réalistement')
-  console.log('- Mix de statuts de paiement (Solde, Partiel, Impaye)')
-  console.log('- 5 membres du personnel avec salaires variés')
-  console.log('\n🔐 Comptes de démo:')
-  console.log('1. Propriétaire: michelmanga941@gmail.com / demo123')
-  console.log('2. Directeur: yves@school.cm / demo123')
-  console.log('3. Secrétaire: marie@school.cm / demo123')
-  console.log('4. Enseignant (Math): ines.math@school.cm / demo123')
-  console.log('5. Enseignant (English): benjamin.english@school.cm / demo123')
+  console.log('✅ Seed réussi ! Base de données restructurée pour multi-écoles')
 }
 
 main()
   .catch(e => {
-    console.error(e)
+    console.error('❌ Erreur seed:', e)
     process.exit(1)
   })
   .finally(async () => {

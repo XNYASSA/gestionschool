@@ -18,6 +18,14 @@ import depensesRoutes from './routes/depenses.js'
 import utilisateursRoutes from './routes/utilisateurs.js'
 import dashboardRoutes from './routes/dashboard.js'
 
+// Routes multi-écoles (Phase 2)
+import ecolesRoutes from './routes/ecoles.js'
+import utilisateursecolesRoutes from './routes/utilisateurs-ecoles.js'
+import saisiesQuotidiennesRoutes from './routes/saisies-quotidiennes.js'
+import anomaliesRoutes from './routes/anomalies.js'
+import annoncesRoutes from './routes/annonces.js'
+import bulletinsRoutes from './routes/bulletins.js'
+
 dotenv.config()
 
 const app = express()
@@ -51,6 +59,14 @@ app.use('/api/personnel', personnelRoutes)
 app.use('/api/depenses', depensesRoutes)
 app.use('/api/utilisateurs', utilisateursRoutes)
 app.use('/api/dashboard', dashboardRoutes)
+
+// Routes multi-écoles (Phase 2)
+app.use('/api/ecoles', ecolesRoutes)
+app.use('/api/utilisateurs-ecoles', utilisateursecolesRoutes)
+app.use('/api/saisies-quotidiennes', saisiesQuotidiennesRoutes)
+app.use('/api/anomalies', anomaliesRoutes)
+app.use('/api/annonces', annoncesRoutes)
+app.use('/api/bulletins', bulletinsRoutes)
 
 // Health check
 app.get('/health', (req, res) => {

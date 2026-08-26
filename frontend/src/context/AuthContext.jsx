@@ -5,6 +5,8 @@ export const AuthContext = createContext()
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
+  const [ecoles, setEcoles] = useState([])
+  const [ecoleSelectionnee, setEcoleSelectionnee] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -20,9 +22,21 @@ export const AuthProvider = ({ children }) => {
             name: utilisateur.nom,
             email: utilisateur.email,
             role: mapRole(utilisateur.role),
+            roleAPI: utilisateur.role,
             avatar: getAvatarByRole(utilisateur.role)
           }
           setUser(mappedUser)
+
+          // Charger les écoles de l'utilisateur
+          if (utilisateur.ecoles && utilisateur.ecoles.length > 0) {
+            setEcoles(utilisateur.ecoles)
+            // Sélectionner la première école par défaut
+            const selectedEcole = localStorage.getItem('selectedEcole')
+            const ecoleActuelle = selectedEcole
+              ? utilisateur.ecoles.find(e => e.id === selectedEcole)
+              : utilisateur.ecoles[0]
+            setEcoleSelectionnee(ecoleActuelle || utilisateur.ecoles[0])
+          }
         } catch (err) {
           console.error('Erreur chargement utilisateur:', err)
           localStorage.removeItem('token')
@@ -33,20 +47,30 @@ export const AuthProvider = ({ children }) => {
     loadUser()
   }, [])
 
-  const login = async (email, motDePasse, roleSelected = null) => {
+  const login = async (email, motDePasse) => {
     setError(null)
     setLoading(true)
     try {
-      const utilisateur = await apiClient.login(email, motDePasse, roleSelected)
+      const utilisateur = await apiClient.login(email, motDePasse)
       // Mapper le rôle API vers le format frontend
       const mappedUser = {
         id: utilisateur.id,
         name: utilisateur.nom,
         email: utilisateur.email,
         role: mapRole(utilisateur.role),
+        roleAPI: utilisateur.role,
         avatar: getAvatarByRole(utilisateur.role)
       }
       setUser(mappedUser)
+
+      // Charger les écoles de l'utilisateur
+      if (utilisateur.ecoles && utilisateur.ecoles.length > 0) {
+        setEcoles(utilisateur.ecoles)
+        // Sélectionner la première école par défaut
+        setEcoleSelectionnee(utilisateur.ecoles[0])
+        localStorage.setItem('selectedEcole', utilisateur.ecoles[0].id)
+      }
+
       return mappedUser
     } catch (err) {
       setError(err.message)
@@ -70,9 +94,14 @@ export const AuthProvider = ({ children }) => {
   const mapRole = (apiRole) => {
     const roleMap = {
       'PROPRIETAIRE': 'owner',
+      'SUPER_ADMIN': 'super-admin',
       'DIRECTEUR': 'director',
+      'PRINCIPAL': 'principal',
+      'DIRECTRICE': 'director',
       'SECRETAIRE': 'secretary',
-      'ENSEIGNANT': 'teacher'
+      'ENSEIGNANT': 'teacher',
+      'ECONOMAT': 'accountant',
+      'SURVEILLANT_GENERAL': 'supervisor'
     }
     return roleMap[apiRole] || 'user'
   }
@@ -80,11 +109,24 @@ export const AuthProvider = ({ children }) => {
   const getAvatarByRole = (apiRole) => {
     const avatarMap = {
       'PROPRIETAIRE': '🔐',
+      'SUPER_ADMIN': '👑',
       'DIRECTEUR': '👨‍💼',
+      'PRINCIPAL': '👨‍💼',
+      'DIRECTRICE': '👩‍💼',
       'SECRETAIRE': '👩‍💻',
-      'ENSEIGNANT': '👩‍🏫'
+      'ENSEIGNANT': '👩‍🏫',
+      'ECONOMAT': '💰',
+      'SURVEILLANT_GENERAL': '🚔'
     }
     return avatarMap[apiRole] || '👤'
+  }
+
+  const selectEcole = (ecoleId) => {
+    const ecole = ecoles.find(e => e.id === ecoleId)
+    if (ecole) {
+      setEcoleSelectionnee(ecole)
+      localStorage.setItem('selectedEcole', ecoleId)
+    }
   }
 
   const canAccess = (pageName) => {
@@ -130,7 +172,10 @@ export const AuthProvider = ({ children }) => {
     getRoleBadge,
     isLoggedIn: !!user,
     loading,
-    error
+    error,
+    ecoles,
+    ecoleSelectionnee,
+    selectEcole
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

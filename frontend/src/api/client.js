@@ -45,10 +45,10 @@ class APIClient {
   }
 
   // AUTH
-  async login(email, motDePasse, roleSelected = null) {
+  async login(email, motDePasse) {
     const data = await this.request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, motDePasse, roleSelected })
+      body: JSON.stringify({ email, motDePasse })
     })
     this.setToken(data.token)
     return data.utilisateur
@@ -357,6 +357,20 @@ class APIClient {
   async deleteUtilisateur(id) {
     return this.request(`/utilisateurs/${id}`, {
       method: 'DELETE'
+    })
+  }
+
+  async updateProfil(nom, email) {
+    return this.request('/utilisateurs/profil/moi', {
+      method: 'PUT',
+      body: JSON.stringify({ nom, email })
+    })
+  }
+
+  async changerMotDePasse(ancienMotDePasse, nouveauMotDePasse) {
+    return this.request('/utilisateurs/profil/changer-mot-de-passe', {
+      method: 'PUT',
+      body: JSON.stringify({ ancienMotDePasse, nouveauMotDePasse })
     })
   }
 

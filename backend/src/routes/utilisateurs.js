@@ -5,9 +5,10 @@ import bcryptjs from 'bcryptjs'
 const router = express.Router()
 
 // GET - Lister tous les utilisateurs (Admin uniquement)
-router.get('/', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.get('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const utilisateurs = await req.prisma.utilisateur.findMany({
+      where: { actif: true },
       select: {
         id: true,
         nom: true,
@@ -15,7 +16,8 @@ router.get('/', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
         role: true,
         actif: true,
         createdAt: true
-      }
+      },
+      orderBy: { createdAt: 'desc' }
     })
     res.json(utilisateurs)
   } catch (error) {
@@ -24,7 +26,7 @@ router.get('/', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
 })
 
 // GET - Obtenir un utilisateur par ID
-router.get('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.get('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const utilisateur = await req.prisma.utilisateur.findUnique({
       where: { id: req.params.id },
@@ -47,8 +49,84 @@ router.get('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) =>
   }
 })
 
+// PUT - Modifier son propre profil (l'utilisateur lui-même)
+router.put('/profil/moi', verifyToken, async (req, res) => {
+  try {
+    const { nom, email } = req.body
+    const userId = req.user.id
+
+    const dataToUpdate = {}
+    if (nom) dataToUpdate.nom = nom
+    if (email) {
+      // Vérifier que le nouvel email n'existe pas déjà
+      const existingUser = await req.prisma.utilisateur.findUnique({
+        where: { email }
+      })
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(400).json({ error: 'Cet email est déjà utilisé' })
+      }
+      dataToUpdate.email = email
+    }
+
+    const utilisateur = await req.prisma.utilisateur.update({
+      where: { id: userId },
+      data: dataToUpdate,
+      select: {
+        id: true,
+        nom: true,
+        email: true,
+        role: true
+      }
+    })
+
+    res.json(utilisateur)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// PUT - Changer son mot de passe
+router.put('/profil/changer-mot-de-passe', verifyToken, async (req, res) => {
+  try {
+    const { ancienMotDePasse, nouveauMotDePasse } = req.body
+    const userId = req.user.id
+
+    if (!ancienMotDePasse || !nouveauMotDePasse) {
+      return res.status(400).json({
+        error: 'Ancien et nouveau mot de passe requis'
+      })
+    }
+
+    const utilisateur = await req.prisma.utilisateur.findUnique({
+      where: { id: userId }
+    })
+
+    if (!utilisateur) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' })
+    }
+
+    // Vérifier l'ancien mot de passe
+    const motDePasseValide = await bcryptjs.compare(ancienMotDePasse, utilisateur.motDePasse)
+    if (!motDePasseValide) {
+      return res.status(401).json({ error: 'Ancien mot de passe incorrect' })
+    }
+
+    // Hacher le nouveau mot de passe
+    const hashedPassword = await bcryptjs.hash(nouveauMotDePasse, 10)
+
+    await req.prisma.utilisateur.update({
+      where: { id: userId },
+      data: { motDePasse: hashedPassword }
+    })
+
+    res.json({ message: 'Mot de passe modifié avec succès' })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // POST - Créer un nouvel utilisateur (Admin uniquement)
-router.post('/', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const { nom, email, motDePasse, role } = req.body
 
@@ -94,7 +172,7 @@ router.post('/', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
 })
 
 // PUT - Modifier un utilisateur
-router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const { nom, motDePasse, role } = req.body
 
@@ -127,7 +205,7 @@ router.put('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) =>
 })
 
 // PUT - Suspendre/Activer un utilisateur
-router.put('/:id/toggle-statut', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.put('/:id/toggle-statut', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const utilisateur = await req.prisma.utilisateur.findUnique({
       where: { id: req.params.id }
@@ -159,7 +237,7 @@ router.put('/:id/toggle-statut', verifyToken, checkRole(['PROPRIETAIRE']), async
 })
 
 // DELETE - Supprimer un utilisateur (Admin uniquement)
-router.delete('/:id', verifyToken, checkRole(['PROPRIETAIRE']), async (req, res) => {
+router.delete('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     // Supprimer les données associées
     const user = await req.prisma.utilisateur.findUnique({

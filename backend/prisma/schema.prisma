@@ -17,58 +17,72 @@ model Utilisateur {
   nom       String
   email     String     @unique
   motDePasse String
-  role      String     // PROPRIETAIRE, DIRECTEUR, SECRETAIRE, ENSEIGNANT
+  role      String     // Rôle par défaut (pour compatibilité), ex: SUPER_ADMIN, PRINCIPAL, DIRECTRICE, SECRETAIRE, ENSEIGNANT, ECONOMAT
   actif     Boolean    @default(true)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
   // Relations
-  enseignant Enseignant?
+  enseignant         Enseignant?
+  utilisateurEcoles  UtilisateurEcole[]      // Permissions par école
+  saisiesQuotidiennes SaisieQuotidienne[]   // Saisies du jour
+  annoncesCreees     Annonce[] @relation("UtilisateurAnnonces")  // Annonces publiées
+}
+
+model UtilisateurEcole {
+  id           String   @id @default(cuid())
+  utilisateur  Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  utilisateurId String
+  ecole        Ecole    @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
+  ecoleId      String
+  role         String   // SUPER_ADMIN, PRINCIPAL, DIRECTRICE, SURVEILLANT_GENERAL, SECRETAIRE, ENSEIGNANT, ECONOMAT
+  actif        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([utilisateurId, ecoleId])
 }
 
 // ===== SCHOOL STRUCTURE =====
 
 model Ecole {
   id                    String   @id @default(cuid())
-  nom                   String   @default("Collège Rosa-Parks")
-  lieu                  String   @default("Yaoundé, Cameroun")
+  nomCourt              String   @unique // ex: "CRP_FRANCOPHONE", "CBM", "EBSB"
+  nomComplet            String   // ex: "Collège Rosa Parks francophone"
+  niveau                String   // "SECONDAIRE" ou "MATERNELLE_PRIMAIRE"
+  adresse               String   @default("Yaoundé, Cameroun")
   telephone             String   @default("+237 6 XX XXX XXXX")
-  email                 String   @default("info@collegerosparks.cm")
+  email                 String   @default("info@school.cm")
   anneeScolaireEnCours  String   @default("2024-2025")
+  actif                 Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   // Relations
-  personnel     Personnel[]
-  parametres    Parametres?
-}
-
-model Section {
-  id        String   @id @default(cuid())
-  nom       String   // ex: "Francophone", "Maternelle", "Primaire"
-  emoji     String   @default("📚")
-  ordre     Int      @default(0)
-  actif     Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  classes              Classe[]
-  matieres             Matiere[]
-  configurationsFrais  ConfigurationFrais[]
+  classes                Classe[]
+  matieres               Matiere[]
+  personnel              Personnel[]
+  configurationsFrais    ConfigurationFrais[]
+  utilisateurEcoles      UtilisateurEcole[]
+  saisiesQuotidiennes    SaisieQuotidienne[]
+  anomaliesDetectees     AnomalieDetetee[]
+  annonces               Annonce[]
+  parametres             Parametres?
 }
 
 model Classe {
   id        String   @id @default(cuid())
   nom       String   // ex: "6ème A", "Form 1 B"
-  section   String   // FRANCOPHONE, ANGLOPHONE, TECHNIQUE (kept for backward compatibility)
-  sectionId String?  // Foreign key to Section table
-  sectionRel Section? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   niveau    String   // ex: "6ème", "Form 1"
+  ecole     Ecole    @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
+  ecoleId   String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  eleves                Eleve[]
+  eleves                   Eleve[]
   enseignantClasseMatieres EnseignantClasseMatiere[]
-  presences             Presence[]
+  presences                Presence[]
 }
 
 // ===== STUDENTS =====
@@ -94,9 +108,11 @@ model Eleve {
   updatedAt       DateTime @updatedAt
 
   // Relations
-  inscriptionsFrais InscriptionFrais[]
-  notes             Note[]
-  presences         Presence[]
+  inscriptionsFrais   InscriptionFrais[]
+  notes               Note[]
+  presences           Presence[]
+  anomaliesDetectees  AnomalieDetetee[]
+  bulletins           Bulletin[]
 }
 
 // ===== PAYMENTS & FEES =====
@@ -132,8 +148,8 @@ model Enseignant {
 model Matiere {
   id             String @id @default(cuid())
   nom            String
-  section        Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  sectionId      String
+  ecole          Ecole  @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
+  ecoleId        String
   coefficient    Int    @default(3)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -224,8 +240,8 @@ model Finance {
 
 model ConfigurationFrais {
   id             String @id @default(cuid())
-  section        Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  sectionId      String
+  ecole          Ecole  @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
+  ecoleId        String
   montantInscription Int @default(50000)
   montantFraisTotal  Int @default(80000)
   createdAt      DateTime @default(now())
@@ -234,7 +250,7 @@ model ConfigurationFrais {
   // Relations
   tranches       Tranche[]
 
-  @@unique([sectionId])
+  @@unique([ecoleId])
 }
 
 model Tranche {
@@ -249,6 +265,74 @@ model Tranche {
   @@unique([configurationFraisId, numero])
 }
 
+// ===== DAILY ENTRIES & ANOMALIES DETECTION =====
+
+model SaisieQuotidienne {
+  id            String   @id @default(cuid())
+  date          DateTime
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  utilisateurId String
+  ecole         Ecole    @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
+  ecoleId       String
+  role          String   // PRINCIPAL, DIRECTRICE, SECRETAIRE, ECONOMAT
+  type          String   // FRAIS_COLLECTES, DEPENSES_VERIFIEES, BULLETINS, ABSENCES
+  donnees       String   // JSON: {montant, description, detailsEleves, etc.}
+  validee       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AnomalieDetetee {
+  id              String   @id @default(cuid())
+  date            DateTime
+  ecole           Ecole    @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
+  ecoleId         String
+  eleve           Eleve?   @relation(fields: [eleveId], references: [id], onDelete: SetNull)
+  eleveId         String?
+  montant         Int?     // montant en FCFA impliqué
+  source1         String   // ex: "SECRETAIRE"
+  source2         String   // ex: "PRINCIPAL"
+  source3         String?  // ex: "ECONOMAT"
+  valeur1         String   // JSON de la donnée source 1
+  valeur2         String   // JSON de la donnée source 2
+  valeur3         String?  // JSON de la donnée source 3
+  ecartsDetectes  String   // JSON: {champ: ecart, ...}
+  resolue         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ===== ANNOUNCEMENTS =====
+
+model Annonce {
+  id            String   @id @default(cuid())
+  titre         String
+  contenu       String
+  ecole         Ecole    @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
+  ecoleId       String
+  creeePar      Utilisateur @relation("UtilisateurAnnonces", fields: [creeeParId], references: [id], onDelete: Cascade)
+  creeeParId    String
+  actif         Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ===== REPORT CARDS / BULLETINS =====
+
+model Bulletin {
+  id              String   @id @default(cuid())
+  eleve           Eleve    @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleveId         String
+  trimestre       Int      // 1, 2, ou 3
+  anneeScolaire   String   // ex: "2024-2025"
+  urlPdf          String?  // Chemin ou URL du PDF généré
+  dateGeneration  DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([eleveId, trimestre, anneeScolaire])
+}
+
 // ===== CONFIGURATION =====
 
 model Parametres {
@@ -260,6 +344,3 @@ model Parametres {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
-
-// Relation back-reference pour Note
-// (Déjà incluse dans la définition de Note)

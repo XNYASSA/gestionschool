@@ -12,6 +12,14 @@ import Grades from './pages/Grades'
 import Attendance from './pages/Attendance'
 import StaffFinance from './pages/StaffFinance'
 import SettingsPage from './pages/Settings'
+
+// Nouveaux dashboards Phase 2
+import DashboardSuperAdminEnhanced from './pages/DashboardSuperAdminEnhanced'
+import DashboardPrincipalDirectrice from './pages/DashboardPrincipalDirectrice'
+import DashboardSecretaire from './pages/DashboardSecretaire'
+import DashboardEconomat from './pages/DashboardEconomat'
+import DashboardEnseignant from './pages/DashboardEnseignant'
+
 import { Menu, X } from 'lucide-react'
 
 function AppContent() {
@@ -25,13 +33,34 @@ function AppContent() {
   }
 
   const renderPage = () => {
+    // Dashboards multi-écoles (Phase 2)
+    if (user?.roleAPI === 'SUPER_ADMIN') {
+      return <DashboardSuperAdminEnhanced />
+    }
+
+    if (['PRINCIPAL', 'DIRECTRICE'].includes(user?.roleAPI)) {
+      return <DashboardPrincipalDirectrice />
+    }
+
+    if (user?.roleAPI === 'SECRETAIRE') {
+      return <DashboardSecretaire />
+    }
+
+    if (user?.roleAPI === 'ECONOMAT') {
+      return <DashboardEconomat />
+    }
+
+    if (user?.roleAPI === 'ENSEIGNANT') {
+      return <DashboardEnseignant />
+    }
+
+    // Dashboards existants (backward compatibility)
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard filters={filters} />
       case 'students':
         return <Students filters={filters} />
       case 'fees':
-        // Propriétaire utilise la version améliorée
         return user?.role === 'owner' ? <FeesEnhanced filters={filters} /> : <Fees filters={filters} />
       case 'grades':
         return <Grades filters={filters} />
