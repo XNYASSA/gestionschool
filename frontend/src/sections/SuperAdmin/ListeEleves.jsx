@@ -1,159 +1,107 @@
-import { useState, useEffect } from 'react'
-import { Search, Plus, Eye, Edit2, Trash2, X } from 'lucide-react'
-import { API_ENDPOINTS } from '../../config/api'
+import { useState, useEffect, useMemo } from 'react'
+import { Search, Plus, Eye, Edit2, Trash2, X, Loader } from 'lucide-react'
+import { apiClient } from '../../api/client'
+
+const emptyForm = {
+  nom: '',
+  prenom: '',
+  sexe: 'MASCULIN',
+  dateNaissance: '',
+  classeId: '',
+  nomParent: '',
+  lieuParente: 'Père',
+  telephoneParent: '',
+  emailParent: '',
+  adresseParent: ''
+}
 
 export default function ListeEleves() {
   const [eleves, setEleves] = useState([])
-  const [filteredEleves, setFilteredEleves] = useState([])
+  const [classes, setClasses] = useState([])
+  const [ecoles, setEcoles] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [filterEcole, setFilterEcole] = useState('')
   const [filterClasse, setFilterClasse] = useState('')
-  const [ecoles, setEcoles] = useState([])
-  const [classes, setClasses] = useState([])
 
   const [showModal, setShowModal] = useState(false)
   const [modalMode, setModalMode] = useState('view') // view, create, edit
   const [selectedEleve, setSelectedEleve] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  const [formData, setFormData] = useState({
-    nom: '',
-    prenom: '',
-    sexe: 'MASCULIN',
-    dateNaissance: '',
-    classeId: '',
-    nomParent: '',
-    lieuParente: 'Père',
-    telephoneParent: '',
-    emailParent: '',
-    adresseParent: ''
-  })
+  const [formData, setFormData] = useState(emptyForm)
 
   useEffect(() => {
     loadData()
   }, [])
 
-  useEffect(() => {
-    applyFilters()
-  }, [eleves, searchTerm, filterEcole, filterClasse])
-
   const loadData = async () => {
+    setLoading(true)
+    setError('')
     try {
-      // Charger les écoles
-      const ecolesRes = await fetch(`${API_ENDPOINTS.ecoles}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      })
-      if (ecolesRes.ok) {
-        const ecolesData = await ecolesRes.json()
-        setEcoles(ecolesData)
-
-        // Récupérer tous les élèves de toutes les écoles
-        let tousLesEleves = []
-        let toutesLesClasses = []
-
-        for (const ecole of ecolesData) {
-          try {
-            // Charger les élèves de cette école
-            const elevesRes = await fetch(`${API_ENDPOINTS.ecoles}/${ecole.id}/eleves`, {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            })
-            if (elevesRes.ok) {
-              const eleves = await elevesRes.json()
-              tousLesEleves = [...tousLesEleves, ...eleves.map(e => ({ ...e, ecoleId: ecole.id, ecoleNom: ecole.nomCourt }))]
-            }
-
-            // Charger les classes de cette école
-            const classesRes = await fetch(`${API_ENDPOINTS.ecoles}/${ecole.id}`, {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            })
-            if (classesRes.ok) {
-              const data = await classesRes.json()
-              if (data.classes) {
-                toutesLesClasses = [...toutesLesClasses, ...data.classes]
-              }
-            }
-          } catch (error) {
-            console.error(`Erreur chargement école ${ecole.id}:`, error)
-          }
-        }
-        setEleves(tousLesEleves)
-        setClasses(toutesLesClasses)
-      }
-    } catch (error) {
-      console.error('Erreur chargement données:', error)
+      const [elevesData, classesData, ecolesData] = await Promise.all([
+        apiClient.getEleves(),
+        apiClient.getClasses(),
+        apiClient.getEcoles()
+      ])
+      setEleves(elevesData)
+      setClasses(classesData)
+      setEcoles(ecolesData)
+    } catch (err) {
+      setError(err.message || 'Erreur lors du chargement des données')
     } finally {
       setLoading(false)
     }
   }
 
-  const applyFilters = () => {
-    let filtered = eleves
+  const classesFiltrees = useMemo(() => {
+    if (!filterEcole) return classes
+    return classes.filter(c => c.ecoleId === filterEcole)
+  }, [classes, filterEcole])
 
-    if (searchTerm) {
-      filtered = filtered.filter(e =>
-        e.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.prenom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.matricule?.includes(searchTerm)
-      )
-    }
-
-    if (filterEcole) {
-      filtered = filtered.filter(e => e.ecoleId === filterEcole)
-    }
-
-    if (filterClasse) {
-      filtered = filtered.filter(e => e.classeId === filterClasse)
-    }
-
-    setFilteredEleves(filtered)
-  }
+  const filteredEleves = useMemo(() => {
+    return eleves.filter(e => {
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase()
+        const matchNom = `${e.prenom} ${e.nom}`.toLowerCase().includes(term)
+        const matchMatricule = e.matricule?.toLowerCase().includes(term)
+        if (!matchNom && !matchMatricule) return false
+      }
+      if (filterEcole && e.classe?.ecoleId !== filterEcole) return false
+      if (filterClasse && e.classeId !== filterClasse) return false
+      return true
+    })
+  }, [eleves, searchTerm, filterEcole, filterClasse])
 
   const openCreateModal = () => {
-    setFormData({
-      nom: '',
-      prenom: '',
-      sexe: 'MASCULIN',
-      dateNaissance: '',
-      classeId: '',
-      nomParent: '',
-      lieuParente: 'Père',
-      telephoneParent: '',
-      emailParent: '',
-      adresseParent: ''
-    })
+    setFormData(emptyForm)
     setModalMode('create')
     setShowModal(true)
   }
 
   const openViewModal = (eleve) => {
     setSelectedEleve(eleve)
-    setFormData(eleve)
+    setFormData({ ...eleve, dateNaissance: eleve.dateNaissance?.split('T')[0] || '' })
     setModalMode('view')
     setShowModal(true)
   }
 
   const openEditModal = (eleve) => {
     setSelectedEleve(eleve)
-    setFormData(eleve)
+    setFormData({ ...eleve, dateNaissance: eleve.dateNaissance?.split('T')[0] || '' })
     setModalMode('edit')
     setShowModal(true)
   }
 
-  const handleDelete = async (eleveId) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cet élève ?')) {
-      try {
-        const response = await fetch(`${API_ENDPOINTS.ecoles.replace('/api/ecoles', '/api/eleves')}/${eleveId}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        })
-        if (response.ok) {
-          setEleves(eleves.filter(e => e.id !== eleveId))
-          alert('Élève supprimé avec succès')
-        }
-      } catch (error) {
-        console.error('Erreur suppression:', error)
-        alert('Erreur lors de la suppression')
-      }
+  const handleDelete = async (eleve) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer ${eleve.prenom} ${eleve.nom} ? Cette action est irréversible et supprimera aussi ses frais, notes et présences.`)) {
+      return
+    }
+    try {
+      await apiClient.deleteEleve(eleve.id)
+      setEleves(eleves.filter(e => e.id !== eleve.id))
+    } catch (err) {
+      alert('Erreur lors de la suppression: ' + err.message)
     }
   }
 
@@ -164,32 +112,17 @@ export default function ListeEleves() {
     }
 
     try {
-      const method = modalMode === 'create' ? 'POST' : 'PUT'
-      const eleveUrl = `${API_ENDPOINTS.ecoles.replace('/api/ecoles', '/api/eleves')}`
-      const url = modalMode === 'create'
-        ? eleveUrl
-        : `${eleveUrl}/${selectedEleve.id}`
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      })
-
-      if (response.ok) {
-        alert(modalMode === 'create' ? 'Élève créé avec succès' : 'Élève modifié avec succès')
-        setShowModal(false)
-        loadData()
+      if (modalMode === 'create') {
+        await apiClient.createEleve(formData)
+        alert('Élève créé avec succès')
       } else {
-        const error = await response.json()
-        alert('Erreur: ' + (error.error || 'Erreur lors de la sauvegarde'))
+        await apiClient.updateEleve(selectedEleve.id, formData)
+        alert('Élève modifié avec succès')
       }
-    } catch (error) {
-      console.error('Erreur sauvegarde:', error)
-      alert('Erreur: ' + error.message)
+      setShowModal(false)
+      loadData()
+    } catch (err) {
+      alert('Erreur: ' + err.message)
     }
   }
 
@@ -206,6 +139,10 @@ export default function ListeEleves() {
         </button>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">⚠️ {error}</div>
+      )}
+
       {/* Filtres */}
       <div className="bg-white rounded-lg shadow-md p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -221,7 +158,7 @@ export default function ListeEleves() {
           </div>
           <select
             value={filterEcole}
-            onChange={(e) => setFilterEcole(e.target.value)}
+            onChange={(e) => { setFilterEcole(e.target.value); setFilterClasse('') }}
             className="px-3 py-2 border border-slate-300 rounded-lg"
           >
             <option value="">Toutes les écoles</option>
@@ -235,7 +172,7 @@ export default function ListeEleves() {
             className="px-3 py-2 border border-slate-300 rounded-lg"
           >
             <option value="">Toutes les classes</option>
-            {classes.map(c => (
+            {classesFiltrees.map(c => (
               <option key={c.id} value={c.id}>{c.nom}</option>
             ))}
           </select>
@@ -248,7 +185,9 @@ export default function ListeEleves() {
           <h3 className="font-bold text-slate-900">Élèves ({filteredEleves.length})</h3>
         </div>
         {loading ? (
-          <div className="p-8 text-center text-slate-500">Chargement...</div>
+          <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-2">
+            <Loader className="w-5 h-5 animate-spin" /> Chargement...
+          </div>
         ) : filteredEleves.length === 0 ? (
           <div className="p-8 text-center text-slate-500">Aucun élève trouvé</div>
         ) : (
@@ -270,7 +209,7 @@ export default function ListeEleves() {
                     <td className="px-6 py-3 font-mono text-xs text-slate-600">{eleve.matricule || '-'}</td>
                     <td className="px-6 py-3 text-slate-900">{eleve.prenom} {eleve.nom}</td>
                     <td className="px-6 py-3 text-slate-600">{eleve.classe?.nom || '-'}</td>
-                    <td className="px-6 py-3 text-slate-600">{eleve.ecoleNom || '-'}</td>
+                    <td className="px-6 py-3 text-slate-600">{eleve.classe?.ecole?.nomCourt || '-'}</td>
                     <td className="px-6 py-3 text-slate-600 text-xs">{eleve.nomParent}</td>
                     <td className="px-6 py-3 text-center flex gap-2 justify-center">
                       <button
@@ -288,7 +227,7 @@ export default function ListeEleves() {
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(eleve.id)}
+                        onClick={() => handleDelete(eleve)}
                         className="p-1 hover:bg-red-100 rounded text-red-600 transition"
                         title="Supprimer"
                       >
@@ -373,7 +312,7 @@ export default function ListeEleves() {
                   >
                     <option value="">Sélectionner une classe</option>
                     {classes.map(c => (
-                      <option key={c.id} value={c.id}>{c.nom}</option>
+                      <option key={c.id} value={c.id}>{c.ecole?.nomCourt} — {c.nom}</option>
                     ))}
                   </select>
                 </div>
@@ -424,7 +363,7 @@ export default function ListeEleves() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Email parent</label>
                   <input
                     type="email"
-                    value={formData.emailParent}
+                    value={formData.emailParent || ''}
                     onChange={(e) => setFormData({ ...formData, emailParent: e.target.value })}
                     disabled={modalMode === 'view'}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:bg-slate-100"
@@ -435,7 +374,7 @@ export default function ListeEleves() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Adresse</label>
                   <input
                     type="text"
-                    value={formData.adresseParent}
+                    value={formData.adresseParent || ''}
                     onChange={(e) => setFormData({ ...formData, adresseParent: e.target.value })}
                     disabled={modalMode === 'view'}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:bg-slate-100"

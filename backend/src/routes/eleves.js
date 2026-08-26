@@ -7,7 +7,7 @@ const router = express.Router()
 router.get('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE', 'ECONOMAT']), async (req, res) => {
   try {
     const eleves = await req.prisma.eleve.findMany({
-      include: { classe: true }
+      include: { classe: { include: { ecole: true } } }
     })
     res.json(eleves)
   } catch (error) {
@@ -20,7 +20,7 @@ router.get('/:id', verifyToken, async (req, res) => {
   try {
     const eleve = await req.prisma.eleve.findUnique({
       where: { id: req.params.id },
-      include: { classe: true }
+      include: { classe: { include: { ecole: true } } }
     })
     if (!eleve) return res.status(404).json({ error: 'Élève non trouvé' })
     res.json(eleve)
@@ -92,13 +92,29 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
 // UPDATE ELEVE (Super Admin, Principal/Directrice, Secretaire)
 router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
+    const { nom, prenom, sexe, dateNaissance, classeId, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
+
     const eleve = await req.prisma.eleve.update({
       where: { id: req.params.id },
-      data: req.body,
-      include: { classe: true }
+      data: {
+        ...(nom && { nom }),
+        ...(prenom && { prenom }),
+        ...(sexe && { sexe }),
+        ...(dateNaissance && { dateNaissance: new Date(dateNaissance) }),
+        ...(classeId && { classeId }),
+        ...(nomParent && { nomParent }),
+        ...(lieuParente !== undefined && { lieuParente }),
+        ...(telephoneParent && { telephoneParent }),
+        ...(emailParent !== undefined && { emailParent }),
+        ...(adresseParent !== undefined && { adresseParent })
+      },
+      include: { classe: { include: { ecole: true } } }
     })
     res.json(eleve)
   } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Élève non trouvé' })
+    }
     res.status(400).json({ error: error.message })
   }
 })
