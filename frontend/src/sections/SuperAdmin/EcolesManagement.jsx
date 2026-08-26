@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, Edit2, Trash2, X, Loader, School, Users, Layers } from 'lucide-react'
+import { Plus, Edit2, Trash2, X, Loader, School, Users, Layers, ArrowLeft } from 'lucide-react'
 import { apiClient } from '../../api/client'
 
 const NIVEAUX_ECOLE = [
@@ -24,6 +24,12 @@ export default function EcolesManagement({ section }) {
   const [eleves, setEleves] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [drilldownEcoleId, setDrilldownEcoleId] = useState(null)
+
+  // Réinitialiser le drill-down quand on change d'onglet dans la barre latérale
+  useEffect(() => {
+    setDrilldownEcoleId(null)
+  }, [section])
 
   useEffect(() => {
     loadData()
@@ -64,10 +70,17 @@ export default function EcolesManagement({ section }) {
 
       {section === 'create' ? (
         <CreateEcole onCreated={loadData} />
-      ) : section === 'classes' ? (
-        <GestionClasses ecoles={ecoles} classes={classes} eleves={eleves} onChange={loadData} />
+      ) : section === 'classes' || drilldownEcoleId ? (
+        <GestionClasses
+          ecoles={ecoles}
+          classes={classes}
+          eleves={eleves}
+          onChange={loadData}
+          initialEcoleId={drilldownEcoleId}
+          onBack={drilldownEcoleId ? () => setDrilldownEcoleId(null) : null}
+        />
       ) : (
-        <ListeEcoles ecoles={ecoles} classes={classes} eleves={eleves} onChange={loadData} />
+        <ListeEcoles ecoles={ecoles} classes={classes} eleves={eleves} onChange={loadData} onSelectEcole={setDrilldownEcoleId} />
       )}
     </div>
   )
@@ -75,7 +88,7 @@ export default function EcolesManagement({ section }) {
 
 // ===================== LISTE DES ÉCOLES =====================
 
-function ListeEcoles({ ecoles, classes, eleves, onChange }) {
+function ListeEcoles({ ecoles, classes, eleves, onChange, onSelectEcole }) {
   const [editing, setEditing] = useState(null)
   const [formData, setFormData] = useState(emptyEcoleForm)
 
@@ -130,12 +143,17 @@ function ListeEcoles({ ecoles, classes, eleves, onChange }) {
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-bold text-slate-900">🏫 Liste des écoles</h2>
+      <p className="text-sm text-slate-500 -mt-2">Cliquez sur une école pour voir et gérer ses classes.</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {ecoles.map(ecole => {
           const stats = statsParEcole[ecole.id] || { nbClasses: 0, nbEleves: 0 }
           return (
-            <div key={ecole.id} className="bg-white rounded-lg shadow-md p-5">
+            <div
+              key={ecole.id}
+              onClick={() => onSelectEcole(ecole.id)}
+              className="bg-white rounded-lg shadow-md p-5 cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-blue-400 transition"
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <School className="w-5 h-5 text-blue-600" />
@@ -169,14 +187,14 @@ function ListeEcoles({ ecoles, classes, eleves, onChange }) {
 
               <div className="flex gap-2 justify-end">
                 <button
-                  onClick={() => openEdit(ecole)}
+                  onClick={(e) => { e.stopPropagation(); openEdit(ecole) }}
                   className="p-2 hover:bg-yellow-100 rounded text-yellow-600 transition"
                   title="Modifier"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => handleDelete(ecole)}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(ecole) }}
                   className="p-2 hover:bg-red-100 rounded text-red-600 transition"
                   title="Supprimer"
                 >
@@ -337,8 +355,8 @@ function EcoleFormFields({ formData, setFormData }) {
 
 // ===================== GESTION DES CLASSES =====================
 
-function GestionClasses({ ecoles, classes, eleves, onChange }) {
-  const [selectedEcoleId, setSelectedEcoleId] = useState(ecoles[0]?.id || '')
+function GestionClasses({ ecoles, classes, eleves, onChange, initialEcoleId, onBack }) {
+  const [selectedEcoleId, setSelectedEcoleId] = useState(initialEcoleId || ecoles[0]?.id || '')
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState(emptyClasseForm)
@@ -398,7 +416,14 @@ function GestionClasses({ ecoles, classes, eleves, onChange }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-900">🏫 Gestion des classes</h2>
+        <div className="flex items-center gap-2">
+          {onBack && (
+            <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-lg transition" title="Retour à la liste des écoles">
+              <ArrowLeft className="w-5 h-5 text-slate-600" />
+            </button>
+          )}
+          <h2 className="text-2xl font-bold text-slate-900">🏫 Gestion des classes</h2>
+        </div>
         <button
           onClick={openCreate}
           disabled={!selectedEcoleId}
