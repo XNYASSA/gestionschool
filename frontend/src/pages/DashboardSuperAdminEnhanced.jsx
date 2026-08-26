@@ -9,7 +9,6 @@ import SidebarSuperAdmin from '../components/SidebarSuperAdmin'
 import ViewAnalytics from '../sections/SuperAdmin/ViewAnalytics'
 import SuiviPaiements from '../sections/SuperAdmin/SuiviPaiements'
 import ListeEleves from '../sections/SuperAdmin/ListeEleves'
-import CreateEleve from '../sections/SuperAdmin/CreateEleve'
 import PersonnelManagement from '../sections/SuperAdmin/PersonnelManagement'
 import EcolesManagement from '../sections/SuperAdmin/EcolesManagement'
 import ModuleDepenses from '../sections/SuperAdmin/ModuleDepenses'
@@ -69,8 +68,6 @@ export default function DashboardSuperAdminEnhanced() {
         return <SuiviPaiements />
       case 'list-eleves':
         return <ListeEleves />
-      case 'create-eleve':
-        return <CreateEleve />
       case 'list-personnel':
         return <PersonnelManagement section="list" />
       case 'create-personnel':

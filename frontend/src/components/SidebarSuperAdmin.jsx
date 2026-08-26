@@ -37,7 +37,6 @@ export default function SidebarSuperAdmin({ currentSection, setCurrentSection, l
       icon: Users,
       submenu: [
         { id: 'list-eleves', label: 'Liste des élèves' },
-        { id: 'create-eleve', label: 'Créer un élève' },
         { id: 'paiement-status', label: 'Statuts de paiement' }
       ]
     },
