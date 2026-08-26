@@ -1,26 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, Edit2, Trash2, X, Loader } from 'lucide-react'
 import { apiClient } from '../../api/client'
+import { isInPeriod } from '../../utils/periodFilter'
 
 const CATEGORIES = ['MATERIEL', 'FOURNITURES', 'MAINTENANCE', 'ENERGIE', 'AUTRE']
-
-function isInPeriod(date, period) {
-  const d = new Date(date)
-  const now = new Date()
-
-  if (period === 'jour') {
-    return d.toDateString() === now.toDateString()
-  }
-  if (period === 'semaine') {
-    const weekAgo = new Date(now)
-    weekAgo.setDate(now.getDate() - 7)
-    return d >= weekAgo && d <= now
-  }
-  if (period === 'mois') {
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-  }
-  return true
-}
 
 const emptyForm = {
   description: '',

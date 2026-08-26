@@ -423,11 +423,11 @@ async function main() {
 
   console.log('✓ Enseignants créés')
 
-  // Créer 50 élèves et les frais
+  // Créer 30 élèves et les frais
   const noms = ['Nkomo', 'Kamdem', 'Fokou', 'Mbala', 'Tsomé', 'Mouafo', 'Eyambe', 'Tchaptchet', 'Njamen', 'Ouakoume', 'Engono', 'Talla', 'Diouf', 'Keita', 'Sow', 'Kone', 'Coulibaly', 'Ba', 'Diop', 'Faye']
   const prenoms = ['Jean', 'Marie', 'Pierre', 'Sophie', 'Marc', 'Anne', 'Paul', 'Léa', 'Michel', 'Carole', 'Alain', 'Brigitte', 'Claude', 'Danielle', 'Émile', 'Françoise', 'Gérard', 'Hélène', 'Irène', 'Jacques']
 
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 30; i++) {
     const ecole = ecoles[i % 6]
     const classesEcole = classesMap[ecole.nomCourt]
     const classe = classesEcole[i % classesEcole.length]
@@ -484,7 +484,7 @@ async function main() {
     }
   }
 
-  console.log('✓ 50 Élèves créés avec frais')
+  console.log('✓ 30 Élèves créés avec frais')
 
   // Créer des dépenses de démonstration (charges fixes et variables) par école
   const depensesVariables = [

@@ -1,8 +1,8 @@
 import { useContext, useState, useEffect } from 'react'
 import { AuthContext } from '../context/AuthContext'
 import { LogOut, TrendingUp, AlertCircle } from 'lucide-react'
-import { API_ENDPOINTS } from '../config/api'
 import { apiClient } from '../api/client'
+import { isInPeriod, PERIOD_LABELS } from '../utils/periodFilter'
 import SidebarSuperAdmin from '../components/SidebarSuperAdmin'
 
 // Sections du dashboard
@@ -23,11 +23,12 @@ export default function DashboardSuperAdminEnhanced() {
   const [stats, setStats] = useState({
     totalEcoles: 0,
     totalEleves: 0,
-    fraisCollectes: 0,
-    anomalies: 0,
-    personnels: 0
+    personnels: 0,
+    anomalies: 0
   })
-  const [period, setPeriod] = useState('month') // jour, semaine, mois
+  const [frais, setFrais] = useState([])
+  const [depenses, setDepenses] = useState([])
+  const [period, setPeriod] = useState('mois') // jour, semaine, mois
 
   useEffect(() => {
     loadStats()
@@ -35,26 +36,24 @@ export default function DashboardSuperAdminEnhanced() {
 
   const loadStats = async () => {
     try {
-      const ecolesRes = await fetch(`${API_ENDPOINTS.ecoles}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      })
-      const ecoles = ecolesRes.ok ? await ecolesRes.json() : []
-
-      const [eleves, personnel, frais] = await Promise.all([
+      const [ecoles, eleves, personnel, fraisData, depensesData, anomalies] = await Promise.all([
+        apiClient.getEcoles().catch(() => []),
         apiClient.getEleves().catch(() => []),
         apiClient.getPersonnel().catch(() => []),
-        apiClient.getFrais().catch(() => [])
+        apiClient.getFrais().catch(() => []),
+        apiClient.getDepenses().catch(() => []),
+        apiClient.getAnomalies().catch(() => [])
       ])
 
-      const fraisCollectes = frais.reduce((sum, f) => sum + (f.montantPaye || 0), 0)
+      setFrais(fraisData)
+      setDepenses(depensesData)
 
-      setStats(prev => ({
-        ...prev,
+      setStats({
         totalEcoles: ecoles.length,
         totalEleves: eleves.length,
         personnels: personnel.length,
-        fraisCollectes
-      }))
+        anomalies: anomalies.filter(a => !a.resolue).length
+      })
     } catch (error) {
       console.error('Erreur chargement stats:', error)
     }
@@ -63,7 +62,7 @@ export default function DashboardSuperAdminEnhanced() {
   const renderSection = () => {
     switch (currentSection) {
       case 'dashboard':
-        return <DashboardOverview stats={stats} period={period} setPeriod={setPeriod} />
+        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} period={period} setPeriod={setPeriod} />
       case 'view-analytics':
         return <ViewAnalytics />
       case 'paiements':
@@ -131,45 +130,42 @@ export default function DashboardSuperAdminEnhanced() {
 }
 
 // Section Overview du Dashboard
-function DashboardOverview({ stats, period, setPeriod }) {
+function DashboardOverview({ stats, frais, depenses, period, setPeriod }) {
+  const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
+
+  const fraisPeriode = frais.filter(f => f.montantPaye > 0 && isInPeriod(f.datePayement || f.createdAt, period))
+  const inscriptions = fraisPeriode.filter(f => f.tranche === 'inscription').reduce((sum, f) => sum + f.montantPaye, 0)
+  const pensions = fraisPeriode.filter(f => f.tranche !== 'inscription').reduce((sum, f) => sum + f.montantPaye, 0)
+  const totalEntrees = inscriptions + pensions
+
+  const depensesPeriode = depenses.filter(d => isInPeriod(d.dateDepense, period))
+  const totalFixes = depensesPeriode.filter(d => d.type === 'FIXE').reduce((sum, d) => sum + d.montant, 0)
+  const totalVariables = depensesPeriode.filter(d => d.type === 'VARIABLE').reduce((sum, d) => sum + d.montant, 0)
+  const totalSorties = totalFixes + totalVariables
+
+  const resultatNet = totalEntrees - totalSorties
+
   return (
     <div className="space-y-6">
       {/* Sélecteur de période */}
       <div className="flex gap-2">
-        <button
-          onClick={() => setPeriod('jour')}
-          className={`px-4 py-2 rounded-lg transition ${
-            period === 'jour'
-              ? 'bg-blue-600 text-white'
-              : 'bg-white text-slate-700 hover:bg-slate-100'
-          }`}
-        >
-          Aujourd'hui
-        </button>
-        <button
-          onClick={() => setPeriod('semaine')}
-          className={`px-4 py-2 rounded-lg transition ${
-            period === 'semaine'
-              ? 'bg-blue-600 text-white'
-              : 'bg-white text-slate-700 hover:bg-slate-100'
-          }`}
-        >
-          Cette semaine
-        </button>
-        <button
-          onClick={() => setPeriod('month')}
-          className={`px-4 py-2 rounded-lg transition ${
-            period === 'month'
-              ? 'bg-blue-600 text-white'
-              : 'bg-white text-slate-700 hover:bg-slate-100'
-          }`}
-        >
-          Ce mois
-        </button>
+        {['jour', 'semaine', 'mois'].map(p => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={`px-4 py-2 rounded-lg transition ${
+              period === p
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            {PERIOD_LABELS[p]}
+          </button>
+        ))}
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard
           title="Écoles"
           value={stats.totalEcoles}
@@ -183,13 +179,7 @@ function DashboardOverview({ stats, period, setPeriod }) {
           color="green"
         />
         <StatCard
-          title="Frais collectés"
-          value={`${(stats.fraisCollectes / 1000000).toFixed(1)}M FCFA`}
-          icon="💰"
-          color="emerald"
-        />
-        <StatCard
-          title="Anomalies"
+          title="Anomalies non résolues"
           value={stats.anomalies || 0}
           icon="🚨"
           color="red"
@@ -211,12 +201,11 @@ function DashboardOverview({ stats, period, setPeriod }) {
             <h2 className="text-lg font-bold text-slate-900">Entrées d'argent</h2>
           </div>
           <div className="space-y-3">
-            <FinanceRow label="Frais d'inscription" amount="1 200 000 FCFA" color="green" />
-            <FinanceRow label="Frais de pension" amount="8 500 000 FCFA" color="green" />
-            <FinanceRow label="Autres revenus" amount="500 000 FCFA" color="green" />
+            <FinanceRow label="Frais d'inscription" amount={formatFCFA(inscriptions)} color="green" />
+            <FinanceRow label="Frais de pension" amount={formatFCFA(pensions)} color="green" />
             <div className="border-t border-slate-200 pt-3 font-bold text-lg">
               <span>Total : </span>
-              <span className="text-green-600">10 200 000 FCFA</span>
+              <span className="text-green-600">{formatFCFA(totalEntrees)}</span>
             </div>
           </div>
         </div>
@@ -228,23 +217,23 @@ function DashboardOverview({ stats, period, setPeriod }) {
             <h2 className="text-lg font-bold text-slate-900">Sorties d'argent</h2>
           </div>
           <div className="space-y-3">
-            <FinanceRow label="Salaires" amount="3 000 000 FCFA" color="red" />
-            <FinanceRow label="Maintenance" amount="500 000 FCFA" color="red" />
-            <FinanceRow label="Fournitures" amount="800 000 FCFA" color="red" />
-            <FinanceRow label="Énergie/Eau" amount="400 000 FCFA" color="red" />
+            <FinanceRow label="Charges fixes (salaires...)" amount={formatFCFA(totalFixes)} color="red" />
+            <FinanceRow label="Charges variables (matériel...)" amount={formatFCFA(totalVariables)} color="red" />
             <div className="border-t border-slate-200 pt-3 font-bold text-lg">
               <span>Total : </span>
-              <span className="text-red-600">4 700 000 FCFA</span>
+              <span className="text-red-600">{formatFCFA(totalSorties)}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Bénéfice/Perte */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-md p-6 text-white">
-        <h2 className="text-lg font-bold mb-2">Résultat net ({period})</h2>
-        <p className="text-4xl font-bold">+5 500 000 FCFA</p>
-        <p className="text-sm text-blue-100 mt-2">Entrées - Sorties</p>
+      <div className={`rounded-lg shadow-md p-6 text-white bg-gradient-to-r ${
+        resultatNet >= 0 ? 'from-blue-600 to-blue-700' : 'from-red-600 to-red-700'
+      }`}>
+        <h2 className="text-lg font-bold mb-2">Résultat net ({PERIOD_LABELS[period]})</h2>
+        <p className="text-4xl font-bold">{resultatNet >= 0 ? '+' : ''}{formatFCFA(resultatNet)}</p>
+        <p className="text-sm text-white/80 mt-2">Entrées - Sorties</p>
       </div>
     </div>
   )

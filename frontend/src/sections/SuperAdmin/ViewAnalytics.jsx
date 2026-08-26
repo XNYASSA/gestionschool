@@ -1,24 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { TrendingUp, TrendingDown, Loader } from 'lucide-react'
 import { apiClient } from '../../api/client'
-
-function isInPeriod(date, period) {
-  const d = new Date(date)
-  const now = new Date()
-
-  if (period === 'jour') {
-    return d.toDateString() === now.toDateString()
-  }
-  if (period === 'semaine') {
-    const weekAgo = new Date(now)
-    weekAgo.setDate(now.getDate() - 7)
-    return d >= weekAgo && d <= now
-  }
-  if (period === 'mois') {
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-  }
-  return true
-}
+import { isInPeriod } from '../../utils/periodFilter'
 
 const TRANCHE_LABELS = {
   inscription: "Frais d'inscription",

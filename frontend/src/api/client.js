@@ -67,6 +67,11 @@ class APIClient {
     return this.request('/ecoles')
   }
 
+  // ANOMALIES
+  async getAnomalies() {
+    return this.request('/anomalies')
+  }
+
   // SECTIONS
   async getSections() {
     return this.request('/sections')
