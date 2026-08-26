@@ -143,6 +143,10 @@ export default function PersonnelManagement({ section }) {
 
   const formatFCFA = (m) => m ? `${m.toLocaleString('fr-FR')} FCFA` : '-'
 
+  const masseSalariale = personnel
+    .filter(p => p.actif)
+    .reduce((sum, p) => sum + (p.salaireMensuel || 0), 0)
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -241,6 +245,14 @@ export default function PersonnelManagement({ section }) {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {!loading && personnel.length > 0 && (
+          <div className="border-t border-slate-200 p-4 bg-slate-50 flex justify-end items-center gap-2">
+            <Wallet className="w-4 h-4 text-slate-500" />
+            <p className="font-bold text-slate-900">
+              Masse salariale totale (personnel actif) : <span className="text-blue-600">{formatFCFA(masseSalariale)}</span>
+            </p>
           </div>
         )}
       </div>
