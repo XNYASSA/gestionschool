@@ -12,6 +12,7 @@ import ListeEleves from '../sections/SuperAdmin/ListeEleves'
 import PersonnelManagement from '../sections/SuperAdmin/PersonnelManagement'
 import EcolesManagement from '../sections/SuperAdmin/EcolesManagement'
 import ModuleDepenses from '../sections/SuperAdmin/ModuleDepenses'
+import RapportsFinanciers from '../sections/SuperAdmin/RapportsFinanciers'
 import AnomaliesDetailed from '../sections/SuperAdmin/AnomaliesDetailed'
 import Parametres from '../sections/SuperAdmin/Parametres'
 import UsersManagement from './UsersManagement'
@@ -36,10 +37,9 @@ export default function DashboardSuperAdminEnhanced() {
 
   const loadStats = async () => {
     try {
-      const [ecoles, eleves, personnel, fraisData, depensesData, anomalies, utilisateurs] = await Promise.all([
+      const [ecoles, eleves, fraisData, depensesData, anomalies, utilisateurs] = await Promise.all([
         apiClient.getEcoles().catch(() => []),
         apiClient.getEleves().catch(() => []),
-        apiClient.getPersonnel().catch(() => []),
         apiClient.getFrais().catch(() => []),
         apiClient.getDepenses().catch(() => []),
         apiClient.getAnomalies().catch(() => []),
@@ -53,7 +53,8 @@ export default function DashboardSuperAdminEnhanced() {
       setStats({
         totalEcoles: ecoles.length,
         totalEleves: eleves.length,
-        personnels: personnel.length,
+        // Même source que Personnel → Liste du personnel (comptes Utilisateur, hors Super Admin)
+        personnels: utilisateurs.filter(u => u.role !== 'SUPER_ADMIN').length,
         anomalies: anomalies.filter(a => !a.resolue).length
       })
     } catch (error) {
@@ -84,6 +85,8 @@ export default function DashboardSuperAdminEnhanced() {
         return <EcolesManagement section="classes" />
       case 'depenses':
         return <ModuleDepenses />
+      case 'rapports-finance':
+        return <RapportsFinanciers />
       case 'anomalies':
         return <AnomaliesDetailed />
       case 'parametres':
