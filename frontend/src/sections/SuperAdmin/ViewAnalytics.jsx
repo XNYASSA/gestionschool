@@ -15,6 +15,7 @@ export default function ViewAnalytics() {
   const [depenses, setDepenses] = useState([])
   const [ecoles, setEcoles] = useState([])
   const [classes, setClasses] = useState([])
+  const [personnel, setPersonnel] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -31,16 +32,18 @@ export default function ViewAnalytics() {
     setLoading(true)
     setError('')
     try {
-      const [fraisData, depensesData, ecolesData, classesData] = await Promise.all([
+      const [fraisData, depensesData, ecolesData, classesData, utilisateursData] = await Promise.all([
         apiClient.getFrais(),
         apiClient.getDepenses(),
         apiClient.getEcoles(),
-        apiClient.getClasses()
+        apiClient.getClasses(),
+        apiClient.getUtilisateurs()
       ])
       setFrais(fraisData)
       setDepenses(depensesData)
       setEcoles(ecolesData)
       setClasses(classesData)
+      setPersonnel(utilisateursData.filter(u => u.actif && u.salaireMensuel))
     } catch (err) {
       setError(err.message || 'Erreur lors du chargement des données analytiques')
     } finally {
@@ -89,9 +92,17 @@ export default function ViewAnalytics() {
     })
   }, [depenses, period, filterEcole])
 
-  const totalSorties = depensesFiltrees.reduce((sum, d) => sum + d.montant, 0)
+  // Salaires : montant mensuel actuel du personnel actif, indépendant de la période
+  // (une rémunération n'est pas une transaction ponctuelle datée)
+  const personnelFiltre = useMemo(() => {
+    if (!filterEcole) return personnel
+    return personnel.filter(p => p.utilisateurEcoles?.some(ue => ue.ecole.id === filterEcole))
+  }, [personnel, filterEcole])
+  const totalSalaires = personnelFiltre.reduce((sum, p) => sum + (p.salaireMensuel || 0), 0)
+
   const totalFixes = depensesFiltrees.filter(d => d.type === 'FIXE').reduce((sum, d) => sum + d.montant, 0)
   const totalVariables = depensesFiltrees.filter(d => d.type === 'VARIABLE').reduce((sum, d) => sum + d.montant, 0)
+  const totalSorties = totalSalaires + totalFixes + totalVariables
 
   const resultatNet = totalEntrees - totalSorties
   const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
@@ -185,7 +196,11 @@ export default function ViewAnalytics() {
               </div>
               <div className="space-y-3">
                 <div className="flex justify-between text-sm border-b pb-2">
-                  <span className="text-slate-600">Charges fixes (salaires...)</span>
+                  <span className="text-slate-600">Salaires (personnel actif)</span>
+                  <span className="font-semibold text-red-600">{formatFCFA(totalSalaires)}</span>
+                </div>
+                <div className="flex justify-between text-sm border-b pb-2">
+                  <span className="text-slate-600">Autres charges fixes</span>
                   <span className="font-semibold text-red-600">{formatFCFA(totalFixes)}</span>
                 </div>
                 <div className="flex justify-between text-sm border-b pb-2">

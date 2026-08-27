@@ -17,6 +17,7 @@ const emptyForm = {
 export default function ModuleDepenses() {
   const [depenses, setDepenses] = useState([])
   const [ecoles, setEcoles] = useState([])
+  const [personnel, setPersonnel] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [period, setPeriod] = useState('mois')
@@ -34,18 +35,28 @@ export default function ModuleDepenses() {
     setLoading(true)
     setError('')
     try {
-      const [depensesData, ecolesData] = await Promise.all([
+      const [depensesData, ecolesData, utilisateursData] = await Promise.all([
         apiClient.getDepenses(),
-        apiClient.getEcoles()
+        apiClient.getEcoles(),
+        apiClient.getUtilisateurs()
       ])
       setDepenses(depensesData)
       setEcoles(ecolesData)
+      setPersonnel(utilisateursData.filter(u => u.actif && u.salaireMensuel))
     } catch (err) {
       setError(err.message || 'Erreur lors du chargement des dépenses')
     } finally {
       setLoading(false)
     }
   }
+
+  // Salaires : calculés en direct depuis le personnel actif (source de vérité = Personnel),
+  // pas depuis une dépense saisie manuellement — toujours le montant mensuel actuel
+  const personnelFiltre = useMemo(() => {
+    if (!filterEcole) return personnel
+    return personnel.filter(p => p.utilisateurEcoles?.some(ue => ue.ecole.id === filterEcole))
+  }, [personnel, filterEcole])
+  const totalSalaires = personnelFiltre.reduce((sum, p) => sum + (p.salaireMensuel || 0), 0)
 
   const filtered = useMemo(() => {
     return depenses.filter(d => {
@@ -59,7 +70,7 @@ export default function ModuleDepenses() {
   const variables = filtered.filter(d => d.type === 'VARIABLE')
   const totalFixes = fixes.reduce((sum, d) => sum + d.montant, 0)
   const totalVariables = variables.reduce((sum, d) => sum + d.montant, 0)
-  const totalGeneral = totalFixes + totalVariables
+  const totalGeneral = totalSalaires + totalFixes + totalVariables
 
   const openCreateModal = () => {
     setFormData(emptyForm)
@@ -161,9 +172,46 @@ export default function ModuleDepenses() {
         </div>
       ) : (
         <>
-          {/* Charges fixes */}
+          {/* Salaires : calculés en direct depuis Personnel, non modifiables ici */}
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="bg-slate-50 border-b border-slate-200 p-4">
+              <h3 className="font-bold text-slate-900">💼 Salaires du personnel actif ({personnelFiltre.length})</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Montant mensuel actuel — à modifier depuis Personnel → Liste du personnel</p>
+            </div>
+            {personnelFiltre.length === 0 ? (
+              <div className="p-6 text-center text-slate-500">Aucun membre du personnel rémunéré</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left font-semibold text-slate-700">Nom</th>
+                      <th className="px-6 py-3 text-left font-semibold text-slate-700">Fonction</th>
+                      <th className="px-6 py-3 text-left font-semibold text-slate-700">École</th>
+                      <th className="px-6 py-3 text-center font-semibold text-slate-700">Salaire mensuel</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {personnelFiltre.map(p => (
+                      <tr key={p.id} className="border-b border-slate-200 hover:bg-slate-50">
+                        <td className="px-6 py-3 text-slate-900">{p.nom}</td>
+                        <td className="px-6 py-3 text-slate-600">{p.fonction || p.role}</td>
+                        <td className="px-6 py-3 text-slate-600">{p.utilisateurEcoles?.map(ue => ue.ecole.nomCourt).join(', ') || '-'}</td>
+                        <td className="px-6 py-3 text-center font-mono font-semibold text-red-600">{formatFCFA(p.salaireMensuel)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="border-t border-slate-200 p-4 bg-slate-50 flex justify-end">
+              <p className="font-bold text-slate-900">Total salaires : <span className="text-red-600">{formatFCFA(totalSalaires)}</span></p>
+            </div>
+          </div>
+
+          {/* Autres charges fixes (loyer, assurance, etc.) */}
           <DepenseTable
-            title="🔒 Charges fixes (salaires, etc.)"
+            title="🔒 Autres charges fixes (loyer, assurances...)"
             depenses={fixes}
             total={totalFixes}
             onEdit={openEditModal}
@@ -183,7 +231,7 @@ export default function ModuleDepenses() {
 
           {/* Total général */}
           <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-lg shadow-md p-6 text-white">
-            <h3 className="text-lg font-bold mb-1">Total des dépenses ({period})</h3>
+            <h3 className="text-lg font-bold mb-1">Total des dépenses (salaires + charges fixes + charges variables sur {period})</h3>
             <p className="text-3xl font-bold">{formatFCFA(totalGeneral)}</p>
           </div>
         </>
@@ -221,7 +269,7 @@ export default function ModuleDepenses() {
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                   >
-                    <option value="FIXE">Charge fixe</option>
+                    <option value="FIXE">Autre charge fixe (loyer, assurance...)</option>
                     <option value="VARIABLE">Charge variable</option>
                   </select>
                 </div>

@@ -27,6 +27,7 @@ export default function DashboardSuperAdminEnhanced() {
   })
   const [frais, setFrais] = useState([])
   const [depenses, setDepenses] = useState([])
+  const [personnelActif, setPersonnelActif] = useState([])
   const [period, setPeriod] = useState('mois') // jour, semaine, mois
 
   useEffect(() => {
@@ -35,17 +36,19 @@ export default function DashboardSuperAdminEnhanced() {
 
   const loadStats = async () => {
     try {
-      const [ecoles, eleves, personnel, fraisData, depensesData, anomalies] = await Promise.all([
+      const [ecoles, eleves, personnel, fraisData, depensesData, anomalies, utilisateurs] = await Promise.all([
         apiClient.getEcoles().catch(() => []),
         apiClient.getEleves().catch(() => []),
         apiClient.getPersonnel().catch(() => []),
         apiClient.getFrais().catch(() => []),
         apiClient.getDepenses().catch(() => []),
-        apiClient.getAnomalies().catch(() => [])
+        apiClient.getAnomalies().catch(() => []),
+        apiClient.getUtilisateurs().catch(() => [])
       ])
 
       setFrais(fraisData)
       setDepenses(depensesData)
+      setPersonnelActif(utilisateurs.filter(u => u.actif && u.salaireMensuel))
 
       setStats({
         totalEcoles: ecoles.length,
@@ -61,7 +64,7 @@ export default function DashboardSuperAdminEnhanced() {
   const renderSection = () => {
     switch (currentSection) {
       case 'dashboard':
-        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} period={period} setPeriod={setPeriod} />
+        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} />
       case 'revenus':
         return <ViewAnalytics />
       case 'paiements':
@@ -88,7 +91,7 @@ export default function DashboardSuperAdminEnhanced() {
       case 'comptes':
         return <UsersManagement />
       default:
-        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} period={period} setPeriod={setPeriod} />
+        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} />
     }
   }
 
@@ -130,7 +133,7 @@ export default function DashboardSuperAdminEnhanced() {
 }
 
 // Section Overview du Dashboard
-function DashboardOverview({ stats, frais = [], depenses = [], period, setPeriod }) {
+function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = [], period, setPeriod }) {
   const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
 
   const fraisPeriode = frais.filter(f => f.montantPaye > 0 && isInPeriod(f.datePayement || f.createdAt, period))
@@ -138,10 +141,13 @@ function DashboardOverview({ stats, frais = [], depenses = [], period, setPeriod
   const pensions = fraisPeriode.filter(f => f.tranche !== 'inscription').reduce((sum, f) => sum + f.montantPaye, 0)
   const totalEntrees = inscriptions + pensions
 
+  // Salaires : montant mensuel actuel du personnel actif, indépendant de la période
+  const totalSalaires = personnelActif.reduce((sum, p) => sum + (p.salaireMensuel || 0), 0)
+
   const depensesPeriode = depenses.filter(d => isInPeriod(d.dateDepense, period))
   const totalFixes = depensesPeriode.filter(d => d.type === 'FIXE').reduce((sum, d) => sum + d.montant, 0)
   const totalVariables = depensesPeriode.filter(d => d.type === 'VARIABLE').reduce((sum, d) => sum + d.montant, 0)
-  const totalSorties = totalFixes + totalVariables
+  const totalSorties = totalSalaires + totalFixes + totalVariables
 
   const resultatNet = totalEntrees - totalSorties
 
@@ -217,7 +223,8 @@ function DashboardOverview({ stats, frais = [], depenses = [], period, setPeriod
             <h2 className="text-lg font-bold text-slate-900">Sorties d'argent</h2>
           </div>
           <div className="space-y-3">
-            <FinanceRow label="Charges fixes (salaires...)" amount={formatFCFA(totalFixes)} color="red" />
+            <FinanceRow label="Salaires (personnel actif)" amount={formatFCFA(totalSalaires)} color="red" />
+            <FinanceRow label="Autres charges fixes" amount={formatFCFA(totalFixes)} color="red" />
             <FinanceRow label="Charges variables (matériel...)" amount={formatFCFA(totalVariables)} color="red" />
             <div className="border-t border-slate-200 pt-3 font-bold text-lg">
               <span>Total : </span>

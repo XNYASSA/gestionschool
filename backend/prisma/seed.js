@@ -530,24 +530,9 @@ async function main() {
   ]
 
   for (const ecole of ecoles) {
-    // Charge fixe : masse salariale mensuelle du personnel de l'école (déjà en base via Personnel)
-    const masseSalariale = await prisma.personnel.aggregate({
-      where: { ecoleId: ecole.id },
-      _sum: { salaireMensuel: true }
-    })
-
-    await prisma.depense.create({
-      data: {
-        description: `Salaires du personnel - ${ecole.nomCourt}`,
-        categorie: 'AUTRE',
-        type: 'FIXE',
-        montant: masseSalariale._sum.salaireMensuel || 0,
-        ecoleId: ecole.id,
-        dateDepense: new Date()
-      }
-    })
-
     // Charges variables : quelques dépenses ponctuelles réparties sur les 3 derniers mois
+    // (les salaires ne sont plus dupliqués ici : ils sont calculés en direct depuis
+    // Utilisateur.salaireMensuel, seule source de vérité, gérée dans Personnel)
     for (let i = 0; i < 3; i++) {
       const depense = depensesVariables[Math.floor(Math.random() * depensesVariables.length)]
       const dateDepense = new Date()
@@ -566,7 +551,7 @@ async function main() {
     }
   }
 
-  console.log('✓ Dépenses (fixes et variables) créées pour chaque école')
+  console.log('✓ Dépenses variables créées pour chaque école')
 
   console.log('✅ Seed réussi ! Base de données restructurée pour multi-écoles')
 }
