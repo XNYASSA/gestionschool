@@ -78,13 +78,13 @@ export default function ConfigurationFrais() {
 
   const handleSaveInscription = async () => {
     try {
-      await apiClient.updateConfigurationFrais(config.id, {
+      const result = await apiClient.updateConfigurationFrais(config.id, {
         montantInscription: parseInt(montantInscription),
         dateLimiteInscription: dateLimiteInscription || null
       })
-      setMessage('Frais d\'inscription mis à jour')
+      setMessage(`Frais d'inscription mis à jour — appliqué à ${result.elevesAffectes} élève(s) de l'école`)
       loadConfig(selectedEcoleId)
-      setTimeout(() => setMessage(''), 3000)
+      setTimeout(() => setMessage(''), 5000)
     } catch (err) {
       alert('Erreur: ' + err.message)
     }
@@ -92,10 +92,10 @@ export default function ConfigurationFrais() {
 
   const handleSaveTranche = async (tranche) => {
     try {
-      await apiClient.updateTranche(config.id, tranche.numero, parseInt(tranche.montant), tranche.dateLimite || null)
-      setMessage(`Tranche ${tranche.numero} mise à jour`)
+      const result = await apiClient.updateTranche(config.id, tranche.numero, parseInt(tranche.montant), tranche.dateLimite || null)
+      setMessage(`Tranche ${tranche.numero} mise à jour — appliqué à ${result.elevesAffectes} élève(s) de l'école (montants dus et statuts de paiement recalculés)`)
       loadConfig(selectedEcoleId)
-      setTimeout(() => setMessage(''), 3000)
+      setTimeout(() => setMessage(''), 5000)
     } catch (err) {
       alert('Erreur: ' + err.message)
     }
@@ -117,10 +117,12 @@ export default function ConfigurationFrais() {
       return
     }
     try {
-      await apiClient.addTranche(config.id, parseInt(newTrancheMontant), newTrancheDate || null)
+      const result = await apiClient.addTranche(config.id, parseInt(newTrancheMontant), newTrancheDate || null)
+      setMessage(`Nouvelle tranche créée — ajoutée aux fiches de frais de ${result.elevesAffectes} élève(s) de l'école`)
       setNewTrancheMontant('')
       setNewTrancheDate('')
       loadConfig(selectedEcoleId)
+      setTimeout(() => setMessage(''), 5000)
     } catch (err) {
       alert('Erreur: ' + err.message)
     }
@@ -146,6 +148,9 @@ export default function ConfigurationFrais() {
       <h2 className="text-2xl font-bold text-slate-900">⚙️ Configuration des frais</h2>
       <p className="text-sm text-slate-500 -mt-4">
         Définissez le montant des frais d'inscription, le nombre de tranches de pension, leur montant et leur date limite de paiement, pour chaque école.
+      </p>
+      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 -mt-2">
+        ⚡ Toute modification est appliquée immédiatement aux fiches de frais de tous les élèves de l'école : montants dus, statuts (Soldé/Partiel/Non soldé) et sommes perçues/restantes sont recalculés automatiquement partout dans l'application.
       </p>
 
       {error && <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">⚠️ {error}</div>}

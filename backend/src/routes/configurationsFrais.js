@@ -8,6 +8,52 @@ const includeFull = {
   tranches: { orderBy: { numero: 'asc' } }
 }
 
+function calculerStatut(montantDu, montantPaye) {
+  if (montantDu > 0 && montantPaye >= montantDu) return 'SOLDE'
+  if (montantPaye > 0) return 'PARTIEL'
+  return 'IMPAYE'
+}
+
+// Propage un montant de tranche (ou d'inscription) modifié dans ConfigurationFrais
+// vers les fiches InscriptionFrais de tous les élèves de l'école concernée.
+// Crée la ligne si l'élève n'en avait pas encore, sinon met à jour montantDu
+// et recalcule le statut (le montant déjà payé n'est jamais touché).
+async function synchroniserInscriptionsFrais(prisma, ecoleId, trancheLabel, nouveauMontant) {
+  const eleves = await prisma.eleve.findMany({
+    where: { classe: { ecoleId } },
+    select: { id: true }
+  })
+
+  for (const eleve of eleves) {
+    const existante = await prisma.inscriptionFrais.findFirst({
+      where: { eleveId: eleve.id, tranche: trancheLabel }
+    })
+
+    if (existante) {
+      await prisma.inscriptionFrais.update({
+        where: { id: existante.id },
+        data: {
+          montantDu: nouveauMontant,
+          statut: calculerStatut(nouveauMontant, existante.montantPaye)
+        }
+      })
+    } else {
+      await prisma.inscriptionFrais.create({
+        data: {
+          eleveId: eleve.id,
+          tranche: trancheLabel,
+          montantDu: nouveauMontant,
+          montantPaye: 0,
+          statut: 'IMPAYE',
+          statutValidation: 'VALIDE'
+        }
+      })
+    }
+  }
+
+  return eleves.length
+}
+
 // GET ALL CONFIGURATIONS
 router.get('/', verifyToken, async (req, res) => {
   try {
@@ -58,18 +104,26 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
           { numero: 3, montant: 25000 }
         ]
 
-    const montantFraisTotal = (montantInscription || 50000) + trancheData.reduce((sum, t) => sum + t.montant, 0)
+    const montantInscriptionFinal = montantInscription || 50000
+    const montantFraisTotal = montantInscriptionFinal + trancheData.reduce((sum, t) => sum + t.montant, 0)
 
     const config = await req.prisma.configurationFrais.create({
       data: {
         ecoleId,
-        montantInscription: montantInscription || 50000,
+        montantInscription: montantInscriptionFinal,
         montantFraisTotal,
         dateLimiteInscription: dateLimiteInscription ? new Date(dateLimiteInscription) : null,
         tranches: { create: trancheData }
       },
       include: includeFull
     })
+
+    // Appliquer immédiatement ces montants aux élèves déjà inscrits dans cette école
+    await synchroniserInscriptionsFrais(req.prisma, ecoleId, 'inscription', montantInscriptionFinal)
+    for (const t of trancheData) {
+      await synchroniserInscriptionsFrais(req.prisma, ecoleId, `tranche${t.numero}`, t.montant)
+    }
+
     res.status(201).json(config)
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -98,7 +152,13 @@ router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => 
       include: includeFull
     })
 
-    res.json(updated)
+    // Propager le nouveau montant d'inscription à tous les élèves de l'école
+    let elevesAffectes = 0
+    if (montantInscription !== undefined) {
+      elevesAffectes = await synchroniserInscriptionsFrais(req.prisma, config.ecoleId, 'inscription', config.montantInscription)
+    }
+
+    res.json({ ...updated, elevesAffectes })
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Configuration non trouvée' })
@@ -113,6 +173,11 @@ router.post('/:configId/tranches', verifyToken, checkRole(['SUPER_ADMIN']), asyn
     const { montant, dateLimite } = req.body
     if (!montant) {
       return res.status(400).json({ error: 'Le montant est obligatoire' })
+    }
+
+    const configuration = await req.prisma.configurationFrais.findUnique({ where: { id: req.params.configId } })
+    if (!configuration) {
+      return res.status(404).json({ error: 'Configuration non trouvée' })
     }
 
     const existantes = await req.prisma.tranche.findMany({
@@ -132,7 +197,11 @@ router.post('/:configId/tranches', verifyToken, checkRole(['SUPER_ADMIN']), asyn
     })
 
     await recalculerMontantTotal(req.prisma, req.params.configId)
-    res.status(201).json(tranche)
+
+    // Créer la nouvelle échéance chez tous les élèves déjà inscrits dans cette école
+    const elevesAffectes = await synchroniserInscriptionsFrais(req.prisma, configuration.ecoleId, `tranche${prochainNumero}`, montant)
+
+    res.status(201).json({ ...tranche, elevesAffectes })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -143,6 +212,11 @@ router.put('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_ADM
   try {
     const { montant, dateLimite } = req.body
     const { configId, trancheNum } = req.params
+
+    const configuration = await req.prisma.configurationFrais.findUnique({ where: { id: configId } })
+    if (!configuration) {
+      return res.status(404).json({ error: 'Configuration non trouvée' })
+    }
 
     const tranche = await req.prisma.tranche.update({
       where: {
@@ -158,7 +232,14 @@ router.put('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_ADM
     })
 
     await recalculerMontantTotal(req.prisma, configId)
-    res.json(tranche)
+
+    // Répercuter le nouveau montant sur les fiches de frais de tous les élèves de l'école
+    let elevesAffectes = 0
+    if (montant !== undefined) {
+      elevesAffectes = await synchroniserInscriptionsFrais(req.prisma, configuration.ecoleId, `tranche${trancheNum}`, montant)
+    }
+
+    res.json({ ...tranche, elevesAffectes })
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Tranche non trouvée' })
@@ -171,6 +252,28 @@ router.put('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_ADM
 router.delete('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
     const { configId, trancheNum } = req.params
+    const trancheLabel = `tranche${trancheNum}`
+
+    const configuration = await req.prisma.configurationFrais.findUnique({ where: { id: configId } })
+    if (!configuration) {
+      return res.status(404).json({ error: 'Configuration non trouvée' })
+    }
+
+    // Empêcher la suppression si des élèves ont déjà payé sur cette tranche
+    // (on ne supprime jamais un historique de paiement)
+    const paiementsExistants = await req.prisma.inscriptionFrais.findFirst({
+      where: {
+        tranche: trancheLabel,
+        montantPaye: { gt: 0 },
+        eleve: { classe: { ecoleId: configuration.ecoleId } }
+      }
+    })
+
+    if (paiementsExistants) {
+      return res.status(400).json({
+        error: 'Impossible de supprimer cette tranche : des paiements ont déjà été enregistrés dessus pour au moins un élève.'
+      })
+    }
 
     await req.prisma.tranche.delete({
       where: {
@@ -182,6 +285,15 @@ router.delete('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_
     })
 
     await recalculerMontantTotal(req.prisma, configId)
+
+    // Retirer les fiches de frais correspondantes (aucune n'a de paiement, cf. vérification ci-dessus)
+    await req.prisma.inscriptionFrais.deleteMany({
+      where: {
+        tranche: trancheLabel,
+        eleve: { classe: { ecoleId: configuration.ecoleId } }
+      }
+    })
+
     res.json({ message: 'Tranche supprimée avec succès' })
   } catch (error) {
     if (error.code === 'P2025') {
