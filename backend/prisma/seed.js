@@ -327,11 +327,12 @@ async function main() {
         ecoleId: ecole.id,
         montantInscription: 50000,
         montantFraisTotal: 800000,
+        dateLimiteInscription: new Date('2026-09-15'),
         tranches: {
           create: [
-            { numero: 1, montant: 300000 },
-            { numero: 2, montant: 250000 },
-            { numero: 3, montant: 250000 }
+            { numero: 1, montant: 300000, dateLimite: new Date('2026-10-31') },
+            { numero: 2, montant: 250000, dateLimite: new Date('2027-01-31') },
+            { numero: 3, montant: 250000, dateLimite: new Date('2027-04-30') }
           ]
         }
       }

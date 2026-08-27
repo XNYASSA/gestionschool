@@ -13,6 +13,7 @@ import PersonnelManagement from '../sections/SuperAdmin/PersonnelManagement'
 import EcolesManagement from '../sections/SuperAdmin/EcolesManagement'
 import ModuleDepenses from '../sections/SuperAdmin/ModuleDepenses'
 import RapportsFinanciers from '../sections/SuperAdmin/RapportsFinanciers'
+import ConfigurationFrais from '../sections/SuperAdmin/ConfigurationFrais'
 import AnomaliesDetailed from '../sections/SuperAdmin/AnomaliesDetailed'
 import Parametres from '../sections/SuperAdmin/Parametres'
 import UsersManagement from './UsersManagement'
@@ -87,6 +88,8 @@ export default function DashboardSuperAdminEnhanced() {
         return <ModuleDepenses />
       case 'rapports-finance':
         return <RapportsFinanciers />
+      case 'configuration':
+        return <ConfigurationFrais />
       case 'anomalies':
         return <AnomaliesDetailed />
       case 'parametres':

@@ -249,8 +249,9 @@ model ConfigurationFrais {
   id             String @id @default(cuid())
   ecole          Ecole  @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
   ecoleId        String
-  montantInscription Int @default(50000)
-  montantFraisTotal  Int @default(80000)
+  montantInscription     Int @default(50000)
+  montantFraisTotal      Int @default(80000)
+  dateLimiteInscription  DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -264,8 +265,9 @@ model Tranche {
   id                String @id @default(cuid())
   configurationFrais ConfigurationFrais @relation(fields: [configurationFraisId], references: [id], onDelete: Cascade)
   configurationFraisId String
-  numero            Int    // 1, 2, 3
+  numero            Int    // 1, 2, 3...
   montant           Int
+  dateLimite        DateTime? // date limite de règlement de cette tranche
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

@@ -301,14 +301,14 @@ class APIClient {
     return this.request('/configurations-frais')
   }
 
-  async getConfigurationFraisBySection(sectionId) {
-    return this.request(`/configurations-frais/section/${sectionId}`)
+  async getConfigurationFraisByEcole(ecoleId) {
+    return this.request(`/configurations-frais/ecole/${ecoleId}`)
   }
 
-  async createConfigurationFrais(sectionId, montantInscription, montantFraisTotal, tranches) {
+  async createConfigurationFrais(data) {
     return this.request('/configurations-frais', {
       method: 'POST',
-      body: JSON.stringify({ sectionId, montantInscription, montantFraisTotal, tranches })
+      body: JSON.stringify(data)
     })
   }
 
@@ -319,10 +319,23 @@ class APIClient {
     })
   }
 
-  async updateTranche(configId, trancheNum, montant) {
+  async addTranche(configId, montant, dateLimite) {
+    return this.request(`/configurations-frais/${configId}/tranches`, {
+      method: 'POST',
+      body: JSON.stringify({ montant, dateLimite })
+    })
+  }
+
+  async updateTranche(configId, trancheNum, montant, dateLimite) {
     return this.request(`/configurations-frais/${configId}/tranches/${trancheNum}`, {
       method: 'PUT',
-      body: JSON.stringify({ montant })
+      body: JSON.stringify({ montant, dateLimite })
+    })
+  }
+
+  async deleteTranche(configId, trancheNum) {
+    return this.request(`/configurations-frais/${configId}/tranches/${trancheNum}`, {
+      method: 'DELETE'
     })
   }
 
