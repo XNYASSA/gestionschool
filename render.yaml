@@ -9,7 +9,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        value: file:./prisma/dev.db
+        value: file:./dev.db
       - key: JWT_SECRET
         value: your_jwt_secret_change_this_in_production_12345
       - key: FRONTEND_URL
