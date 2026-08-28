@@ -9,6 +9,10 @@ export const AuthProvider = ({ children }) => {
   const [ecoleSelectionnee, setEcoleSelectionnee] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [impersonateur, setImpersonateur] = useState(() => {
+    const saved = sessionStorage.getItem('impersonateur')
+    return saved ? JSON.parse(saved) : null
+  })
 
   // Charger l'utilisateur au démarrage s'il y a un token
   useEffect(() => {
@@ -121,6 +125,66 @@ export const AuthProvider = ({ children }) => {
     return avatarMap[apiRole] || '👤'
   }
 
+  const refreshUser = async () => {
+    const utilisateur = await apiClient.me()
+    setUser({
+      id: utilisateur.id,
+      name: utilisateur.nom,
+      email: utilisateur.email,
+      role: mapRole(utilisateur.role),
+      roleAPI: utilisateur.role,
+      avatar: getAvatarByRole(utilisateur.role)
+    })
+    return utilisateur
+  }
+
+  // Bascule la session courante vers un autre compte (Super Admin uniquement),
+  // sans jamais connaître ni afficher le mot de passe de ce compte.
+  const startImpersonation = (utilisateur, token) => {
+    sessionStorage.setItem('impersonateur', JSON.stringify({ token: apiClient.token, user }))
+    setImpersonateur({ token: apiClient.token, user })
+
+    apiClient.setToken(token)
+    setUser({
+      id: utilisateur.id,
+      name: utilisateur.nom,
+      email: utilisateur.email,
+      role: mapRole(utilisateur.role),
+      roleAPI: utilisateur.role,
+      avatar: getAvatarByRole(utilisateur.role)
+    })
+
+    if (utilisateur.ecoles && utilisateur.ecoles.length > 0) {
+      setEcoles(utilisateur.ecoles)
+      setEcoleSelectionnee(utilisateur.ecoles[0])
+      localStorage.setItem('selectedEcole', utilisateur.ecoles[0].id)
+    } else {
+      setEcoles([])
+      setEcoleSelectionnee(null)
+    }
+  }
+
+  // Restaure la session admin d'origine après une connexion "en tant que"
+  const stopImpersonation = async () => {
+    const saved = impersonateur || JSON.parse(sessionStorage.getItem('impersonateur') || 'null')
+    if (!saved) return
+
+    apiClient.setToken(saved.token)
+    setUser(saved.user)
+    sessionStorage.removeItem('impersonateur')
+    setImpersonateur(null)
+
+    try {
+      const utilisateur = await apiClient.me()
+      if (utilisateur.ecoles) {
+        setEcoles(utilisateur.ecoles)
+        setEcoleSelectionnee(utilisateur.ecoles[0] || null)
+      }
+    } catch (err) {
+      console.error('Erreur lors du retour au compte admin:', err)
+    }
+  }
+
   const selectEcole = (ecoleId) => {
     const ecole = ecoles.find(e => e.id === ecoleId)
     if (ecole) {
@@ -167,6 +231,7 @@ export const AuthProvider = ({ children }) => {
     user,
     login,
     logout,
+    refreshUser,
     canAccess,
     getRoleColor,
     getRoleBadge,
@@ -175,7 +240,10 @@ export const AuthProvider = ({ children }) => {
     error,
     ecoles,
     ecoleSelectionnee,
-    selectEcole
+    selectEcole,
+    startImpersonation,
+    stopImpersonation,
+    isImpersonating: !!impersonateur
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

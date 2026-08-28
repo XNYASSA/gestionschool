@@ -1,7 +1,8 @@
 import { useContext, useState, useEffect } from 'react'
 import { AuthContext } from '../context/AuthContext'
-import { FileText, DollarSign, Plus, Eye } from 'lucide-react'
+import { FileText, DollarSign, Plus, Eye, Clock } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
+import PersonnelRH from '../components/PersonnelRH'
 
 export default function DashboardSecretaire() {
   const { ecoleSelectionnee, selectEcole, ecoles } = useContext(AuthContext)
@@ -88,18 +89,21 @@ export default function DashboardSecretaire() {
             <p className="text-slate-600">{ecoleSelectionnee.nomComplet}</p>
           </div>
 
-          {ecoles.length > 1 && (
-            <select
-              value={ecoleSelectionnee.id}
-              onChange={(e) => selectEcole(e.target.value)}
-              className="px-4 py-2 border border-slate-300 rounded-lg bg-white"
-            >
-              {ecoles.map(ecole => (
-                <option key={ecole.id} value={ecole.id}>
-                  {ecole.nomCourt}
-                </option>
-              ))}
-            </select>
+          {ecoles.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-slate-600">Établissement :</label>
+              <select
+                value={ecoleSelectionnee.id}
+                onChange={(e) => selectEcole(e.target.value)}
+                className="px-4 py-2 border border-slate-300 rounded-lg bg-white"
+              >
+                {ecoles.map(ecole => (
+                  <option key={ecole.id} value={ecole.id}>
+                    {ecole.nomCourt}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
         </div>
 
@@ -124,6 +128,16 @@ export default function DashboardSecretaire() {
             }`}
           >
             Réceptions établies
+          </button>
+          <button
+            onClick={() => setActiveTab('rh')}
+            className={`px-4 py-2 font-medium transition flex items-center gap-2 ${
+              activeTab === 'rh'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Clock className="w-4 h-4" /> Emploi du temps & Présences
           </button>
         </div>
 
@@ -254,6 +268,11 @@ export default function DashboardSecretaire() {
             <p className="text-slate-600">Historique des réceptions établies par les parents/tuteurs</p>
             {/* À implémenter */}
           </div>
+        )}
+
+        {/* RH Tab */}
+        {activeTab === 'rh' && (
+          <PersonnelRH ecoleSelectionnee={ecoleSelectionnee} />
         )}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
+import { getEcoleIdsScope } from '../utils/ecoleScope.js'
 
 const router = express.Router()
 
@@ -54,10 +55,13 @@ async function synchroniserInscriptionsFrais(prisma, ecoleId, trancheLabel, nouv
   return eleves.length
 }
 
-// GET ALL CONFIGURATIONS
-router.get('/', verifyToken, async (req, res) => {
+// GET ALL CONFIGURATIONS (Super Admin : toutes ; Principal/Directrice : de leur(s) école(s))
+router.get('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+
     const configs = await req.prisma.configurationFrais.findMany({
+      where: ecoleIds ? { ecoleId: { in: ecoleIds } } : {},
       include: includeFull,
       orderBy: { ecoleId: 'asc' }
     })
@@ -68,8 +72,13 @@ router.get('/', verifyToken, async (req, res) => {
 })
 
 // GET CONFIGURATION BY ECOLE
-router.get('/ecole/:ecoleId', verifyToken, async (req, res) => {
+router.get('/ecole/:ecoleId', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIds && !ecoleIds.includes(req.params.ecoleId)) {
+      return res.status(403).json({ error: 'Accès refusé à cette école' })
+    }
+
     const config = await req.prisma.configurationFrais.findUnique({
       where: { ecoleId: req.params.ecoleId },
       include: includeFull
@@ -83,13 +92,18 @@ router.get('/ecole/:ecoleId', verifyToken, async (req, res) => {
   }
 })
 
-// CREATE CONFIGURATION (Admin only)
-router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// CREATE CONFIGURATION (Super Admin, ou Principal/Directrice pour leur école)
+router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const { ecoleId, montantInscription, dateLimiteInscription, tranches } = req.body
 
     if (!ecoleId) {
       return res.status(400).json({ error: 'Le champ ecoleId est obligatoire' })
+    }
+
+    const ecoleIdsScope = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIdsScope && !ecoleIdsScope.includes(ecoleId)) {
+      return res.status(403).json({ error: 'Cette école ne vous est pas affectée' })
     }
 
     const trancheData = (tranches && tranches.length > 0)
@@ -130,10 +144,18 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   }
 })
 
-// UPDATE CONFIGURATION (montant inscription / date limite inscription) (Admin only)
-router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// UPDATE CONFIGURATION (montant inscription / date limite inscription) (Super Admin, ou Principal/Directrice pour leur école)
+router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const { montantInscription, dateLimiteInscription } = req.body
+
+    const ecoleIdsScope = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIdsScope) {
+      const configActuelle = await req.prisma.configurationFrais.findUnique({ where: { id: req.params.id } })
+      if (!configActuelle || !ecoleIdsScope.includes(configActuelle.ecoleId)) {
+        return res.status(403).json({ error: 'Accès refusé à cette configuration' })
+      }
+    }
 
     const config = await req.prisma.configurationFrais.update({
       where: { id: req.params.id },
@@ -167,8 +189,8 @@ router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => 
   }
 })
 
-// ADD TRANCHE (Admin only) — permet d'augmenter le nombre de tranches
-router.post('/:configId/tranches', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// ADD TRANCHE (Super Admin, ou Principal/Directrice pour leur école) — permet d'augmenter le nombre de tranches
+router.post('/:configId/tranches', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const { montant, dateLimite } = req.body
     if (!montant) {
@@ -178,6 +200,11 @@ router.post('/:configId/tranches', verifyToken, checkRole(['SUPER_ADMIN']), asyn
     const configuration = await req.prisma.configurationFrais.findUnique({ where: { id: req.params.configId } })
     if (!configuration) {
       return res.status(404).json({ error: 'Configuration non trouvée' })
+    }
+
+    const ecoleIdsScope = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIdsScope && !ecoleIdsScope.includes(configuration.ecoleId)) {
+      return res.status(403).json({ error: 'Accès refusé à cette configuration' })
     }
 
     const existantes = await req.prisma.tranche.findMany({
@@ -207,8 +234,8 @@ router.post('/:configId/tranches', verifyToken, checkRole(['SUPER_ADMIN']), asyn
   }
 })
 
-// UPDATE TRANCHE (montant et/ou date limite) (Admin only)
-router.put('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// UPDATE TRANCHE (montant et/ou date limite) (Super Admin, ou Principal/Directrice pour leur école)
+router.put('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const { montant, dateLimite } = req.body
     const { configId, trancheNum } = req.params
@@ -216,6 +243,11 @@ router.put('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_ADM
     const configuration = await req.prisma.configurationFrais.findUnique({ where: { id: configId } })
     if (!configuration) {
       return res.status(404).json({ error: 'Configuration non trouvée' })
+    }
+
+    const ecoleIdsScope = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIdsScope && !ecoleIdsScope.includes(configuration.ecoleId)) {
+      return res.status(403).json({ error: 'Accès refusé à cette configuration' })
     }
 
     const tranche = await req.prisma.tranche.update({
@@ -248,8 +280,8 @@ router.put('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_ADM
   }
 })
 
-// DELETE TRANCHE (Admin only) — permet de réduire le nombre de tranches
-router.delete('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// DELETE TRANCHE (Super Admin, ou Principal/Directrice pour leur école) — permet de réduire le nombre de tranches
+router.delete('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const { configId, trancheNum } = req.params
     const trancheLabel = `tranche${trancheNum}`
@@ -257,6 +289,11 @@ router.delete('/:configId/tranches/:trancheNum', verifyToken, checkRole(['SUPER_
     const configuration = await req.prisma.configurationFrais.findUnique({ where: { id: configId } })
     if (!configuration) {
       return res.status(404).json({ error: 'Configuration non trouvée' })
+    }
+
+    const ecoleIdsScope = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIdsScope && !ecoleIdsScope.includes(configuration.ecoleId)) {
+      return res.status(403).json({ error: 'Accès refusé à cette configuration' })
     }
 
     // Empêcher la suppression si des élèves ont déjà payé sur cette tranche

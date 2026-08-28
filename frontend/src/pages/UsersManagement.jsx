@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react'
 import { AuthContext } from '../context/AuthContext'
 import { apiClient } from '../api/client'
-import { Users, Loader, AlertCircle } from 'lucide-react'
+import { Users, Loader, AlertCircle, KeyRound, LogIn, X, Copy } from 'lucide-react'
 
 const roleLabels = {
   SUPER_ADMIN: '👑 Super Admin',
@@ -24,15 +24,62 @@ const roleBgColors = {
 }
 
 export default function UsersManagement() {
-  const { user } = useContext(AuthContext)
+  const { user, startImpersonation } = useContext(AuthContext)
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
 
+  // Popup de ré-authentification avant une action sensible sur un compte
+  const [confirmAction, setConfirmAction] = useState(null) // { type: 'reset' | 'impersonate', cible }
+  const [reauthForm, setReauthForm] = useState({ adminEmail: '', adminMotDePasse: '' })
+  const [reauthError, setReauthError] = useState('')
+  const [reauthLoading, setReauthLoading] = useState(false)
+  const [motDePasseGenere, setMotDePasseGenere] = useState(null) // { cible, motDePasseTemporaire }
+
   useEffect(() => {
     loadUsers()
   }, [])
+
+  const ouvrirConfirmation = (type, cible) => {
+    setConfirmAction({ type, cible })
+    setReauthForm({ adminEmail: '', adminMotDePasse: '' })
+    setReauthError('')
+  }
+
+  const fermerConfirmation = () => {
+    setConfirmAction(null)
+    setReauthError('')
+  }
+
+  const validerConfirmation = async (e) => {
+    e.preventDefault()
+    if (!reauthForm.adminEmail || !reauthForm.adminMotDePasse) {
+      setReauthError('Veuillez renseigner votre email et votre mot de passe')
+      return
+    }
+    setReauthLoading(true)
+    setReauthError('')
+    try {
+      if (confirmAction.type === 'reset') {
+        const { motDePasseTemporaire } = await apiClient.resetPasswordUtilisateur(
+          confirmAction.cible.id, reauthForm.adminEmail, reauthForm.adminMotDePasse
+        )
+        setMotDePasseGenere({ cible: confirmAction.cible, motDePasseTemporaire })
+        setConfirmAction(null)
+      } else {
+        const { token, utilisateur } = await apiClient.impersonateUtilisateur(
+          confirmAction.cible.id, reauthForm.adminEmail, reauthForm.adminMotDePasse
+        )
+        startImpersonation(utilisateur, token)
+        setConfirmAction(null)
+      }
+    } catch (err) {
+      setReauthError(err.message || 'Identifiants incorrects')
+    } finally {
+      setReauthLoading(false)
+    }
+  }
 
   const loadUsers = async () => {
     setLoading(true)
@@ -127,6 +174,9 @@ export default function UsersManagement() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                     Statut
                   </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -160,17 +210,136 @@ export default function UsersManagement() {
                           {u.actif ? '✓ Actif' : 'Inactif'}
                         </span>
                       </td>
+                      <td className="px-6 py-4 text-sm">
+                        {u.id === user?.id ? (
+                          <span className="text-xs text-gray-400 italic">Votre compte</span>
+                        ) : (
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => ouvrirConfirmation('reset', u)}
+                              className="p-2 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 rounded text-yellow-600 dark:text-yellow-400 transition"
+                              title="Réinitialiser le mot de passe"
+                            >
+                              <KeyRound className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => ouvrirConfirmation('impersonate', u)}
+                              className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-blue-600 dark:text-blue-400 transition"
+                              title="Se connecter en tant que ce compte"
+                            >
+                              <LogIn className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" className="px-6 py-8 text-center text-gray-600 dark:text-gray-400">
+                    <td colSpan="6" className="px-6 py-8 text-center text-gray-600 dark:text-gray-400">
                       Aucun utilisateur trouvé
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Popup de ré-authentification avant action sensible */}
+      {confirmAction && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-sm w-full">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                {confirmAction.type === 'reset' ? '🔑 Réinitialiser le mot de passe' : '🔎 Se connecter en tant que'}
+              </h3>
+              <button onClick={fermerConfirmation} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={validerConfirmation} className="p-6 space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Compte concerné : <span className="font-semibold">{confirmAction.cible.nom}</span> ({confirmAction.cible.email})
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Par précaution, confirmez votre propre identifiant et mot de passe avant de continuer.
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Votre email</label>
+                <input
+                  type="email"
+                  value={reauthForm.adminEmail}
+                  onChange={(e) => setReauthForm({ ...reauthForm, adminEmail: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Votre mot de passe</label>
+                <input
+                  type="password"
+                  value={reauthForm.adminMotDePasse}
+                  onChange={(e) => setReauthForm({ ...reauthForm, adminMotDePasse: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+              {reauthError && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-red-700 dark:text-red-300 text-sm">
+                  ⚠️ {reauthError}
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  disabled={reauthLoading}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-60"
+                >
+                  {reauthLoading ? 'Vérification...' : 'Confirmer'}
+                </button>
+                <button
+                  type="button"
+                  onClick={fermerConfirmation}
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Mot de passe temporaire généré */}
+      {motDePasseGenere && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-sm w-full p-6 space-y-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">✓ Mot de passe réinitialisé</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Nouveau mot de passe temporaire pour <span className="font-semibold">{motDePasseGenere.cible.nom}</span> :
+            </p>
+            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-3">
+              <code className="flex-1 text-lg font-mono font-bold text-gray-900 dark:text-white break-all">
+                {motDePasseGenere.motDePasseTemporaire}
+              </code>
+              <button
+                onClick={() => navigator.clipboard?.writeText(motDePasseGenere.motDePasseTemporaire)}
+                className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300 transition"
+                title="Copier"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Ce mot de passe ne s'affichera plus. Communiquez-le à l'utilisateur ; il pourra le changer depuis ses Paramètres.
+            </p>
+            <button
+              onClick={() => setMotDePasseGenere(null)}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            >
+              Fermer
+            </button>
           </div>
         </div>
       )}

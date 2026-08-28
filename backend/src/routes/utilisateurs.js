@@ -1,8 +1,32 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
 import bcryptjs from 'bcryptjs'
+import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
+import { getEcoleIdsScope } from '../utils/ecoleScope.js'
 
 const router = express.Router()
+
+// Vérifie que l'admin appelant confirme bien sa propre identité (email + mot de passe)
+// avant une action sensible sur un autre compte (réinitialisation, connexion en tant que).
+async function verifierReauthentificationAdmin(prisma, req) {
+  const { adminEmail, adminMotDePasse } = req.body
+  if (!adminEmail || !adminMotDePasse) {
+    return { error: 'Veuillez confirmer votre email et votre mot de passe' }
+  }
+  if (adminEmail !== req.user.email) {
+    return { error: 'Identifiants incorrects' }
+  }
+  const admin = await prisma.utilisateur.findUnique({ where: { id: req.user.id } })
+  const valide = admin && await bcryptjs.compare(adminMotDePasse, admin.motDePasse)
+  if (!valide) {
+    return { error: 'Identifiants incorrects' }
+  }
+  return {}
+}
+
+// Rôles qu'un Principal/Directrice (non Super Admin) peut créer/assigner — pas de gestion des comptes admin
+const ROLES_ASSIGNABLES_NON_ADMIN = ['SECRETAIRE', 'ENSEIGNANT', 'ECONOMAT', 'SURVEILLANT_GENERAL', 'PERSONNEL']
 
 const publicSelect = {
   id: true,
@@ -22,13 +46,17 @@ const publicSelect = {
       role: true,
       ecole: { select: { id: true, nomCourt: true, nomComplet: true } }
     }
-  }
+  },
+  enseignant: { select: { tarifHoraire: true } }
 }
 
-// GET - Lister tous les utilisateurs, actifs et inactifs (Admin uniquement)
-router.get('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// GET - Lister le personnel (Super Admin : tout le monde ; Principal/Directrice/Secrétaire : personnel de leur(s) école(s) uniquement)
+router.get('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+
     const utilisateurs = await req.prisma.utilisateur.findMany({
+      where: ecoleIds ? { utilisateurEcoles: { some: { ecoleId: { in: ecoleIds }, actif: true } } } : {},
       select: publicSelect,
       orderBy: { createdAt: 'desc' }
     })
@@ -49,6 +77,91 @@ router.get('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => 
       return res.status(404).json({ error: 'Utilisateur non trouvé' })
     }
     res.json(utilisateur)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// GET - Masse salariale (salaires mensuels du personnel actif) d'une école
+router.get('/ecole/:ecoleId/masse-salariale', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
+  try {
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIds && !ecoleIds.includes(req.params.ecoleId)) {
+      return res.status(403).json({ error: 'Accès refusé à cette école' })
+    }
+
+    const utilisateurs = await req.prisma.utilisateur.findMany({
+      where: {
+        actif: true,
+        salaireMensuel: { not: null },
+        utilisateurEcoles: { some: { ecoleId: req.params.ecoleId, actif: true } }
+      },
+      select: { id: true, nom: true, role: true, salaireMensuel: true }
+    })
+
+    const total = utilisateurs.reduce((sum, u) => sum + (u.salaireMensuel || 0), 0)
+
+    res.json({ total, utilisateurs })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// GET - Enseignants d'une école ayant un tarif horaire défini (pour le rapport financier)
+router.get('/ecole/:ecoleId/enseignants-horaires', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
+  try {
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIds && !ecoleIds.includes(req.params.ecoleId)) {
+      return res.status(403).json({ error: 'Accès refusé à cette école' })
+    }
+
+    const utilisateurs = await req.prisma.utilisateur.findMany({
+      where: {
+        role: 'ENSEIGNANT',
+        actif: true,
+        utilisateurEcoles: { some: { ecoleId: req.params.ecoleId, actif: true } },
+        enseignant: { tarifHoraire: { not: null } }
+      },
+      select: { id: true, nom: true, enseignant: { select: { tarifHoraire: true } } }
+    })
+
+    res.json(utilisateurs.map(u => ({ utilisateurId: u.id, nom: u.nom, tarifHoraire: u.enseignant.tarifHoraire })))
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// PUT - Définir le tarif horaire d'un enseignant (Super Admin, ou Principal/Directrice de son école)
+router.put('/:id/tarif-horaire', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
+  try {
+    const { tarifHoraire } = req.body
+    const valeur = tarifHoraire === null || tarifHoraire === '' ? null : parseInt(tarifHoraire)
+
+    if (valeur !== null && (isNaN(valeur) || valeur < 0)) {
+      return res.status(400).json({ error: 'tarifHoraire doit être un entier positif ou null' })
+    }
+
+    const cible = await req.prisma.utilisateur.findUnique({
+      where: { id: req.params.id },
+      include: { enseignant: true, utilisateurEcoles: { where: { actif: true } } }
+    })
+
+    if (!cible || cible.role !== 'ENSEIGNANT') {
+      return res.status(404).json({ error: 'Enseignant non trouvé' })
+    }
+
+    if (req.user.role !== 'SUPER_ADMIN') {
+      const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+      if (!cible.utilisateurEcoles.some(ue => ecoleIds.includes(ue.ecoleId))) {
+        return res.status(403).json({ error: 'Accès refusé à cet enseignant' })
+      }
+    }
+
+    const enseignant = cible.enseignant
+      ? await req.prisma.enseignant.update({ where: { id: cible.enseignant.id }, data: { tarifHoraire: valeur } })
+      : await req.prisma.enseignant.create({ data: { utilisateurId: cible.id, telephone: cible.telephone || '', tarifHoraire: valeur } })
+
+    res.json(enseignant)
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -130,8 +243,8 @@ router.put('/profil/changer-mot-de-passe', verifyToken, async (req, res) => {
   }
 })
 
-// POST - Créer un nouvel utilisateur / membre du personnel (Admin uniquement)
-router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// POST - Créer un nouvel utilisateur / membre du personnel (Super Admin, ou Principal/Directrice/Secrétaire sans gestion des comptes admin)
+router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
     const { nom, email, motDePasse, role, fonction, telephone, salaireMensuel, ecoleId } = req.body
 
@@ -139,6 +252,12 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
       return res.status(400).json({
         error: 'Champs obligatoires: nom, email, motDePasse, role'
       })
+    }
+
+    const roleFinal = role.toUpperCase()
+
+    if (req.user.role !== 'SUPER_ADMIN' && !ROLES_ASSIGNABLES_NON_ADMIN.includes(roleFinal)) {
+      return res.status(403).json({ error: 'Vous ne pouvez pas attribuer ce rôle' })
     }
 
     const existingUser = await req.prisma.utilisateur.findUnique({ where: { email } })
@@ -151,10 +270,14 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
       if (!ecole) {
         return res.status(400).json({ error: 'École non trouvée' })
       }
+
+      const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+      if (ecoleIds && !ecoleIds.includes(ecoleId)) {
+        return res.status(403).json({ error: 'Cette école ne vous est pas affectée' })
+      }
     }
 
     const hashedPassword = await bcryptjs.hash(motDePasse, 10)
-    const roleFinal = role.toUpperCase()
 
     const utilisateur = await req.prisma.utilisateur.create({
       data: {
@@ -170,6 +293,9 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
           utilisateurEcoles: {
             create: { ecoleId, role: roleFinal }
           }
+        }),
+        ...(roleFinal === 'ENSEIGNANT' && {
+          enseignant: { create: { telephone: telephone || '' } }
         })
       },
       select: publicSelect
@@ -181,10 +307,27 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   }
 })
 
-// PUT - Modifier un utilisateur / membre du personnel
-router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// PUT - Modifier un utilisateur / membre du personnel (Super Admin, ou Principal/Directrice/Secrétaire sur le personnel de leur école, sans gestion des comptes admin)
+router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
     const { nom, motDePasse, role, fonction, telephone, salaireMensuel } = req.body
+
+    if (req.user.role !== 'SUPER_ADMIN') {
+      const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+      const cible = await req.prisma.utilisateur.findUnique({
+        where: { id: req.params.id },
+        include: { utilisateurEcoles: { where: { actif: true } } }
+      })
+      if (!cible || !cible.utilisateurEcoles.some(ue => ecoleIds.includes(ue.ecoleId))) {
+        return res.status(403).json({ error: 'Accès refusé à ce membre du personnel' })
+      }
+      if (role && !ROLES_ASSIGNABLES_NON_ADMIN.includes(role.toUpperCase())) {
+        return res.status(403).json({ error: 'Vous ne pouvez pas attribuer ce rôle' })
+      }
+      if (motDePasse) {
+        return res.status(403).json({ error: 'Seul un administrateur peut modifier le mot de passe d\'un compte' })
+      }
+    }
 
     const dataToUpdate = {}
     if (nom) dataToUpdate.nom = nom
@@ -231,6 +374,76 @@ router.put('/:id/toggle-statut', verifyToken, checkRole(['SUPER_ADMIN']), async 
     res.json({
       ...updatedUser,
       message: updatedUser.actif ? 'Compte activé : accès à l\'application rétabli' : 'Compte suspendu : accès à l\'application bloqué'
+    })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// POST - Réinitialiser le mot de passe d'un compte (Super Admin, après ré-authentification)
+router.post('/:id/reset-password', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+  try {
+    const { error } = await verifierReauthentificationAdmin(req.prisma, req)
+    if (error) return res.status(401).json({ error })
+
+    const cible = await req.prisma.utilisateur.findUnique({ where: { id: req.params.id } })
+    if (!cible) return res.status(404).json({ error: 'Utilisateur non trouvé' })
+
+    const motDePasseTemporaire = crypto.randomBytes(6).toString('base64url')
+    const hashedPassword = await bcryptjs.hash(motDePasseTemporaire, 10)
+
+    await req.prisma.utilisateur.update({
+      where: { id: req.params.id },
+      data: { motDePasse: hashedPassword }
+    })
+
+    res.json({ motDePasseTemporaire })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// POST - Se connecter en tant qu'un autre compte (Super Admin, après ré-authentification)
+router.post('/:id/impersonate', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+  try {
+    const { error } = await verifierReauthentificationAdmin(req.prisma, req)
+    if (error) return res.status(401).json({ error })
+
+    const cible = await req.prisma.utilisateur.findUnique({ where: { id: req.params.id } })
+    if (!cible) return res.status(404).json({ error: 'Utilisateur non trouvé' })
+    if (!cible.actif) return res.status(403).json({ error: 'Ce compte est suspendu' })
+
+    const utilisateurEcoles = await req.prisma.utilisateurEcole.findMany({
+      where: { utilisateurId: cible.id, actif: true },
+      include: { ecole: true }
+    })
+
+    const token = jwt.sign(
+      {
+        id: cible.id,
+        email: cible.email,
+        role: cible.role,
+        nom: cible.nom,
+        ecoles: utilisateurEcoles.map(ue => ({ ecoleId: ue.ecoleId, role: ue.role }))
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    )
+
+    res.json({
+      token,
+      utilisateur: {
+        id: cible.id,
+        nom: cible.nom,
+        email: cible.email,
+        role: cible.role,
+        ecoles: utilisateurEcoles.map(ue => ({
+          id: ue.ecole.id,
+          nomCourt: ue.ecole.nomCourt,
+          nomComplet: ue.ecole.nomComplet,
+          role: ue.role
+        }))
+      }
     })
   } catch (error) {
     res.status(500).json({ error: error.message })

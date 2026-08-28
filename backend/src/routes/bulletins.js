@@ -1,8 +1,43 @@
 import express from 'express'
-import { verifyToken } from '../middleware/auth.js'
-import { checkEcoleAccess } from '../middleware/checkEcoleAccess.js'
+import { verifyToken, checkRole } from '../middleware/auth.js'
 
 const router = express.Router()
+
+// Moyenne pondérée par les coefficients des matières (propres à chaque école) + appréciation
+async function calculerNotesEleve(prisma, eleveId, trimestre) {
+  const notes = await prisma.note.findMany({
+    where: {
+      eleveId,
+      trimestre: parseInt(trimestre),
+      statutValidation: 'VALIDE'
+    },
+    include: {
+      enseignantClasseMatiere: { include: { matiere: true } }
+    }
+  })
+
+  const totalCoefficients = notes.reduce((sum, n) => sum + n.enseignantClasseMatiere.matiere.coefficient, 0)
+  const totalPoints = notes.reduce((sum, n) => sum + n.valeur * n.enseignantClasseMatiere.matiere.coefficient, 0)
+  const moyenneGenerale = totalCoefficients > 0 ? Number((totalPoints / totalCoefficients).toFixed(2)) : 0
+
+  return {
+    notes: notes.map(n => ({
+      matiere: n.enseignantClasseMatiere.matiere.nom,
+      note: n.valeur,
+      coefficient: n.enseignantClasseMatiere.matiere.coefficient,
+      observation: n.observation
+    })),
+    moyenneGenerale
+  }
+}
+
+function appreciation(moyenne) {
+  return moyenne >= 18 ? '⭐ Très Bien'
+    : moyenne >= 15 ? '✅ Bien'
+    : moyenne >= 13 ? '👍 Assez Bien'
+    : moyenne >= 10 ? '📚 Passable'
+    : '⚠️ Insuffisant'
+}
 
 // GET BULLETINS BY ELEVE
 router.get('/eleve/:eleveId', verifyToken, async (req, res) => {
@@ -40,97 +75,77 @@ router.get('/:bulletinId', verifyToken, async (req, res) => {
   }
 })
 
-// CREATE BULLETIN (Principal/Directrice + Super Admin)
-router.post('/', verifyToken, async (req, res) => {
+// GÉNÉRER LES BULLETINS : un élève, plusieurs élèves choisis, ou tous les élèves d'une classe
+// (Principal/Directrice + Super Admin). Les notes et coefficients viennent de l'API en temps réel.
+router.post('/generer', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
-    const { eleveId, trimestre, anneeScolaire } = req.body
+    const { classeId, eleveIds, trimestre, anneeScolaire } = req.body
 
-    if (!eleveId || !trimestre || !anneeScolaire) {
-      return res.status(400).json({ error: 'eleveId, trimestre et anneeScolaire requis' })
+    if (!trimestre || !anneeScolaire || (!classeId && !(eleveIds?.length))) {
+      return res.status(400).json({ error: 'trimestre, anneeScolaire et (classeId ou eleveIds) sont obligatoires' })
     }
 
-    // Récupérer l'élève et sa classe
-    const eleve = await req.prisma.eleve.findUnique({
-      where: { id: eleveId },
-      include: { classe: { include: { ecole: true } } }
-    })
+    const eleves = classeId
+      ? await req.prisma.eleve.findMany({
+          where: { classeId },
+          include: { classe: { include: { ecole: true } } },
+          orderBy: [{ nom: 'asc' }, { prenom: 'asc' }]
+        })
+      : await req.prisma.eleve.findMany({
+          where: { id: { in: eleveIds } },
+          include: { classe: { include: { ecole: true } } }
+        })
 
-    if (!eleve) {
-      return res.status(404).json({ error: 'Élève non trouvé' })
+    if (eleves.length === 0) {
+      return res.status(404).json({ error: 'Aucun élève trouvé pour cette sélection' })
     }
 
-    // Vérifier que l'utilisateur a accès à l'école de l'élève
-    if (req.user.role !== 'SUPER_ADMIN') {
-      const access = await req.prisma.utilisateurEcole.findFirst({
-        where: {
-          utilisateurId: req.user.id,
-          ecoleId: eleve.classe.ecoleId
-        }
+    const resultats = await Promise.all(eleves.map(async (eleve) => {
+      const { notes, moyenneGenerale } = await calculerNotesEleve(req.prisma, eleve.id, trimestre)
+
+      const bulletin = await req.prisma.bulletin.upsert({
+        where: { eleveId_trimestre_anneeScolaire: { eleveId: eleve.id, trimestre: parseInt(trimestre), anneeScolaire } },
+        create: { eleveId: eleve.id, trimestre: parseInt(trimestre), anneeScolaire, dateGeneration: new Date() },
+        update: { dateGeneration: new Date() }
       })
 
-      if (!access || (access.role !== 'PRINCIPAL' && access.role !== 'DIRECTRICE')) {
-        return res.status(403).json({ error: 'Permissions insuffisantes' })
+      return {
+        bulletinId: bulletin.id,
+        eleve: {
+          id: eleve.id,
+          nom: eleve.nom,
+          prenom: eleve.prenom,
+          matricule: eleve.matricule,
+          classe: eleve.classe.nom,
+          ecole: eleve.classe.ecole.nomComplet
+        },
+        notes,
+        moyenneGenerale,
+        appreciation: appreciation(moyenneGenerale)
       }
-    }
+    }))
 
-    // Récupérer les notes de l'élève pour le trimestre
-    const notes = await req.prisma.note.findMany({
-      where: {
-        eleveId: eleveId,
-        trimestre: parseInt(trimestre),
-        statutValidation: 'VALIDE'
-      },
-      include: {
-        enseignantClasseMatiere: {
-          include: { matiere: true }
-        }
-      }
+    // Rang dans le groupe généré (utile surtout quand toute la classe est générée en une fois)
+    const classement = [...resultats].sort((a, b) => b.moyenneGenerale - a.moyenneGenerale)
+    resultats.forEach(r => {
+      r.rang = classement.findIndex(c => c.bulletinId === r.bulletinId) + 1
+      r.effectif = resultats.length
     })
 
-    // Calculer la moyenne générale
-    const moyenneGenerale = notes.length > 0
-      ? (notes.reduce((sum, n) => sum + n.valeur, 0) / notes.length).toFixed(2)
-      : 0
-
-    // Créer le bulletin
-    const bulletin = await req.prisma.bulletin.create({
-      data: {
-        eleveId,
-        trimestre: parseInt(trimestre),
-        anneeScolaire,
-        dateGeneration: new Date()
-      }
-    })
-
-    res.status(201).json({
-      bulletin,
-      notes,
-      moyenneGenerale,
-      eleve: {
-        id: eleve.id,
-        nom: eleve.nom,
-        prenom: eleve.prenom,
-        classe: eleve.classe.nom,
-        ecole: eleve.classe.ecole.nomComplet
-      }
-    })
+    res.status(201).json(resultats)
   } catch (error) {
     res.status(400).json({ error: error.message })
   }
 })
 
-// GET BULLETIN DATA FOR PDF GENERATION
+// GET BULLETIN DATA FOR PDF GENERATION / AFFICHAGE
 router.get('/:bulletinId/data', verifyToken, async (req, res) => {
   try {
     const bulletin = await req.prisma.bulletin.findUnique({
       where: { id: req.params.bulletinId },
       include: {
         eleve: {
-          include: {
-            classe: {
-              include: { ecole: true }
-            }
-          }
+          include: { classe: { include: { ecole: true } } }
         }
       }
     })
@@ -139,30 +154,7 @@ router.get('/:bulletinId/data', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Bulletin non trouvé' })
     }
 
-    // Récupérer les notes
-    const notes = await req.prisma.note.findMany({
-      where: {
-        eleveId: bulletin.eleveId,
-        trimestre: bulletin.trimestre,
-        statutValidation: 'VALIDE'
-      },
-      include: {
-        enseignantClasseMatiere: {
-          include: { matiere: true }
-        }
-      }
-    })
-
-    // Calculer les statistiques
-    const moyenneGenerale = notes.length > 0
-      ? (notes.reduce((sum, n) => sum + n.valeur, 0) / notes.length).toFixed(2)
-      : 0
-
-    const appreciation = moyenneGenerale >= 18 ? '⭐ Très Bien'
-      : moyenneGenerale >= 15 ? '✅ Bien'
-      : moyenneGenerale >= 13 ? '👍 Assez Bien'
-      : moyenneGenerale >= 10 ? '📚 Passable'
-      : '⚠️ Insuffisant'
+    const { notes, moyenneGenerale } = await calculerNotesEleve(req.prisma, bulletin.eleveId, bulletin.trimestre)
 
     res.json({
       bulletin,
@@ -173,14 +165,9 @@ router.get('/:bulletinId/data', verifyToken, async (req, res) => {
         classe: bulletin.eleve.classe.nom,
         ecole: bulletin.eleve.classe.ecole.nomComplet
       },
-      notes: notes.map(n => ({
-        matiere: n.enseignantClasseMatiere.matiere.nom,
-        note: n.valeur,
-        coefficient: n.enseignantClasseMatiere.matiere.coefficient,
-        observation: n.observation
-      })),
+      notes,
       moyenneGenerale,
-      appreciation,
+      appreciation: appreciation(moyenneGenerale),
       trimestre: bulletin.trimestre,
       anneeScolaire: bulletin.anneeScolaire
     })

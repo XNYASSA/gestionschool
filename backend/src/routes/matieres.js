@@ -7,8 +7,8 @@ const router = express.Router()
 router.get('/', verifyToken, async (req, res) => {
   try {
     const matieres = await req.prisma.matiere.findMany({
-      include: { section: true },
-      orderBy: [{ sectionId: 'asc' }, { nom: 'asc' }]
+      include: { ecole: { select: { id: true, nomCourt: true } } },
+      orderBy: [{ ecoleId: 'asc' }, { nom: 'asc' }]
     })
     res.json(matieres)
   } catch (error) {
@@ -16,12 +16,11 @@ router.get('/', verifyToken, async (req, res) => {
   }
 })
 
-// GET MATIERES BY SECTION
-router.get('/section/:sectionId', verifyToken, async (req, res) => {
+// GET MATIERES BY ÉCOLE (coefficients propres à cette école, collège ou primaire)
+router.get('/ecole/:ecoleId', verifyToken, async (req, res) => {
   try {
     const matieres = await req.prisma.matiere.findMany({
-      where: { sectionId: req.params.sectionId },
-      include: { section: true },
+      where: { ecoleId: req.params.ecoleId },
       orderBy: { nom: 'asc' }
     })
     res.json(matieres)
@@ -33,19 +32,19 @@ router.get('/section/:sectionId', verifyToken, async (req, res) => {
 // CREATE MATIERE (Admin only)
 router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
-    const { nom, sectionId, coefficient } = req.body
+    const { nom, ecoleId, coefficient } = req.body
 
-    if (!nom || !sectionId) {
-      return res.status(400).json({ error: 'Les champs nom et sectionId sont obligatoires' })
+    if (!nom || !ecoleId) {
+      return res.status(400).json({ error: 'Les champs nom et ecoleId sont obligatoires' })
     }
 
     const matiere = await req.prisma.matiere.create({
       data: {
         nom,
-        sectionId,
+        ecoleId,
         coefficient: coefficient || 3
       },
-      include: { section: true }
+      include: { ecole: { select: { id: true, nomCourt: true } } }
     })
     res.status(201).json(matiere)
   } catch (error) {
@@ -53,18 +52,32 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   }
 })
 
-// UPDATE MATIERE (Admin only)
-router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// UPDATE MATIERE (Admin, Principal, Directrice - notamment pour ajuster les coefficients ;
+// un Enseignant peut aussi ajuster le coefficient d'une matière qu'il enseigne, pas son nom)
+router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'ENSEIGNANT']), async (req, res) => {
   try {
     const { nom, coefficient } = req.body
+
+    if (req.user.role === 'ENSEIGNANT') {
+      if (nom !== undefined) {
+        return res.status(403).json({ error: 'Vous ne pouvez modifier que le coefficient' })
+      }
+      const enseignant = await req.prisma.enseignant.findUnique({ where: { utilisateurId: req.user.id } })
+      const ecm = enseignant && await req.prisma.enseignantClasseMatiere.findFirst({
+        where: { enseignantId: enseignant.id, matiereId: req.params.id }
+      })
+      if (!ecm) {
+        return res.status(403).json({ error: "Vous n'enseignez pas cette matière" })
+      }
+    }
 
     const matiere = await req.prisma.matiere.update({
       where: { id: req.params.id },
       data: {
         ...(nom && { nom }),
-        ...(coefficient && { coefficient })
+        ...(coefficient !== undefined && { coefficient })
       },
-      include: { section: true }
+      include: { ecole: { select: { id: true, nomCourt: true } } }
     })
     res.json(matiere)
   } catch (error) {

@@ -262,14 +262,14 @@ export default function ConfigurationFrais() {
                           <div className="flex gap-2 justify-center">
                             <button
                               onClick={() => handleSaveTranche(t)}
-                              className="p-1 hover:bg-blue-100 rounded text-blue-600 transition"
+                              className="p-2 hover:bg-blue-100 rounded text-blue-600 transition"
                               title="Enregistrer"
                             >
                               <Save className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteTranche(t.numero)}
-                              className="p-1 hover:bg-red-100 rounded text-red-600 transition"
+                              className="p-2 hover:bg-red-100 rounded text-red-600 transition"
                               title="Supprimer la tranche"
                             >
                               <Trash2 className="w-4 h-4" />

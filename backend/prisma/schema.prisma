@@ -30,6 +30,9 @@ model Utilisateur {
   utilisateurEcoles  UtilisateurEcole[]      // Permissions par école
   saisiesQuotidiennes SaisieQuotidienne[]   // Saisies du jour
   annoncesCreees     Annonce[] @relation("UtilisateurAnnonces")  // Annonces publiées
+  horaires           HoraireTravail[]        // Emploi du temps (jours/heures de travail)
+  presences          PresencePersonnel[]     // Présences/absences au travail
+  paiementsEffectues Paiement[]              // Encaissements qu'il/elle a réalisés
 }
 
 model UtilisateurEcole {
@@ -72,6 +75,8 @@ model Ecole {
   annonces               Annonce[]
   parametres             Parametres?
   depenses               Depense[]
+  horaires               HoraireTravail[]
+  presencesPersonnel     PresencePersonnel[]
 }
 
 model Classe {
@@ -117,6 +122,7 @@ model Eleve {
   presences           Presence[]
   anomaliesDetectees  AnomalieDetetee[]
   bulletins           Bulletin[]
+  paiements           Paiement[]
 }
 
 // ===== PAYMENTS & FEES =====
@@ -134,6 +140,27 @@ model InscriptionFrais {
   statutValidation    String @default("BROUILLON") // BROUILLON, VALIDE, REJETE
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+
+  // Relations
+  paiements           Paiement[]
+}
+
+// Journal des opérations d'encaissement (une ligne par versement effectué) —
+// alimente les rapports par période et les analyses admin, indépendamment
+// du solde cumulé stocké sur InscriptionFrais.
+model Paiement {
+  id                  String   @id @default(cuid())
+  eleve               Eleve    @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleveId             String
+  inscriptionFrais    InscriptionFrais? @relation(fields: [inscriptionFraisId], references: [id], onDelete: SetNull)
+  inscriptionFraisId  String?
+  tranche             String   // "inscription", "tranche1", etc. — copie au moment du versement
+  montant             Int      // montant versé lors de cette opération (FCFA)
+  modePayement        String?
+  effectuePar         Utilisateur? @relation(fields: [effectueParId], references: [id], onDelete: SetNull)
+  effectueParId       String?
+  date                DateTime @default(now())
+  createdAt           DateTime @default(now())
 }
 
 // ===== TEACHING & GRADES =====
@@ -144,6 +171,7 @@ model Enseignant {
   utilisateurId String @unique
   telephone   String
   dateEmbauche DateTime @default(now())
+  tarifHoraire Int? // FCFA par heure, pour les enseignants payés à l'heure (défini par Principal/Directrice)
 
   // Relations
   classesMatieres EnseignantClasseMatiere[]
@@ -170,10 +198,24 @@ model EnseignantClasseMatiere {
   classeId       String
   matiere        Matiere @relation(fields: [matiereId], references: [id], onDelete: Cascade)
   matiereId      String
+  nombreLeconsPrevues Int @default(0) // cible de leçons prévues pour l'année (cahier de textes)
   createdAt      DateTime @default(now())
 
   // Relations back-reference
   notes          Note[]
+  lecons         Lecon[]
+}
+
+// ===== CAHIER DE TEXTES =====
+
+model Lecon {
+  id        String   @id @default(cuid())
+  ecm       EnseignantClasseMatiere @relation(fields: [ecmId], references: [id], onDelete: Cascade)
+  ecmId     String
+  date      DateTime
+  titre     String
+  contenu   String?
+  createdAt DateTime @default(now())
 }
 
 model Note {
@@ -203,6 +245,8 @@ model Presence {
   statut      String   @default("ABSENT") // PRESENT, ABSENT, JUSTIFIE
   observation String?
   createdAt   DateTime @default(now())
+
+  @@unique([eleveId, date])
 }
 
 // ===== STAFF & PAYROLL =====
@@ -309,6 +353,40 @@ model AnomalieDetetee {
   resolue         Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// ===== EMPLOI DU TEMPS & PRÉSENCE DU PERSONNEL =====
+
+model HoraireTravail {
+  id            String   @id @default(cuid())
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  utilisateurId String
+  ecole         Ecole    @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
+  ecoleId       String
+  jour          String   // LUNDI, MARDI, MERCREDI, JEUDI, VENDREDI, SAMEDI
+  heureDebut    String   // ex: "08:00"
+  heureFin      String   // ex: "16:00"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([utilisateurId, jour])
+}
+
+model PresencePersonnel {
+  id            String   @id @default(cuid())
+  utilisateur   Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade)
+  utilisateurId String
+  ecole         Ecole    @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
+  ecoleId       String
+  date          DateTime
+  statut        String   @default("PRESENT") // PRESENT, ABSENT, RETARD
+  heureArrivee  String?
+  heureDepart   String?
+  observation   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([utilisateurId, date])
 }
 
 // ===== ANNOUNCEMENTS =====

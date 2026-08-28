@@ -112,6 +112,113 @@ async function detecterAnomalies(prisma, ecoleId, date) {
   return anomalies
 }
 
+// Calcule la plage [début, fin) d'une période (jour/semaine/mois) ancrée sur une date de référence
+function calculerPeriode(period, dateRef) {
+  const ref = new Date(dateRef)
+
+  if (period === 'semaine') {
+    const fin = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() + 1)
+    const debut = new Date(fin.getTime() - 7 * 24 * 60 * 60 * 1000)
+    return { debut, fin }
+  }
+
+  if (period === 'mois') {
+    const debut = new Date(ref.getFullYear(), ref.getMonth(), 1)
+    const fin = new Date(ref.getFullYear(), ref.getMonth() + 1, 1)
+    return { debut, fin }
+  }
+
+  // jour (par défaut)
+  const debut = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate())
+  const fin = new Date(debut.getTime() + 24 * 60 * 60 * 1000)
+  return { debut, fin }
+}
+
+function totalDeclare(saisies) {
+  return saisies.reduce((sum, s) => {
+    const donnees = JSON.parse(s.donnees)
+    return sum + (donnees.montantTotal || 0)
+  }, 0)
+}
+
+// RAPPORT DE RAPPROCHEMENT (Économat / Secrétaire / Principal-Directrice vs données système)
+// pour une période (jour/semaine/mois) ancrée sur une date choisie par l'admin.
+router.get('/rapport', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
+  try {
+    const { ecoleId, period = 'jour', date } = req.query
+
+    if (!ecoleId) {
+      return res.status(400).json({ error: 'ecoleId requis' })
+    }
+
+    const { debut, fin } = calculerPeriode(period, date ? new Date(date) : new Date())
+
+    const [saisiesSecretaire, saisiesPrincipal, saisiesEconomat, paiements] = await Promise.all([
+      req.prisma.saisieQuotidienne.findMany({
+        where: { ecoleId, date: { gte: debut, lt: fin }, role: 'SECRETAIRE', type: 'FRAIS_COLLECTES' }
+      }),
+      req.prisma.saisieQuotidienne.findMany({
+        where: { ecoleId, date: { gte: debut, lt: fin }, role: { in: ['PRINCIPAL', 'DIRECTRICE'] }, type: 'FRAIS_COLLECTES' }
+      }),
+      req.prisma.saisieQuotidienne.findMany({
+        where: { ecoleId, date: { gte: debut, lt: fin }, role: 'ECONOMAT', type: 'FRAIS_COLLECTES' }
+      }),
+      req.prisma.inscriptionFrais.findMany({
+        where: {
+          datePayement: { gte: debut, lt: fin },
+          montantPaye: { gt: 0 },
+          eleve: { classe: { ecoleId } }
+        }
+      })
+    ])
+
+    const declarations = {
+      secretaire: totalDeclare(saisiesSecretaire),
+      principal: totalDeclare(saisiesPrincipal),
+      economat: totalDeclare(saisiesEconomat)
+    }
+
+    const detailSysteme = {
+      inscriptions: paiements.filter(p => p.tranche === 'inscription').reduce((s, p) => s + p.montantPaye, 0),
+      pensions: paiements.filter(p => p.tranche !== 'inscription').reduce((s, p) => s + p.montantPaye, 0)
+    }
+    detailSysteme.total = detailSysteme.inscriptions + detailSysteme.pensions
+
+    // Comparaisons deux-à-deux entre les 3 déclarations, et chacune vs le total système réel
+    const sources = [
+      { nom: 'SECRETAIRE', montant: declarations.secretaire },
+      { nom: 'PRINCIPAL', montant: declarations.principal },
+      { nom: 'ECONOMAT', montant: declarations.economat },
+      { nom: 'SYSTEME', montant: detailSysteme.total }
+    ]
+
+    const incoherences = []
+    for (let i = 0; i < sources.length; i++) {
+      for (let j = i + 1; j < sources.length; j++) {
+        const ecart = sources[i].montant - sources[j].montant
+        if (Math.abs(ecart) > SEUIL_ANOMALIE) {
+          incoherences.push({
+            source1: sources[i].nom,
+            source2: sources[j].nom,
+            montant1: sources[i].montant,
+            montant2: sources[j].montant,
+            ecart
+          })
+        }
+      }
+    }
+
+    res.json({
+      periode: { type: period, debut, fin },
+      declarations,
+      detailSysteme,
+      incoherences
+    })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // GET ANOMALIES (Super Admin only)
 router.get('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {

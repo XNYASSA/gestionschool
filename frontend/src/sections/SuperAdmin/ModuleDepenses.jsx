@@ -73,7 +73,7 @@ export default function ModuleDepenses() {
   const totalGeneral = totalSalaires + totalFixes + totalVariables
 
   const openCreateModal = () => {
-    setFormData(emptyForm)
+    setFormData({ ...emptyForm, ecoleId: ecoles.length === 1 ? ecoles[0].id : '' })
     setEditingId(null)
     setShowModal(true)
   }
@@ -261,7 +261,7 @@ export default function ModuleDepenses() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Type *</label>
                   <select
@@ -285,7 +285,7 @@ export default function ModuleDepenses() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Montant (FCFA) *</label>
                   <input
@@ -372,10 +372,10 @@ function DepenseTable({ title, depenses, total, onEdit, onDelete, formatFCFA }) 
                   <td className="px-6 py-3 text-slate-600">{new Date(d.dateDepense).toLocaleDateString('fr-FR')}</td>
                   <td className="px-6 py-3 text-center font-mono font-semibold text-red-600">{formatFCFA(d.montant)}</td>
                   <td className="px-6 py-3 text-center flex gap-2 justify-center">
-                    <button onClick={() => onEdit(d)} className="p-1 hover:bg-yellow-100 rounded text-yellow-600 transition">
+                    <button onClick={() => onEdit(d)} className="p-2 hover:bg-yellow-100 rounded text-yellow-600 transition">
                       <Edit2 className="w-4 h-4" />
                     </button>
-                    <button onClick={() => onDelete(d.id)} className="p-1 hover:bg-red-100 rounded text-red-600 transition">
+                    <button onClick={() => onDelete(d.id)} className="p-2 hover:bg-red-100 rounded text-red-600 transition">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>

@@ -220,7 +220,7 @@ export default function ViewAnalytics() {
             resultatNet >= 0 ? 'from-blue-600 to-blue-700' : 'from-red-600 to-red-700'
           }`}>
             <h3 className="text-lg font-bold mb-2">Résultat net ({period === 'jour' ? "aujourd'hui" : period === 'semaine' ? 'cette semaine' : 'ce mois'})</h3>
-            <p className="text-4xl font-bold">{resultatNet >= 0 ? '+' : ''}{formatFCFA(resultatNet)}</p>
+            <p className="text-2xl md:text-4xl font-bold break-words">{resultatNet >= 0 ? '+' : ''}{formatFCFA(resultatNet)}</p>
             <p className="text-sm text-white/80 mt-2">Entrées - Sorties</p>
           </div>
         </>

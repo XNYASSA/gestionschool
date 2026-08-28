@@ -15,15 +15,14 @@ import SettingsPage from './pages/Settings'
 
 // Nouveaux dashboards Phase 2
 import DashboardSuperAdminEnhanced from './pages/DashboardSuperAdminEnhanced'
-import DashboardPrincipalDirectrice from './pages/DashboardPrincipalDirectrice'
-import DashboardSecretaire from './pages/DashboardSecretaire'
-import DashboardEconomat from './pages/DashboardEconomat'
-import DashboardEnseignant from './pages/DashboardEnseignant'
 
 import { Menu, X } from 'lucide-react'
 
+// Rôles utilisant l'interface unifiée (sidebar + sections) de DashboardSuperAdminEnhanced
+const ROLES_INTERFACE_UNIFIEE = ['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE', 'ECONOMAT', 'ENSEIGNANT', 'SURVEILLANT_GENERAL']
+
 function AppContent() {
-  const { isLoggedIn, user } = useContext(AuthContext)
+  const { isLoggedIn, user, isImpersonating, stopImpersonation } = useContext(AuthContext)
   const [currentPage, setCurrentPage] = useState('dashboard')
   const [filters, setFilters] = useState({ section: '', class: '' })
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -33,25 +32,10 @@ function AppContent() {
   }
 
   const renderPage = () => {
-    // Dashboards multi-écoles (Phase 2)
-    if (user?.roleAPI === 'SUPER_ADMIN') {
+    // Interface unifiée (sidebar + sections), identique pour tous les postes,
+    // avec un menu filtré selon les fonctionnalités attribuées à chaque rôle.
+    if (ROLES_INTERFACE_UNIFIEE.includes(user?.roleAPI)) {
       return <DashboardSuperAdminEnhanced />
-    }
-
-    if (['PRINCIPAL', 'DIRECTRICE'].includes(user?.roleAPI)) {
-      return <DashboardPrincipalDirectrice />
-    }
-
-    if (user?.roleAPI === 'SECRETAIRE') {
-      return <DashboardSecretaire />
-    }
-
-    if (user?.roleAPI === 'ECONOMAT') {
-      return <DashboardEconomat />
-    }
-
-    if (user?.roleAPI === 'ENSEIGNANT') {
-      return <DashboardEnseignant />
     }
 
     // Dashboards existants (backward compatibility)
@@ -75,11 +59,22 @@ function AppContent() {
     }
   }
 
-  // Certains rôles n'ont pas de sidebar (enseignants, secrétaires)
-  const hasSidebar = ['owner', 'director'].includes(user?.role)
+  // Les rôles de l'interface unifiée ont leur propre sidebar interne (DashboardSuperAdminEnhanced)
+  const hasSidebar = !ROLES_INTERFACE_UNIFIEE.includes(user?.roleAPI) && ['owner', 'director'].includes(user?.role)
 
   return (
     <div className="flex flex-col h-screen bg-gray-900">
+      {isImpersonating && (
+        <div className="bg-amber-500 text-slate-900 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm font-medium">
+          <span>🔎 Connecté en tant que {user?.name} ({user?.email})</span>
+          <button
+            onClick={stopImpersonation}
+            className="px-3 py-1.5 bg-slate-900 text-white rounded hover:bg-slate-800 transition"
+          >
+            Revenir à mon compte admin
+          </button>
+        </div>
+      )}
       {/* Header avec burger menu */}
       <div className="flex items-center justify-between bg-gray-800 border-b border-gray-700 px-4 py-2 md:hidden">
         {hasSidebar && (

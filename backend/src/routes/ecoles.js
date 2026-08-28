@@ -59,8 +59,8 @@ router.get('/:ecoleId', verifyToken, checkEcoleAccess, async (req, res) => {
   }
 })
 
-// CREATE ECOLE (Super Admin only)
-router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// CREATE ECOLE (Super Admin, ou Principal/Directrice — l'école créée leur est automatiquement affectée)
+router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const { nomCourt, nomComplet, niveau, adresse, telephone, email } = req.body
 
@@ -75,7 +75,12 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
         niveau,
         adresse: adresse || 'Yaoundé, Cameroun',
         telephone: telephone || '+237 6 XX XXX XXXX',
-        email: email || `info@${nomCourt.toLowerCase()}.cm`
+        email: email || `info@${nomCourt.toLowerCase()}.cm`,
+        ...(req.user.role !== 'SUPER_ADMIN' && {
+          utilisateurEcoles: {
+            create: { utilisateurId: req.user.id, role: req.user.role }
+          }
+        })
       }
     })
 

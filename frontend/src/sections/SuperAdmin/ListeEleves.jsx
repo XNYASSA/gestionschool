@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Search, Plus, Eye, Edit2, Trash2, X, Loader } from 'lucide-react'
 import { apiClient } from '../../api/client'
+import { getStatutPaiement, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 
 const emptyForm = {
   nom: '',
@@ -15,7 +16,7 @@ const emptyForm = {
   adresseParent: ''
 }
 
-export default function ListeEleves() {
+export default function ListeEleves({ showStatutPaiement = true }) {
   const [eleves, setEleves] = useState([])
   const [classes, setClasses] = useState([])
   const [ecoles, setEcoles] = useState([])
@@ -200,6 +201,7 @@ export default function ListeEleves() {
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">Classe</th>
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">École</th>
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">Parent</th>
+                  {showStatutPaiement && <th className="px-6 py-3 text-center font-semibold text-slate-700">Paiement</th>}
                   <th className="px-6 py-3 text-center font-semibold text-slate-700">Actions</th>
                 </tr>
               </thead>
@@ -210,25 +212,36 @@ export default function ListeEleves() {
                     <td className="px-6 py-3 text-slate-900">{eleve.prenom} {eleve.nom}</td>
                     <td className="px-6 py-3 text-slate-600">{eleve.classe?.nom || '-'}</td>
                     <td className="px-6 py-3 text-slate-600">{eleve.classe?.ecole?.nomCourt || '-'}</td>
-                    <td className="px-6 py-3 text-slate-600 text-xs">{eleve.nomParent}</td>
+                    <td className="px-6 py-3 text-slate-600 text-xs">
+                      <div>{eleve.nomParent}</div>
+                      {eleve.telephoneParent && <div className="text-slate-400">{eleve.telephoneParent}</div>}
+                    </td>
+                    {showStatutPaiement && (
+                      <td className="px-6 py-3 text-center">
+                        {(() => {
+                          const statut = STATUT_PAIEMENT_STYLE[getStatutPaiement(eleve)]
+                          return <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statut.className}`}>{statut.label}</span>
+                        })()}
+                      </td>
+                    )}
                     <td className="px-6 py-3 text-center flex gap-2 justify-center">
                       <button
                         onClick={() => openViewModal(eleve)}
-                        className="p-1 hover:bg-blue-100 rounded text-blue-600 transition"
+                        className="p-2 hover:bg-blue-100 rounded text-blue-600 transition"
                         title="Consulter"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => openEditModal(eleve)}
-                        className="p-1 hover:bg-yellow-100 rounded text-yellow-600 transition"
+                        className="p-2 hover:bg-yellow-100 rounded text-yellow-600 transition"
                         title="Modifier"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(eleve)}
-                        className="p-1 hover:bg-red-100 rounded text-red-600 transition"
+                        className="p-2 hover:bg-red-100 rounded text-red-600 transition"
                         title="Supprimer"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -256,7 +269,7 @@ export default function ListeEleves() {
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nom *</label>
                   <input

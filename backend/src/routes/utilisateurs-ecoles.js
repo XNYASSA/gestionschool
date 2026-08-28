@@ -1,8 +1,11 @@
 import express from 'express'
 import bcryptjs from 'bcryptjs'
 import { verifyToken, checkRole } from '../middleware/auth.js'
+import { getEcoleIdsScope } from '../utils/ecoleScope.js'
 
 const router = express.Router()
+
+const ROLES_ASSIGNABLES_NON_ADMIN = ['SECRETAIRE', 'ENSEIGNANT', 'ECONOMAT', 'SURVEILLANT_GENERAL', 'PERSONNEL']
 
 // GET ALL USERS (Super Admin only)
 router.get('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
@@ -72,13 +75,23 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   }
 })
 
-// ASSIGN USER TO ECOLE WITH ROLE (Super Admin only)
-router.post('/:utilisateurId/assign-ecole', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// ASSIGN USER TO ECOLE WITH ROLE (Super Admin, ou Principal/Directrice/Secrétaire dans la limite de leurs écoles et sans rôle admin)
+router.post('/:utilisateurId/assign-ecole', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
     const { ecoleId, role } = req.body
 
     if (!ecoleId || !role) {
       return res.status(400).json({ error: 'ecoleId et role requis' })
+    }
+
+    if (req.user.role !== 'SUPER_ADMIN') {
+      const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+      if (!ecoleIds.includes(ecoleId)) {
+        return res.status(403).json({ error: 'Cette école ne vous est pas affectée' })
+      }
+      if (!ROLES_ASSIGNABLES_NON_ADMIN.includes(role.toUpperCase())) {
+        return res.status(403).json({ error: 'Vous ne pouvez pas attribuer ce rôle' })
+      }
     }
 
     // Vérifier que l'utilisateur et l'école existent
@@ -113,9 +126,16 @@ router.post('/:utilisateurId/assign-ecole', verifyToken, checkRole(['SUPER_ADMIN
   }
 })
 
-// REMOVE USER FROM ECOLE (Super Admin only)
-router.delete('/:utilisateurId/ecoles/:ecoleId', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// REMOVE USER FROM ECOLE (Super Admin, ou Principal/Directrice/Secrétaire dans la limite de leurs écoles)
+router.delete('/:utilisateurId/ecoles/:ecoleId', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
+    if (req.user.role !== 'SUPER_ADMIN') {
+      const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+      if (!ecoleIds.includes(req.params.ecoleId)) {
+        return res.status(403).json({ error: 'Cette école ne vous est pas affectée' })
+      }
+    }
+
     await req.prisma.utilisateurEcole.delete({
       where: {
         utilisateurId_ecoleId: {

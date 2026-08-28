@@ -1,7 +1,8 @@
 import { useContext, useState, useEffect } from 'react'
 import { AuthContext } from '../context/AuthContext'
-import { BookOpen, Users, DollarSign, FileText, Plus, LogOut, Search, X, Eye, Edit2, Trash2, TrendingUp } from 'lucide-react'
+import { BookOpen, Users, DollarSign, FileText, Plus, LogOut, Search, X, Eye, Edit2, Trash2, TrendingUp, Clock } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
+import PersonnelRH from '../components/PersonnelRH'
 
 export default function DashboardPrincipalDirectrice() {
   const { user, ecoleSelectionnee, selectEcole, ecoles, logout } = useContext(AuthContext)
@@ -200,18 +201,21 @@ export default function DashboardPrincipalDirectrice() {
             <p className="text-sm text-slate-500">{ecoleSelectionnee?.niveau?.replace('_', ' ')}</p>
           </div>
           <div className="flex items-center gap-4">
-            {ecoles && ecoles.length > 1 && (
-              <select
-                value={ecoleSelectionnee?.id || ''}
-                onChange={(e) => selectEcole(e.target.value)}
-                className="px-4 py-2 border border-slate-300 rounded-lg"
-              >
-                {ecoles.map(ecole => (
-                  <option key={ecole.id} value={ecole.id}>
-                    {ecole.nomCourt}
-                  </option>
-                ))}
-              </select>
+            {ecoles && ecoles.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-slate-600">Établissement :</label>
+                <select
+                  value={ecoleSelectionnee?.id || ''}
+                  onChange={(e) => selectEcole(e.target.value)}
+                  className="px-4 py-2 border border-slate-300 rounded-lg"
+                >
+                  {ecoles.map(ecole => (
+                    <option key={ecole.id} value={ecole.id}>
+                      {ecole.nomCourt}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
             <button
               onClick={logout}
@@ -314,6 +318,16 @@ export default function DashboardPrincipalDirectrice() {
             }`}
           >
             📢 Annonces
+          </button>
+          <button
+            onClick={() => setActiveTab('rh')}
+            className={`px-4 py-3 font-medium whitespace-nowrap transition flex items-center gap-1 ${
+              activeTab === 'rh'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Clock className="w-4 h-4" /> Emploi du temps
           </button>
         </div>
 
@@ -729,6 +743,11 @@ export default function DashboardPrincipalDirectrice() {
               Nouvelle annonce
             </button>
           </div>
+        )}
+
+        {/* TAB: RH - Emploi du temps & Présences */}
+        {activeTab === 'rh' && (
+          <PersonnelRH ecoleSelectionnee={ecoleSelectionnee} />
         )}
       </div>
     </div>

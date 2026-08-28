@@ -68,6 +68,7 @@ export default function DashboardEconomat() {
           date: new Date().toISOString(),
           type: 'FRAIS_COLLECTES',
           donnees: {
+            montantTotal: parseInt(formData.montantVerifie),
             montantVerifie: parseInt(formData.montantVerifie),
             numeroCompte: formData.numeroCompte,
             notes: formData.notes,

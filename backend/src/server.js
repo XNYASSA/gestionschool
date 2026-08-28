@@ -25,6 +25,9 @@ import saisiesQuotidiennesRoutes from './routes/saisies-quotidiennes.js'
 import anomaliesRoutes from './routes/anomalies.js'
 import annoncesRoutes from './routes/annonces.js'
 import bulletinsRoutes from './routes/bulletins.js'
+import leconsRoutes from './routes/lecons.js'
+import rhRoutes from './routes/rh.js'
+import affectationsRoutes from './routes/affectations.js'
 
 dotenv.config()
 
@@ -67,6 +70,9 @@ app.use('/api/saisies-quotidiennes', saisiesQuotidiennesRoutes)
 app.use('/api/anomalies', anomaliesRoutes)
 app.use('/api/annonces', annoncesRoutes)
 app.use('/api/bulletins', bulletinsRoutes)
+app.use('/api/lecons', leconsRoutes)
+app.use('/api/rh', rhRoutes)
+app.use('/api/affectations', affectationsRoutes)
 
 // Health check
 app.get('/health', (req, res) => {

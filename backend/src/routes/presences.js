@@ -15,10 +15,22 @@ router.get('/', verifyToken, async (req, res) => {
   }
 })
 
-// ENREGISTRER PRESENCE (Enseignant)
+// ENREGISTRER PRESENCE (Enseignant, sur une classe qu'il enseigne)
 router.post('/', verifyToken, checkRole(['ENSEIGNANT']), async (req, res) => {
   try {
-    const { eleveId, classeId, date, statut } = req.body
+    const { eleveId, classeId, date, statut, observation } = req.body
+
+    if (!eleveId || !classeId || !date || !statut) {
+      return res.status(400).json({ error: 'Champs obligatoires: eleveId, classeId, date, statut' })
+    }
+
+    const enseignant = await req.prisma.enseignant.findUnique({ where: { utilisateurId: req.user.id } })
+    const ecm = enseignant && await req.prisma.enseignantClasseMatiere.findFirst({
+      where: { enseignantId: enseignant.id, classeId }
+    })
+    if (!ecm) {
+      return res.status(403).json({ error: "Vous n'enseignez pas dans cette classe" })
+    }
 
     const presence = await req.prisma.presence.upsert({
       where: {
@@ -27,12 +39,13 @@ router.post('/', verifyToken, checkRole(['ENSEIGNANT']), async (req, res) => {
           date: new Date(date)
         }
       },
-      update: { statut },
+      update: { statut, observation: observation || null },
       create: {
         eleveId,
         classeId,
         date: new Date(date),
-        statut
+        statut,
+        observation: observation || null
       }
     })
 

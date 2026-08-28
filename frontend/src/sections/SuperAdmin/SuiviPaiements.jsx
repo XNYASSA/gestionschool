@@ -219,7 +219,7 @@ export default function SuiviPaiements() {
                   <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-600 transition" />
                 </div>
                 <p className="text-xs text-slate-500 mb-3">{ecole.nbEleves} élève{ecole.nbEleves > 1 ? 's' : ''}</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs text-slate-500">Frais perçus</p>
                     <p className="font-bold text-green-600">{formatFCFA(ecole.percu)}</p>

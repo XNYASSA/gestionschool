@@ -1,10 +1,23 @@
 import { useState } from 'react'
 import {
   Home, BarChart3, Users, School, Settings, FileText, AlertCircle, LogOut,
-  ChevronDown, DollarSign, BookOpen, User, Eye, Menu, X
+  ChevronDown, DollarSign, BookOpen, User, Eye, Menu, X, Clock, GraduationCap
 } from 'lucide-react'
 
-export default function SidebarSuperAdmin({ currentSection, setCurrentSection, logout }) {
+// Fonctionnalités attribuées à chaque poste — null = accès complet (Super Admin).
+// Un id présent ici doit correspondre à un id de menuItems/submenu ci-dessous.
+const RH_SAISIE = ['saisie-horaires', 'saisie-presences']
+
+export const MENU_PAR_ROLE = {
+  PRINCIPAL: ['dashboard', 'list-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', ...RH_SAISIE, 'parametres'],
+  DIRECTRICE: ['dashboard', 'list-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', ...RH_SAISIE, 'parametres'],
+  SECRETAIRE: ['dashboard', 'list-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'rapports-finance', 'affectations-enseignants', 'bulletins', ...RH_SAISIE, 'parametres'],
+  ECONOMAT: ['dashboard', 'list-eleves', 'list-ecoles', 'verification-financiere', 'parametres'],
+  ENSEIGNANT: ['dashboard', 'list-eleves', 'mes-classes', 'cahier-texte-enseignant', 'saisie-notes', 'appel-presence', 'parametres'],
+  SURVEILLANT_GENERAL: ['dashboard', ...RH_SAISIE, 'parametres']
+}
+
+export default function SidebarSuperAdmin({ currentSection, setCurrentSection, logout, allowedIds = null, titre = '👑 TDB Admin' }) {
   const [expanded, setExpanded] = useState(true)
   const [openMenus, setOpenMenus] = useState({})
 
@@ -67,7 +80,8 @@ export default function SidebarSuperAdmin({ currentSection, setCurrentSection, l
       submenu: [
         { id: 'depenses', label: 'Module Dépenses' },
         { id: 'rapports-finance', label: 'Rapports financiers' },
-        { id: 'configuration', label: 'Configuration frais' }
+        { id: 'configuration', label: 'Configuration frais' },
+        { id: 'verification-financiere', label: 'Vérification Financière' }
       ]
     },
     {
@@ -75,9 +89,39 @@ export default function SidebarSuperAdmin({ currentSection, setCurrentSection, l
       label: '📚 Pédagogie',
       icon: BookOpen,
       submenu: [
+        { id: 'affectations-enseignants', label: 'Affectations enseignants' },
         { id: 'cahier-textes', label: 'Cahier de textes' },
         { id: 'emploi-temps', label: 'Emploi du temps' },
         { id: 'bulletins', label: 'Bulletins' }
+      ]
+    },
+    {
+      id: 'rh-personnel',
+      label: '🕐 Ressources Humaines',
+      icon: Clock,
+      submenu: [
+        { id: 'saisie-horaires', label: 'Emploi du temps' },
+        { id: 'saisie-presences', label: 'Présences' }
+      ]
+    },
+    {
+      id: 'secretariat',
+      label: '📋 Secrétariat',
+      icon: FileText,
+      submenu: [
+        { id: 'saisie-frais-secretaire', label: 'Saisie Frais' },
+        { id: 'receptions-etablies', label: 'Réceptions établies' }
+      ]
+    },
+    {
+      id: 'enseignement',
+      label: '🎓 Enseignement',
+      icon: GraduationCap,
+      submenu: [
+        { id: 'mes-classes', label: 'Mes classes' },
+        { id: 'cahier-texte-enseignant', label: 'Cahier de texte' },
+        { id: 'saisie-notes', label: 'Saisie de notes' },
+        { id: 'appel-presence', label: 'Appel' }
       ]
     },
     {
@@ -94,11 +138,21 @@ export default function SidebarSuperAdmin({ currentSection, setCurrentSection, l
     }
   ]
 
+  // Filtre le menu selon les fonctionnalités attribuées au poste (allowedIds = null → accès complet)
+  const menuItemsVisibles = allowedIds === null
+    ? menuItems
+    : menuItems
+        .map(item => item.submenu
+          ? { ...item, submenu: item.submenu.filter(sub => allowedIds.includes(sub.id)) }
+          : item
+        )
+        .filter(item => allowedIds.includes(item.id) || (item.submenu && item.submenu.length > 0))
+
   return (
     <div className={`${expanded ? 'w-64' : 'w-20'} bg-slate-900 text-white h-screen flex flex-col transition-all duration-300 shadow-lg`}>
       {/* Header */}
       <div className="p-4 border-b border-slate-700 flex items-center justify-between">
-        {expanded && <h2 className="text-lg font-bold">👑 TDB Admin</h2>}
+        {expanded && <h2 className="text-lg font-bold">{titre}</h2>}
         <button
           onClick={() => setExpanded(!expanded)}
           className="p-1 hover:bg-slate-800 rounded transition"
@@ -109,7 +163,7 @@ export default function SidebarSuperAdmin({ currentSection, setCurrentSection, l
 
       {/* Menu Items */}
       <nav className="flex-1 overflow-y-auto p-2 space-y-1">
-        {menuItems.map(item => (
+        {menuItemsVisibles.map(item => (
           <div key={item.id}>
             {item.submenu ? (
               // Menu avec sous-éléments

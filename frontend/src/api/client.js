@@ -202,15 +202,19 @@ class APIClient {
     })
   }
 
+  async getPaiements() {
+    return this.request('/frais/paiements')
+  }
+
   // NOTES
   async getNotes() {
     return this.request('/notes')
   }
 
-  async createNote(eleveId, ecmId, trimestre, valeur) {
+  async createNote(eleveId, ecmId, trimestre, valeur, observation) {
     return this.request('/notes', {
       method: 'POST',
-      body: JSON.stringify({ eleveId, ecmId, trimestre, valeur })
+      body: JSON.stringify({ eleveId, ecmId, trimestre, valeur, observation })
     })
   }
 
@@ -272,14 +276,14 @@ class APIClient {
     return this.request('/matieres')
   }
 
-  async getMatieresBySection(sectionId) {
-    return this.request(`/matieres/section/${sectionId}`)
+  async getMatieresByEcole(ecoleId) {
+    return this.request(`/matieres/ecole/${ecoleId}`)
   }
 
-  async createMatiere(nom, sectionId, coefficient) {
+  async createMatiere(nom, ecoleId, coefficient) {
     return this.request('/matieres', {
       method: 'POST',
-      body: JSON.stringify({ nom, sectionId, coefficient })
+      body: JSON.stringify({ nom, ecoleId, coefficient })
     })
   }
 
@@ -401,6 +405,20 @@ class APIClient {
     })
   }
 
+  async resetPasswordUtilisateur(id, adminEmail, adminMotDePasse) {
+    return this.request(`/utilisateurs/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ adminEmail, adminMotDePasse })
+    })
+  }
+
+  async impersonateUtilisateur(id, adminEmail, adminMotDePasse) {
+    return this.request(`/utilisateurs/${id}/impersonate`, {
+      method: 'POST',
+      body: JSON.stringify({ adminEmail, adminMotDePasse })
+    })
+  }
+
   async deleteUtilisateur(id) {
     return this.request(`/utilisateurs/${id}`, {
       method: 'DELETE'
@@ -417,6 +435,39 @@ class APIClient {
   async removeEcoleFromUtilisateur(utilisateurId, ecoleId) {
     return this.request(`/utilisateurs-ecoles/${utilisateurId}/ecoles/${ecoleId}`, {
       method: 'DELETE'
+    })
+  }
+
+  async getMasseSalariale(ecoleId) {
+    return this.request(`/utilisateurs/ecole/${ecoleId}/masse-salariale`)
+  }
+
+  async getEnseignantsHoraires(ecoleId) {
+    return this.request(`/utilisateurs/ecole/${ecoleId}/enseignants-horaires`)
+  }
+
+  async updateTarifHoraire(utilisateurId, tarifHoraire) {
+    return this.request(`/utilisateurs/${utilisateurId}/tarif-horaire`, {
+      method: 'PUT',
+      body: JSON.stringify({ tarifHoraire })
+    })
+  }
+
+  async getSaisiesQuotidiennes(ecoleId, params = {}) {
+    const query = new URLSearchParams(params).toString()
+    return this.request(`/saisies-quotidiennes/${ecoleId}${query ? `?${query}` : ''}`)
+  }
+
+  async validerSaisieQuotidienne(saisieId) {
+    return this.request(`/saisies-quotidiennes/${saisieId}/valider`, {
+      method: 'PATCH'
+    })
+  }
+
+  async creerSaisieQuotidienne(ecoleId, data) {
+    return this.request(`/saisies-quotidiennes/${ecoleId}`, {
+      method: 'POST',
+      body: JSON.stringify(data)
     })
   }
 
@@ -437,6 +488,108 @@ class APIClient {
   // DASHBOARD
   async getDashboard() {
     return this.request('/dashboard')
+  }
+
+  // CAHIER DE TEXTES / LEÇONS
+  async getProgressionLecons() {
+    return this.request('/lecons/progression')
+  }
+
+  async getMesEcm() {
+    return this.request('/lecons/mes-ecm')
+  }
+
+  async getLecons(ecmId) {
+    return this.request(`/lecons?ecmId=${ecmId}`)
+  }
+
+  async createLecon(data) {
+    return this.request('/lecons', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateObjectifLecons(ecmId, nombreLeconsPrevues) {
+    return this.request(`/lecons/ecm/${ecmId}/objectif`, {
+      method: 'PUT',
+      body: JSON.stringify({ nombreLeconsPrevues })
+    })
+  }
+
+  // RH : EMPLOI DU TEMPS & PRÉSENCE DU PERSONNEL
+  async getEmployesEcole(ecoleId) {
+    return this.request(`/rh/employes?ecoleId=${ecoleId}`)
+  }
+
+  async getHoraires(ecoleId, utilisateurId) {
+    const params = new URLSearchParams({ ecoleId, ...(utilisateurId && { utilisateurId }) })
+    return this.request(`/rh/horaires?${params}`)
+  }
+
+  async upsertHoraire(data) {
+    return this.request('/rh/horaires', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async deleteHoraire(id) {
+    return this.request(`/rh/horaires/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async getPresencesPersonnel(ecoleId, date) {
+    const params = new URLSearchParams({ ecoleId, ...(date && { date }) })
+    return this.request(`/rh/presences?${params}`)
+  }
+
+  async upsertPresencePersonnel(data) {
+    return this.request('/rh/presences', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async getResumeRH(ecoleId) {
+    return this.request(`/rh/resume${ecoleId ? `?ecoleId=${ecoleId}` : ''}`)
+  }
+
+  // BULLETINS
+  async genererBulletins(data) {
+    return this.request('/bulletins/generer', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async getBulletinData(bulletinId) {
+    return this.request(`/bulletins/${bulletinId}/data`)
+  }
+
+  // AFFECTATIONS ENSEIGNANT / CLASSE / MATIÈRE
+  async getAffectations(ecoleId) {
+    return this.request(`/affectations?ecoleId=${ecoleId}`)
+  }
+
+  async createAffectation(data) {
+    return this.request('/affectations', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async deleteAffectation(id) {
+    return this.request(`/affectations/${id}`, {
+      method: 'DELETE'
+    })
+  }
+
+  // ANOMALIES : rapprochement Économat / Secrétaire / Principal-Directrice
+  async getRapportAnomalies(ecoleId, period, date) {
+    const params = new URLSearchParams({ ecoleId, period, ...(date && { date }) })
+    return this.request(`/anomalies/rapport?${params}`)
   }
 }
 

@@ -1,12 +1,16 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
+import { getEcoleIdsScope } from '../utils/ecoleScope.js'
 
 const router = express.Router()
 
-// GET ALL CLASSES
+// GET ALL CLASSES — limité aux écoles affectées pour les non-admin
 router.get('/', verifyToken, async (req, res) => {
   try {
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+
     const classes = await req.prisma.classe.findMany({
+      where: ecoleIds ? { ecoleId: { in: ecoleIds } } : {},
       orderBy: [{ ecoleId: 'asc' }, { nom: 'asc' }],
       include: { ecole: true }
     })
@@ -44,6 +48,11 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
       return res.status(400).json({ error: 'École non trouvée' })
     }
 
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIds && !ecoleIds.includes(ecoleId)) {
+      return res.status(403).json({ error: 'Cette école ne vous est pas affectée' })
+    }
+
     const classe = await req.prisma.classe.create({
       data: { nom, ecoleId, niveau },
       include: { ecole: true }
@@ -58,6 +67,17 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
 router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
     const { nom, ecoleId, niveau } = req.body
+
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIds) {
+      const classeActuelle = await req.prisma.classe.findUnique({ where: { id: req.params.id } })
+      if (!classeActuelle || !ecoleIds.includes(classeActuelle.ecoleId)) {
+        return res.status(403).json({ error: 'Accès refusé à cette classe' })
+      }
+      if (ecoleId && !ecoleIds.includes(ecoleId)) {
+        return res.status(403).json({ error: 'Cette école ne vous est pas affectée' })
+      }
+    }
 
     const classe = await req.prisma.classe.update({
       where: { id: req.params.id },
@@ -77,9 +97,17 @@ router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRI
   }
 })
 
-// DELETE CLASSE (Super Admin only) - CASCADE deletes students and their data
-router.delete('/:id', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// DELETE CLASSE (Super Admin, ou Principal/Directrice pour leur école) - CASCADE deletes students and their data
+router.delete('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIds) {
+      const classe = await req.prisma.classe.findUnique({ where: { id: req.params.id } })
+      if (!classe || !ecoleIds.includes(classe.ecoleId)) {
+        return res.status(403).json({ error: 'Accès refusé à cette classe' })
+      }
+    }
+
     await req.prisma.classe.delete({
       where: { id: req.params.id }
     })

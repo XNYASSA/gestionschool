@@ -1,13 +1,20 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
+import { getEcoleIdsScope } from '../utils/ecoleScope.js'
 
 const router = express.Router()
 
-// GET ALL ELEVES (Directeur, Proprietaire, Secretaire)
-router.get('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE', 'ECONOMAT']), async (req, res) => {
+// GET ALL ELEVES — limité aux écoles affectées pour les non-admin
+router.get('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE', 'ECONOMAT', 'ENSEIGNANT']), async (req, res) => {
   try {
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+
     const eleves = await req.prisma.eleve.findMany({
-      include: { classe: { include: { ecole: true } } }
+      where: ecoleIds ? { classe: { ecoleId: { in: ecoleIds } } } : {},
+      include: {
+        classe: { include: { ecole: true } },
+        inscriptionsFrais: { select: { tranche: true, montantDu: true, montantPaye: true, statut: true } }
+      }
     })
     res.json(eleves)
   } catch (error) {
@@ -37,6 +44,15 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
     // Valider les champs requis
     if (!nom || !prenom || !sexe || !dateNaissance || !classeId || !nomParent || !telephoneParent) {
       return res.status(400).json({ error: 'Champs obligatoires manquants' })
+    }
+
+    // Vérifier que la classe appartient bien à une école affectée à l'appelant (sauf Super Admin)
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIds) {
+      const classe = await req.prisma.classe.findUnique({ where: { id: classeId } })
+      if (!classe || !ecoleIds.includes(classe.ecoleId)) {
+        return res.status(403).json({ error: 'Cette classe n\'appartient pas à une école qui vous est affectée' })
+      }
     }
 
     // Si matricule vide, générer un matricule unique
@@ -93,6 +109,20 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
 router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
     const { nom, prenom, sexe, dateNaissance, classeId, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
+
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIds) {
+      const eleveActuel = await req.prisma.eleve.findUnique({ where: { id: req.params.id }, include: { classe: true } })
+      if (!eleveActuel || !ecoleIds.includes(eleveActuel.classe.ecoleId)) {
+        return res.status(403).json({ error: 'Accès refusé à cet élève' })
+      }
+      if (classeId) {
+        const nouvelleClasse = await req.prisma.classe.findUnique({ where: { id: classeId } })
+        if (!nouvelleClasse || !ecoleIds.includes(nouvelleClasse.ecoleId)) {
+          return res.status(403).json({ error: 'Cette classe n\'appartient pas à une école qui vous est affectée' })
+        }
+      }
+    }
 
     const eleve = await req.prisma.eleve.update({
       where: { id: req.params.id },

@@ -1,6 +1,8 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useContext } from 'react'
 import { Plus, Edit2, Trash2, X, Loader, School, Users, Layers, ArrowLeft } from 'lucide-react'
 import { apiClient } from '../../api/client'
+import { AuthContext } from '../../context/AuthContext'
+import { getStatutPaiement, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 
 const NIVEAUX_ECOLE = [
   { value: 'SECONDAIRE', label: 'Secondaire (collège)' },
@@ -89,6 +91,8 @@ export default function EcolesManagement({ section }) {
 // ===================== LISTE DES ÉCOLES =====================
 
 function ListeEcoles({ ecoles, classes, eleves, onChange, onSelectEcole }) {
+  const { user } = useContext(AuthContext)
+  const isSuperAdmin = user?.roleAPI === 'SUPER_ADMIN'
   const [editing, setEditing] = useState(null)
   const [formData, setFormData] = useState(emptyEcoleForm)
 
@@ -193,13 +197,15 @@ function ListeEcoles({ ecoles, classes, eleves, onChange, onSelectEcole }) {
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(ecole) }}
-                  className="p-2 hover:bg-red-100 rounded text-red-600 transition"
-                  title="Supprimer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {isSuperAdmin && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(ecole) }}
+                    className="p-2 hover:bg-red-100 rounded text-red-600 transition"
+                    title="Supprimer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           )
@@ -286,7 +292,7 @@ function CreateEcole({ onCreated }) {
 function EcoleFormFields({ formData, setFormData }) {
   return (
     <>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Nom court *</label>
           <input
@@ -327,7 +333,7 @@ function EcoleFormFields({ formData, setFormData }) {
           className="w-full px-3 py-2 border border-slate-300 rounded-lg"
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Téléphone</label>
           <input
@@ -360,8 +366,10 @@ function GestionClasses({ ecoles, classes, eleves, onChange, initialEcoleId, onB
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState(emptyClasseForm)
+  const [classeOuverte, setClasseOuverte] = useState(null)
 
   const classesEcole = classes.filter(c => c.ecoleId === selectedEcoleId)
+  const elevesClasseOuverte = classeOuverte ? eleves.filter(e => e.classeId === classeOuverte.id) : []
 
   const nbElevesParClasse = useMemo(() => {
     const map = {}
@@ -437,7 +445,7 @@ function GestionClasses({ ecoles, classes, eleves, onChange, initialEcoleId, onB
         <label className="block text-sm font-medium text-slate-700 mb-1">École</label>
         <select
           value={selectedEcoleId}
-          onChange={(e) => setSelectedEcoleId(e.target.value)}
+          onChange={(e) => { setSelectedEcoleId(e.target.value); setClasseOuverte(null) }}
           className="w-full md:w-80 px-3 py-2 border border-slate-300 rounded-lg"
         >
           {ecoles.map(e => <option key={e.id} value={e.id}>{e.nomCourt}</option>)}
@@ -463,16 +471,20 @@ function GestionClasses({ ecoles, classes, eleves, onChange, initialEcoleId, onB
               </thead>
               <tbody>
                 {classesEcole.map(classe => (
-                  <tr key={classe.id} className="border-b border-slate-200 hover:bg-slate-50">
-                    <td className="px-6 py-3 text-slate-900">{classe.nom}</td>
+                  <tr
+                    key={classe.id}
+                    onClick={() => setClasseOuverte(classeOuverte?.id === classe.id ? null : classe)}
+                    className={`border-b border-slate-200 hover:bg-slate-50 cursor-pointer ${classeOuverte?.id === classe.id ? 'bg-blue-50' : ''}`}
+                  >
+                    <td className="px-6 py-3 text-slate-900 font-medium">{classe.nom}</td>
                     <td className="px-6 py-3 text-slate-600">{classe.niveau}</td>
                     <td className="px-6 py-3 text-center text-slate-600">{nbElevesParClasse[classe.id] || 0}</td>
                     <td className="px-6 py-3 text-center">
                       <div className="flex gap-2 justify-center">
-                        <button onClick={() => openEdit(classe)} className="p-1 hover:bg-yellow-100 rounded text-yellow-600 transition" title="Modifier">
+                        <button onClick={(e) => { e.stopPropagation(); openEdit(classe) }} className="p-2 hover:bg-yellow-100 rounded text-yellow-600 transition" title="Modifier">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDelete(classe)} className="p-1 hover:bg-red-100 rounded text-red-600 transition" title="Supprimer">
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(classe) }} className="p-2 hover:bg-red-100 rounded text-red-600 transition" title="Supprimer">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -484,6 +496,50 @@ function GestionClasses({ ecoles, classes, eleves, onChange, initialEcoleId, onB
           </div>
         )}
       </div>
+
+      {classeOuverte && (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="bg-slate-50 border-b border-slate-200 p-4">
+            <h3 className="font-bold text-slate-900">Élèves de {classeOuverte.nom} ({elevesClasseOuverte.length})</h3>
+          </div>
+          {elevesClasseOuverte.length === 0 ? (
+            <div className="p-8 text-center text-slate-500">Aucun élève dans cette classe</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-700">Matricule</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-700">Nom</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-700">Prénom</th>
+                    <th className="px-6 py-3 text-left font-semibold text-slate-700">Parent</th>
+                    <th className="px-6 py-3 text-center font-semibold text-slate-700">Paiement</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {elevesClasseOuverte.map(eleve => {
+                    const statut = STATUT_PAIEMENT_STYLE[getStatutPaiement(eleve)]
+                    return (
+                      <tr key={eleve.id} className="border-b border-slate-200 hover:bg-slate-50">
+                        <td className="px-6 py-3 font-mono text-xs text-slate-600">{eleve.matricule || '-'}</td>
+                        <td className="px-6 py-3 text-slate-900">{eleve.nom}</td>
+                        <td className="px-6 py-3 text-slate-900">{eleve.prenom}</td>
+                        <td className="px-6 py-3 text-slate-600 text-xs">
+                          <div>{eleve.nomParent}</div>
+                          {eleve.telephoneParent && <div className="text-slate-400">{eleve.telephoneParent}</div>}
+                        </td>
+                        <td className="px-6 py-3 text-center">
+                          <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statut.className}`}>{statut.label}</span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

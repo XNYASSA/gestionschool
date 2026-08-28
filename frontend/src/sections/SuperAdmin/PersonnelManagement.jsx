@@ -28,11 +28,13 @@ const emptyForm = {
   fonction: '',
   telephone: '',
   salaireMensuel: '',
-  ecoleId: ''
+  tarifHoraire: '',
+  ecoleIds: []
 }
 
-export default function PersonnelManagement({ section }) {
+export default function PersonnelManagement({ section, canGererComptes = true }) {
   const { user } = useContext(AuthContext)
+  const rolesDisponibles = canGererComptes ? ROLES : ROLES.filter(r => !['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE'].includes(r.value))
   const [personnel, setPersonnel] = useState([])
   const [ecoles, setEcoles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -86,10 +88,20 @@ export default function PersonnelManagement({ section }) {
       fonction: p.fonction || '',
       telephone: p.telephone || '',
       salaireMensuel: p.salaireMensuel || '',
-      ecoleId: p.utilisateurEcoles?.[0]?.ecole?.id || ''
+      tarifHoraire: p.enseignant?.tarifHoraire || '',
+      ecoleIds: p.utilisateurEcoles?.map(ue => ue.ecole.id) || []
     })
     setEditingId(p.id)
     setShowModal(true)
+  }
+
+  const toggleEcole = (ecoleId) => {
+    setFormData(prev => ({
+      ...prev,
+      ecoleIds: prev.ecoleIds.includes(ecoleId)
+        ? prev.ecoleIds.filter(id => id !== ecoleId)
+        : [...prev.ecoleIds, ecoleId]
+    }))
   }
 
   const handleSave = async () => {
@@ -99,16 +111,31 @@ export default function PersonnelManagement({ section }) {
     }
 
     try {
+      let utilisateurId = editingId
+
       if (editingId) {
-        const { email, ecoleId, ...updateData } = formData
+        const { email, ecoleIds, tarifHoraire, ...updateData } = formData
         if (!updateData.motDePasse) delete updateData.motDePasse
         await apiClient.updateUtilisateur(editingId, updateData)
-        if (ecoleId) {
-          await apiClient.assignEcoleToUtilisateur(editingId, ecoleId, formData.role)
-        }
       } else {
-        await apiClient.createUtilisateur(formData)
+        const { ecoleIds, tarifHoraire, ...createData } = formData
+        const nouveau = await apiClient.createUtilisateur(createData)
+        utilisateurId = nouveau.id
       }
+
+      // Synchroniser les écoles affectées (ajouts + retraits) selon le poste confié
+      const ecolesAvant = editingId ? (personnel.find(p => p.id === editingId)?.utilisateurEcoles?.map(ue => ue.ecole.id) || []) : []
+      const aRetirer = ecolesAvant.filter(id => !formData.ecoleIds.includes(id))
+
+      await Promise.all([
+        ...formData.ecoleIds.map(ecoleId => apiClient.assignEcoleToUtilisateur(utilisateurId, ecoleId, formData.role)),
+        ...aRetirer.map(ecoleId => apiClient.removeEcoleFromUtilisateur(utilisateurId, ecoleId))
+      ])
+
+      if (formData.role === 'ENSEIGNANT') {
+        await apiClient.updateTarifHoraire(utilisateurId, formData.tarifHoraire || null)
+      }
+
       setShowModal(false)
       loadData()
     } catch (err) {
@@ -220,25 +247,29 @@ export default function PersonnelManagement({ section }) {
                       <div className="flex gap-2 justify-center">
                         <button
                           onClick={() => openEditModal(p)}
-                          className="p-1 hover:bg-yellow-100 rounded text-yellow-600 transition"
+                          className="p-2 hover:bg-yellow-100 rounded text-yellow-600 transition"
                           title="Modifier"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => handleToggleStatut(p)}
-                          className={`p-1 rounded transition ${p.actif ? 'hover:bg-orange-100 text-orange-600' : 'hover:bg-green-100 text-green-600'}`}
-                          title={p.actif ? 'Suspendre (bloquer l\'accès)' : 'Réactiver l\'accès'}
-                        >
-                          <Power className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p)}
-                          className="p-1 hover:bg-red-100 rounded text-red-600 transition"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {canGererComptes && (
+                          <>
+                            <button
+                              onClick={() => handleToggleStatut(p)}
+                              className={`p-2 rounded transition ${p.actif ? 'hover:bg-orange-100 text-orange-600' : 'hover:bg-green-100 text-green-600'}`}
+                              title={p.actif ? 'Suspendre (bloquer l\'accès)' : 'Réactiver l\'accès'}
+                            >
+                              <Power className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(p)}
+                              className="p-2 hover:bg-red-100 rounded text-red-600 transition"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -271,7 +302,7 @@ export default function PersonnelManagement({ section }) {
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nom complet *</label>
                   <input
@@ -308,43 +339,75 @@ export default function PersonnelManagement({ section }) {
                 />
               </div>
 
+              {(canGererComptes || !editingId) && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Mot de passe {!editingId ? '*' : '(laisser vide pour ne pas changer)'}
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.motDePasse}
+                    onChange={(e) => setFormData({ ...formData, motDePasse: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Rôle / poste confié *</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                >
+                  {rolesDisponibles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              </div>
+
+              {formData.role === 'ENSEIGNANT' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tarif horaire (FCFA/heure)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.tarifHoraire}
+                    onChange={(e) => setFormData({ ...formData, tarifHoraire: e.target.value })}
+                    placeholder="Laisser vide si payé au salaire mensuel"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Utilisé pour calculer automatiquement les heures faites dans le rapport financier.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Mot de passe {!editingId ? '*' : '(laisser vide pour ne pas changer)'}
+                  École(s) affectée(s) pour ce poste
                 </label>
-                <input
-                  type="password"
-                  value={formData.motDePasse}
-                  onChange={(e) => setFormData({ ...formData, motDePasse: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                />
+                <div className="border border-slate-300 rounded-lg max-h-40 overflow-y-auto divide-y divide-slate-100">
+                  {ecoles.length === 0 ? (
+                    <p className="p-3 text-sm text-slate-500">Aucune école disponible</p>
+                  ) : (
+                    ecoles.map(e => (
+                      <label key={e.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.ecoleIds.includes(e.id)}
+                          onChange={() => toggleEcole(e.id)}
+                          className="w-4 h-4"
+                        />
+                        {e.nomCourt}
+                      </label>
+                    ))
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Cochez une ou plusieurs écoles si cette personne exerce ce poste sur plusieurs établissements.
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Rôle *</label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                  >
-                    {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">École</label>
-                  <select
-                    value={formData.ecoleId}
-                    onChange={(e) => setFormData({ ...formData, ecoleId: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                  >
-                    <option value="">Non assignée</option>
-                    {ecoles.map(e => <option key={e.id} value={e.id}>{e.nomCourt}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Téléphone</label>
                   <input
