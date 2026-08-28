@@ -12,6 +12,8 @@ services:
         value: file:./prisma/dev.db
       - key: JWT_SECRET
         value: your_jwt_secret_change_this_in_production_12345
+      - key: FRONTEND_URL
+        value: https://gestionschool.vercel.app
     staticSite: false
     previewUrl: false
     region: oregon

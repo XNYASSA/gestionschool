@@ -73,7 +73,9 @@ async function main() {
   console.log('✓ 6 Écoles créées')
 
   // Créer les utilisateurs
-  const hashedPassword = await bcryptjs.hash('password123', 10)
+  // Mot de passe de seed local uniquement (jamais utilisé en production : les comptes
+  // réels ont leur propre mot de passe, changé via "Gestion des comptes").
+  const hashedPassword = await bcryptjs.hash('seed-dev-local-only-2026', 10)
 
   const superAdmin = await prisma.utilisateur.create({
     data: {

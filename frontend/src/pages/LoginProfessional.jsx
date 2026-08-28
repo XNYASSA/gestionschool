@@ -2,38 +2,12 @@ import React, { useState, useContext } from 'react'
 import { AuthContext } from '../context/AuthContext'
 import { LogIn, Mail, Lock, Loader } from 'lucide-react'
 
-const DEMO_PROFILES = [
-  { email: 'admin@gestionschool.cm', password: 'password123', nom: 'Xavier Nyassa', role: 'SUPER_ADMIN', emoji: '👑' },
-  { email: 'principal1@gestionschool.cm', password: 'password123', nom: 'Dr. Jean Dupont', role: 'PRINCIPAL', emoji: '👨‍💼' },
-  { email: 'principal2@gestionschool.cm', password: 'password123', nom: 'Dr. Marie Durand', role: 'PRINCIPAL', emoji: '👨‍💼' },
-  { email: 'directrice1@gestionschool.cm', password: 'password123', nom: 'Mme Amélie Bernard', role: 'DIRECTRICE', emoji: '👩‍💼' },
-  { email: 'directrice2@gestionschool.cm', password: 'password123', nom: 'Mme Sophie Lebrun', role: 'DIRECTRICE', emoji: '👩‍💼' },
-  { email: 'secretaire@gestionschool.cm', password: 'password123', nom: 'Alice Martin', role: 'SECRETAIRE', emoji: '👩‍💻' },
-  { email: 'enseignant@gestionschool.cm', password: 'password123', nom: 'Prof. Michel Leclerc', role: 'ENSEIGNANT', emoji: '👩‍🏫' },
-  { email: 'economat@gestionschool.cm', password: 'password123', nom: 'Pierre Economiste', role: 'ECONOMAT', emoji: '💰' }
-]
-
 export default function LoginProfessional() {
   const { login } = useContext(AuthContext)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  const handleQuickLogin = async (profile) => {
-    setEmail(profile.email)
-    setPassword(profile.password)
-    setError('')
-    setLoading(true)
-
-    try {
-      await login(profile.email, profile.password)
-    } catch (err) {
-      setError(err.message || 'Erreur de connexion')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -136,39 +110,6 @@ export default function LoginProfessional() {
           <div className="mt-8 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
             <p className="text-gray-300 text-sm text-center">
               💡 Saisissez vos identifiants pour accéder au système
-            </p>
-          </div>
-
-          {/* Demo Profiles */}
-          <div className="mt-12">
-            <h3 className="text-gray-300 font-semibold mb-4 text-center">
-              🎯 Accès rapide - Comptes de démo
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {DEMO_PROFILES.map((profile, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleQuickLogin(profile)}
-                  disabled={loading}
-                  className="p-3 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 hover:border-blue-500 rounded-lg transition-all duration-200 disabled:opacity-50 group"
-                >
-                  <div className="text-2xl mb-1">{profile.emoji}</div>
-                  <div className="text-xs font-medium text-gray-300 group-hover:text-blue-300 transition-colors mb-1">
-                    {profile.nom.split(' ')[0]}
-                  </div>
-                  <div className="text-xs text-gray-500 group-hover:text-gray-400">
-                    {profile.role === 'SUPER_ADMIN' ? 'Admin' :
-                     profile.role === 'PRINCIPAL' ? 'Principal' :
-                     profile.role === 'DIRECTRICE' ? 'Directrice' :
-                     profile.role === 'SECRETAIRE' ? 'Secrétaire' :
-                     profile.role === 'ENSEIGNANT' ? 'Enseignant' :
-                     profile.role === 'ECONOMAT' ? 'Économat' : profile.role}
-                  </div>
-                </button>
-              ))}
-            </div>
-            <p className="text-gray-500 text-xs text-center mt-4">
-              Mot de passe: password123
             </p>
           </div>
         </div>

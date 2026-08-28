@@ -30,7 +30,12 @@ class APIClient {
     })
 
     if (response.status === 401) {
-      // Token invalide ou expiré
+      // Un 401 sur la tentative de connexion elle-même = identifiants invalides,
+      // pas une session expirée : il n'y a pas encore de session à ce stade.
+      if (endpoint === '/auth/login') {
+        const error = await response.json().catch(() => ({ error: 'Identifiants invalides' }))
+        throw new Error(error.error || 'Identifiants invalides')
+      }
       this.setToken(null)
       window.location.href = '/'
       throw new Error('Session expirée. Veuillez vous reconnecter.')
