@@ -31,6 +31,7 @@ import MesClasses from '../sections/SuperAdmin/MesClasses'
 import CahierTexteEnseignant from '../sections/SuperAdmin/CahierTexteEnseignant'
 import SaisieNotesEnseignant from '../sections/SuperAdmin/SaisieNotesEnseignant'
 import AppelPresence from '../sections/SuperAdmin/AppelPresence'
+import ConsultationPresences from '../sections/SuperAdmin/ConsultationPresences'
 
 const TITRES_PAR_ROLE = {
   SUPER_ADMIN: { sidebar: '👑 TDB Admin', header: '👑 Super Admin Dashboard' },
@@ -150,6 +151,8 @@ export default function DashboardSuperAdminEnhanced() {
         return <SaisieNotesEnseignant />
       case 'appel-presence':
         return <AppelPresence />
+      case 'presences-eleves':
+        return <ConsultationPresences />
       case 'anomalies':
         return <AnomaliesDetailed />
       case 'parametres':

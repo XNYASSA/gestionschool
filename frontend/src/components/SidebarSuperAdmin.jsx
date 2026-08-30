@@ -14,7 +14,7 @@ export const MENU_PAR_ROLE = {
   SECRETAIRE: ['dashboard', 'list-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'rapports-finance', 'affectations-enseignants', 'bulletins', ...RH_SAISIE, 'parametres'],
   ECONOMAT: ['dashboard', 'list-eleves', 'list-ecoles', 'verification-financiere', 'parametres'],
   ENSEIGNANT: ['dashboard', 'list-eleves', 'mes-classes', 'cahier-texte-enseignant', 'saisie-notes', 'appel-presence', 'parametres'],
-  SURVEILLANT_GENERAL: ['dashboard', ...RH_SAISIE, 'parametres']
+  SURVEILLANT_GENERAL: ['dashboard', 'presences-eleves', ...RH_SAISIE, 'parametres']
 }
 
 export default function SidebarSuperAdmin({ currentSection, setCurrentSection, logout, allowedIds = null, titre = '👑 TDB Admin' }) {
@@ -50,7 +50,8 @@ export default function SidebarSuperAdmin({ currentSection, setCurrentSection, l
       icon: Users,
       submenu: [
         { id: 'list-eleves', label: 'Liste des élèves' },
-        { id: 'paiement-status', label: 'Statuts de paiement' }
+        { id: 'paiement-status', label: 'Statuts de paiement' },
+        { id: 'presences-eleves', label: 'Présences des élèves' }
       ]
     },
     {

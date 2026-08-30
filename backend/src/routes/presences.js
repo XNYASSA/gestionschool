@@ -1,12 +1,28 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
+import { getEcoleIdsScope } from '../utils/ecoleScope.js'
 
 const router = express.Router()
 
-// GET PRESENCES
-router.get('/', verifyToken, async (req, res) => {
+// GET PRESENCES — limité aux écoles affectées ; filtrable par école, classe et date
+router.get('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SURVEILLANT_GENERAL', 'ENSEIGNANT']), async (req, res) => {
   try {
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    const { ecoleId, classeId, date } = req.query
+
+    if (ecoleId && ecoleIds && !ecoleIds.includes(ecoleId)) {
+      return res.status(403).json({ error: 'Accès refusé à cette école' })
+    }
+
     const presences = await req.prisma.presence.findMany({
+      where: {
+        classe: {
+          ...(ecoleIds && { ecoleId: { in: ecoleIds } }),
+          ...(ecoleId && { ecoleId })
+        },
+        ...(classeId && { classeId }),
+        ...(date && { date: new Date(date) })
+      },
       include: { eleve: true, classe: true }
     })
     res.json(presences)

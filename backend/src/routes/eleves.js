@@ -5,7 +5,7 @@ import { getEcoleIdsScope } from '../utils/ecoleScope.js'
 const router = express.Router()
 
 // GET ALL ELEVES — limité aux écoles affectées pour les non-admin
-router.get('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE', 'ECONOMAT', 'ENSEIGNANT']), async (req, res) => {
+router.get('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE', 'ECONOMAT', 'ENSEIGNANT', 'SURVEILLANT_GENERAL']), async (req, res) => {
   try {
     const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
 

@@ -230,8 +230,11 @@ class APIClient {
   }
 
   // PRESENCES
-  async getPresences() {
-    return this.request('/presences')
+  async getPresences(filtres = {}) {
+    const params = new URLSearchParams(
+      Object.fromEntries(Object.entries(filtres).filter(([, v]) => v))
+    ).toString()
+    return this.request(`/presences${params ? `?${params}` : ''}`)
   }
 
   async enregistrerPresence(eleveId, classeId, date, statut) {
