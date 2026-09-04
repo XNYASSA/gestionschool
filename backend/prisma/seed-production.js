@@ -91,21 +91,22 @@ async function main() {
     })
   }
 
-  const admin = await creerCompte({ email: 'admin@gestionschool.cm', nom: 'Administrateur', role: 'SUPER_ADMIN' })
-  const principal1 = await creerCompte({ email: 'principal1@gestionschool.cm', nom: 'Principal - CRP Francophone & CBM', role: 'PRINCIPAL' })
-  const principal2 = await creerCompte({ email: 'principal2@gestionschool.cm', nom: 'Principal - CRP Anglophone', role: 'PRINCIPAL' })
-  const principal3 = await creerCompte({ email: 'principal3@gestionschool.cm', nom: 'Principal - CRP Technique', role: 'PRINCIPAL' })
-  const directrice = await creerCompte({ email: 'directrice@gestionschool.cm', nom: 'Directrice - EBSB & EBRP', role: 'DIRECTRICE' })
-  const secretaire1 = await creerCompte({ email: 'secretaire1@gestionschool.cm', nom: 'Secrétaire - CRP Franco/Anglo/Technique & EBRP', role: 'SECRETAIRE' })
-  const secretaire2 = await creerCompte({ email: 'secretaire2@gestionschool.cm', nom: 'Secrétaire - CBM', role: 'SECRETAIRE' })
-  const secretaire3 = await creerCompte({ email: 'secretaire3@gestionschool.cm', nom: 'Secrétaire - EBSB', role: 'SECRETAIRE' })
-  const surveillant1 = await creerCompte({ email: 'surveillant1@gestionschool.cm', nom: 'Surveillant Général - CRP Francophone & Technique', role: 'SURVEILLANT_GENERAL' })
-  const surveillant2 = await creerCompte({ email: 'surveillant2@gestionschool.cm', nom: 'Surveillant Général - CRP Anglophone', role: 'SURVEILLANT_GENERAL' })
-  const surveillant3 = await creerCompte({ email: 'surveillant3@gestionschool.cm', nom: 'Surveillant Général - CBM', role: 'SURVEILLANT_GENERAL' })
-  const economat = await creerCompte({ email: 'economat@gestionschool.cm', nom: 'Économat', role: 'ECONOMAT' })
+  const admin = await creerCompte({ email: 'admin@gs.cm', nom: 'Administrateur', role: 'SUPER_ADMIN' })
+  const principal1 = await creerCompte({ email: 'principalcrp@gs.cm', nom: 'Principal - CRP Francophone & CBM', role: 'PRINCIPAL' })
+  const principal2 = await creerCompte({ email: 'principalcrpa@gs.cm', nom: 'Principal - CRP Anglophone', role: 'PRINCIPAL' })
+  const principal3 = await creerCompte({ email: 'principalcrpt@gs.cm', nom: 'Principal - CRP Technique', role: 'PRINCIPAL' })
+  const directrice = await creerCompte({ email: 'directrice@gs.cm', nom: 'Directrice - EBSB & EBRP', role: 'DIRECTRICE' })
+  const secretaire1 = await creerCompte({ email: 'secretairecrp@gs.cm', nom: 'Secrétaire - CRP Franco/Anglo/Technique & EBRP', role: 'SECRETAIRE' })
+  const secretaire2 = await creerCompte({ email: 'secretairecbm@gs.cm', nom: 'Secrétaire - CBM', role: 'SECRETAIRE' })
+  const secretaire3 = await creerCompte({ email: 'secretaireebsb@gs.cm', nom: 'Secrétaire - EBSB', role: 'SECRETAIRE' })
+  const surveillant1 = await creerCompte({ email: 'surveillantcrp@gs.cm', nom: 'Surveillant Général - CRP Francophone & Technique', role: 'SURVEILLANT_GENERAL' })
+  const surveillant2 = await creerCompte({ email: 'surveillantcrpa@gs.cm', nom: 'Surveillant Général - CRP Anglophone', role: 'SURVEILLANT_GENERAL' })
+  const surveillant3 = await creerCompte({ email: 'surveillantcbm@gs.cm', nom: 'Surveillant Général - CBM', role: 'SURVEILLANT_GENERAL' })
+  const economat = await creerCompte({ email: 'economat@gs.cm', nom: 'Économat', role: 'ECONOMAT' })
 
+  const enseignantCodes = ['enseignantcrpf', 'enseignantcrpa', 'enseignantcrpt', 'enseignantcbm', 'enseignantebsb', 'enseignantebrp']
   const enseignants = await Promise.all(
-    ecoles.map((_, i) => creerCompte({ email: `enseignant${i + 1}@gestionschool.cm`, nom: `Enseignant - ${ecoles[i].nomCourt}`, role: 'ENSEIGNANT' }))
+    ecoles.map((_, i) => creerCompte({ email: `${enseignantCodes[i]}@gs.cm`, nom: `Enseignant - ${ecoles[i].nomCourt}`, role: 'ENSEIGNANT' }))
   )
 
   console.log('✓ Comptes créés')

@@ -67,6 +67,22 @@ export default function DashboardSuperAdminEnhanced() {
     loadStats()
   }, [])
 
+  // Le bouton retour du navigateur doit revenir à la section précédente de
+  // l'application (et non quitter l'app), tant qu'il reste des sections visitées.
+  useEffect(() => {
+    window.history.replaceState({ section: 'dashboard' }, '')
+    const onPopState = (e) => {
+      setCurrentSection(e.state?.section || 'dashboard')
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
+
+  const navigateToSection = (section) => {
+    setCurrentSection(section)
+    window.history.pushState({ section }, '')
+  }
+
   const loadStats = async () => {
     try {
       const [ecoles, eleves, fraisData, depensesData, anomalies, utilisateurs] = await Promise.all([
@@ -170,7 +186,7 @@ export default function DashboardSuperAdminEnhanced() {
       <div className="hidden md:flex">
         <SidebarSuperAdmin
           currentSection={currentSection}
-          setCurrentSection={setCurrentSection}
+          setCurrentSection={navigateToSection}
           logout={logout}
           allowedIds={allowedIds}
           titre={titres.sidebar}
@@ -187,7 +203,7 @@ export default function DashboardSuperAdminEnhanced() {
           <div className="fixed left-0 top-0 h-full z-50 md:hidden">
             <SidebarSuperAdmin
               currentSection={currentSection}
-              setCurrentSection={(section) => { setCurrentSection(section); setMobileMenuOpen(false) }}
+              setCurrentSection={(section) => { navigateToSection(section); setMobileMenuOpen(false) }}
               logout={logout}
               allowedIds={allowedIds}
               titre={titres.sidebar}
