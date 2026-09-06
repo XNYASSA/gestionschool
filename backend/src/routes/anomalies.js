@@ -29,12 +29,10 @@ async function detecterAnomalies(prisma, ecoleId, date) {
     }
   })
 
-  const saisiesEconomat = await prisma.saisieQuotidienne.findMany({
+  const verificationsEconomat = await prisma.verificationPaiement.findMany({
     where: {
-      ecoleId,
       date: { gte: dateDebut, lt: dateFin },
-      role: 'ECONOMAT',
-      type: 'FRAIS_COLLECTES'
+      eleve: { classe: { ecoleId } }
     }
   })
 
@@ -51,10 +49,7 @@ async function detecterAnomalies(prisma, ecoleId, date) {
     return sum + (donnees.montantTotal || 0)
   }, 0)
 
-  const totalEconomat = saisiesEconomat.reduce((sum, s) => {
-    const donnees = JSON.parse(s.donnees)
-    return sum + (donnees.montantTotal || 0)
-  }, 0)
+  const totalEconomat = verificationsEconomat.reduce((sum, v) => sum + v.montant, 0)
 
   // Détecter les écarts
   if (Math.abs(totalSecretaire - totalPrincipal) > SEUIL_ANOMALIE) {
@@ -153,15 +148,15 @@ router.get('/rapport', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE']), asyn
 
     const { debut, fin } = calculerPeriode(period, date ? new Date(date) : new Date())
 
-    const [saisiesSecretaire, saisiesPrincipal, saisiesEconomat, paiements] = await Promise.all([
+    const [saisiesSecretaire, saisiesPrincipal, verificationsEconomat, paiements] = await Promise.all([
       req.prisma.saisieQuotidienne.findMany({
         where: { ecoleId, date: { gte: debut, lt: fin }, role: 'SECRETAIRE', type: 'FRAIS_COLLECTES' }
       }),
       req.prisma.saisieQuotidienne.findMany({
         where: { ecoleId, date: { gte: debut, lt: fin }, role: { in: ['PRINCIPAL', 'DIRECTRICE'] }, type: 'FRAIS_COLLECTES' }
       }),
-      req.prisma.saisieQuotidienne.findMany({
-        where: { ecoleId, date: { gte: debut, lt: fin }, role: 'ECONOMAT', type: 'FRAIS_COLLECTES' }
+      req.prisma.verificationPaiement.findMany({
+        where: { date: { gte: debut, lt: fin }, eleve: { classe: { ecoleId } } }
       }),
       req.prisma.inscriptionFrais.findMany({
         where: {
@@ -175,7 +170,7 @@ router.get('/rapport', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE']), asyn
     const declarations = {
       secretaire: totalDeclare(saisiesSecretaire),
       principal: totalDeclare(saisiesPrincipal),
-      economat: totalDeclare(saisiesEconomat)
+      economat: verificationsEconomat.reduce((sum, v) => sum + v.montant, 0)
     }
 
     const detailSysteme = {

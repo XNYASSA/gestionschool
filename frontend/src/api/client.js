@@ -200,11 +200,22 @@ class APIClient {
     return this.request('/frais')
   }
 
-  async enregistrerPaiement(eleveId, montant, modePayement) {
+  async enregistrerPaiement(eleveId, montants) {
     return this.request('/frais/enregistrer-paiement', {
       method: 'POST',
-      body: JSON.stringify({ eleveId, montant, modePayement })
+      body: JSON.stringify({ eleveId, montants })
     })
+  }
+
+  async enregistrerVerificationPaiement(eleveId, montant) {
+    return this.request('/frais/verification-paiement', {
+      method: 'POST',
+      body: JSON.stringify({ eleveId, montant })
+    })
+  }
+
+  async getVerificationsPaiement() {
+    return this.request('/frais/verifications-paiement')
   }
 
   async validerPaiement(fraisId, statutValidation) {

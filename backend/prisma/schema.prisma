@@ -33,6 +33,7 @@ model Utilisateur {
   horaires           HoraireTravail[]        // Emploi du temps (jours/heures de travail)
   presences          PresencePersonnel[]     // Présences/absences au travail
   paiementsEffectues Paiement[]              // Encaissements qu'il/elle a réalisés
+  verificationsPaiement VerificationPaiement[] // Vérifications de caisse (Économat)
 }
 
 model UtilisateurEcole {
@@ -123,6 +124,7 @@ model Eleve {
   anomaliesDetectees  AnomalieDetetee[]
   bulletins           Bulletin[]
   paiements           Paiement[]
+  verificationsPaiement VerificationPaiement[]
 }
 
 // ===== PAYMENTS & FEES =====
@@ -161,6 +163,20 @@ model Paiement {
   effectueParId       String?
   date                DateTime @default(now())
   createdAt           DateTime @default(now())
+}
+
+// Contrôle de caisse indépendant réalisé par l'Économat : montant perçu pour un
+// élève, à comparer au journal Paiement tenu par la Secrétaire (réconciliation).
+// N'affecte jamais le solde de l'élève — c'est une déclaration séparée.
+model VerificationPaiement {
+  id            String       @id @default(cuid())
+  eleve         Eleve        @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleveId       String
+  montant       Int
+  effectuePar   Utilisateur? @relation(fields: [effectueParId], references: [id], onDelete: SetNull)
+  effectueParId String?
+  date          DateTime     @default(now())
+  createdAt     DateTime     @default(now())
 }
 
 // ===== TEACHING & GRADES =====

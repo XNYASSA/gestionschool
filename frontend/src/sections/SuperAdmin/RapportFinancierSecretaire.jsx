@@ -3,81 +3,81 @@ import { Wallet, TrendingUp, Loader, Calendar, Check, Users } from 'lucide-react
 import { apiClient } from '../../api/client'
 import { isInPeriod, PERIOD_LABELS } from '../../utils/periodFilter'
 import { getStatutPaiement, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
+import RechercheEleve from '../../components/RechercheEleve'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
-
-const MODES_PAIEMENT = [
-  { value: 'ESPECES', label: 'Espèces' },
-  { value: 'ORANGE_MONEY', label: 'Orange Money' },
-  { value: 'MTN_MOMO', label: 'MTN Mobile Money' },
-  { value: 'WAVE', label: 'Wave' },
-  { value: 'VIREMENT_BANCAIRE', label: 'Virement bancaire' }
-]
+const labelPoste = (tranche) => tranche === 'inscription' ? "Frais d'inscription" : `Tranche ${tranche.replace('tranche', '')}`
 
 export default function RapportFinancierSecretaire() {
-  const [ecoles, setEcoles] = useState([])
-  const [ecoleId, setEcoleId] = useState('')
   const [eleves, setEleves] = useState([])
+  const [frais, setFrais] = useState([])
   const [paiements, setPaiements] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
-  const [form, setForm] = useState({ eleveId: '', montant: '', modePayement: 'ESPECES' })
+  const [eleveSelectionne, setEleveSelectionne] = useState(null)
+  const [montants, setMontants] = useState({})
   const [saving, setSaving] = useState(false)
 
   const [period, setPeriod] = useState('jour')
   const [selectedDate, setSelectedDate] = useState(todayISO())
 
   useEffect(() => {
-    loadEcoles()
+    loadDonnees()
   }, [])
 
-  useEffect(() => {
-    if (ecoleId) loadDonneesEcole()
-  }, [ecoleId])
-
-  const loadEcoles = async () => {
+  const loadDonnees = async () => {
     setLoading(true)
     setError('')
     try {
-      const data = await apiClient.getEcoles()
-      setEcoles(data)
-      if (data.length > 0) setEcoleId(data[0].id)
+      const [elevesData, fraisData, paiementsData] = await Promise.all([
+        apiClient.getEleves(),
+        apiClient.getFrais(),
+        apiClient.getPaiements()
+      ])
+      setEleves(elevesData)
+      setFrais(fraisData)
+      setPaiements(paiementsData)
     } catch (err) {
-      setError(err.message || 'Erreur lors du chargement des écoles')
+      setError(err.message || 'Erreur lors du chargement des données')
     } finally {
       setLoading(false)
     }
   }
 
-  const loadDonneesEcole = async () => {
-    setError('')
-    try {
-      const [elevesData, paiementsData] = await Promise.all([
-        apiClient.getEleves(),
-        apiClient.getPaiements()
-      ])
-      setEleves(elevesData.filter(e => e.classe?.ecoleId === ecoleId))
-      setPaiements(paiementsData.filter(p => p.eleve?.classe?.ecoleId === ecoleId))
-    } catch (err) {
-      setError(err.message || 'Erreur lors du chargement des données')
-    }
+  const handleSelectEleve = (eleve) => {
+    setEleveSelectionne(eleve)
+    setMontants({})
+    setMessage('')
   }
+
+  const postesEleve = useMemo(() => {
+    if (!eleveSelectionne) return []
+    return frais
+      .filter(f => f.eleveId === eleveSelectionne.id)
+      .sort((a, b) => (a.tranche === 'inscription' ? -1 : a.tranche.localeCompare(b.tranche)))
+  }, [frais, eleveSelectionne])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.eleveId || !form.montant) return
+    if (!eleveSelectionne) return
+    const montantsRenseignes = Object.fromEntries(Object.entries(montants).filter(([, v]) => parseInt(v) > 0))
+    if (Object.keys(montantsRenseignes).length === 0) {
+      setError('Renseignez au moins un montant reçu')
+      return
+    }
 
     setSaving(true)
     setError('')
     setMessage('')
     try {
-      await apiClient.enregistrerPaiement(form.eleveId, parseInt(form.montant), form.modePayement)
+      await apiClient.enregistrerPaiement(eleveSelectionne.id, montantsRenseignes)
       setMessage('Paiement enregistré avec succès.')
-      setForm({ eleveId: '', montant: '', modePayement: 'ESPECES' })
-      await loadDonneesEcole()
+      setEleveSelectionne(null)
+      setMontants({})
+      await loadDonnees()
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement du paiement")
     } finally {
@@ -125,65 +125,52 @@ export default function RapportFinancierSecretaire() {
       {error && <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">⚠️ {error}</div>}
       {message && <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700">✓ {message}</div>}
 
-      <div className="bg-white rounded-lg shadow-md p-4">
-        <label className="block text-sm font-medium text-slate-700 mb-1">Établissement</label>
-        <select value={ecoleId} onChange={(e) => setEcoleId(e.target.value)} className="w-full md:w-80 px-3 py-2 border border-slate-300 rounded-lg">
-          {ecoles.map(e => <option key={e.id} value={e.id}>{e.nomCourt}</option>)}
-        </select>
-      </div>
-
       {/* Formulaire d'entrée d'argent */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center gap-2 mb-4">
+      <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+        <div className="flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-green-600" />
-          <h3 className="text-lg font-bold text-slate-900">Enregistrer une entrée d'argent (inscription ou tranche de pension)</h3>
+          <h3 className="text-lg font-bold text-slate-900">Enregistrer une entrée d'argent</h3>
         </div>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Élève</label>
-            <select
-              value={form.eleveId}
-              onChange={(e) => setForm({ ...form, eleveId: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-              required
-            >
-              <option value="">Sélectionner un élève</option>
-              {eleves.map(el => (
-                <option key={el.id} value={el.id}>{el.nom} {el.prenom} — {el.classe?.nom} ({el.matricule})</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Montant (FCFA)</label>
-            <input
-              type="number"
-              min="0"
-              value={form.montant}
-              onChange={(e) => setForm({ ...form, montant: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-              placeholder="Ex: 50000"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Mode de paiement</label>
-            <select
-              value={form.modePayement}
-              onChange={(e) => setForm({ ...form, modePayement: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-            >
-              {MODES_PAIEMENT.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-            </select>
-          </div>
-          <div className="md:col-span-4">
-            <button type="submit" disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2">
+
+        <RechercheEleve onSelect={handleSelectEleve} eleveSelectionneId={eleveSelectionne?.id} />
+
+        {eleveSelectionne && (
+          <form onSubmit={handleSubmit} className="border-t border-slate-200 pt-4 space-y-4">
+            <p className="text-sm text-slate-700">
+              Élève sélectionné : <strong>{eleveSelectionne.nom} {eleveSelectionne.prenom}</strong> — {eleveSelectionne.classe?.nom}
+            </p>
+
+            {postesEleve.length === 0 ? (
+              <p className="text-sm text-slate-500">Aucune fiche de frais pour cet élève (configuration des frais non définie pour son école).</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {postesEleve.map(poste => (
+                  <div key={poste.id}>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      {labelPoste(poste.tranche)}
+                      <span className="block text-xs text-slate-400 font-normal">
+                        Dû : {formatFCFA(poste.montantDu)} — Payé : {formatFCFA(poste.montantPaye)} — Reste : {formatFCFA(poste.montantDu - poste.montantPaye)}
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      disabled={poste.statut === 'SOLDE'}
+                      value={montants[poste.tranche] || ''}
+                      onChange={(e) => setMontants({ ...montants, [poste.tranche]: e.target.value })}
+                      placeholder={poste.statut === 'SOLDE' ? 'Déjà soldé' : 'Montant reçu'}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:bg-slate-100"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button type="submit" disabled={saving || postesEleve.length === 0} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2">
               {saving ? 'Enregistrement...' : <><Check className="w-4 h-4" /> Enregistrer le paiement</>}
             </button>
-          </div>
-        </form>
-        <p className="text-xs text-slate-500 mt-3">
-          Le montant est automatiquement appliqué à la prochaine échéance non soldée de l'élève (inscription, puis tranches).
-        </p>
+          </form>
+        )}
       </div>
 
       {/* Résumé par période */}
