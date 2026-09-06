@@ -12,7 +12,7 @@ export const MENU_PAR_ROLE = {
   PRINCIPAL: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', ...RH_SAISIE, 'parametres'],
   DIRECTRICE: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', ...RH_SAISIE, 'parametres'],
   SECRETAIRE: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'rapports-finance', 'affectations-enseignants', 'bulletins', ...RH_SAISIE, 'parametres'],
-  ECONOMAT: ['dashboard', 'list-eleves', 'list-ecoles', 'verification-financiere', 'parametres'],
+  ECONOMAT: ['dashboard', 'list-eleves', 'import-eleves', 'list-ecoles', 'verification-financiere', 'parametres'],
   ENSEIGNANT: ['dashboard', 'list-eleves', 'mes-classes', 'cahier-texte-enseignant', 'saisie-notes', 'appel-presence', 'parametres'],
   SURVEILLANT_GENERAL: ['dashboard', 'presences-eleves', ...RH_SAISIE, 'parametres']
 }

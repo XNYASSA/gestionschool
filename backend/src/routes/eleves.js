@@ -111,7 +111,7 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
 // IMPORT EN MASSE (Super Admin, Principal/Directrice, Secretaire) — depuis un fichier
 // préparé par la secrétaire ; chaque ligne est traitée indépendamment, une ligne en
 // erreur n'interrompt pas l'import des autres.
-router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
+router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE', 'ECONOMAT']), async (req, res) => {
   try {
     const { ecoleId, lignes } = req.body
 
