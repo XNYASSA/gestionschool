@@ -32,6 +32,7 @@ import CahierTexteEnseignant from '../sections/SuperAdmin/CahierTexteEnseignant'
 import SaisieNotesEnseignant from '../sections/SuperAdmin/SaisieNotesEnseignant'
 import AppelPresence from '../sections/SuperAdmin/AppelPresence'
 import ConsultationPresences from '../sections/SuperAdmin/ConsultationPresences'
+import ImporterEleves from '../sections/SuperAdmin/ImporterEleves'
 
 const TITRES_PAR_ROLE = {
   SUPER_ADMIN: { sidebar: '👑 TDB Admin', header: '👑 Super Admin Dashboard' },
@@ -121,6 +122,8 @@ export default function DashboardSuperAdminEnhanced() {
         return <SuiviPaiements />
       case 'list-eleves':
         return <ListeEleves ecoleIds={ecoleIds} showStatutPaiement={user?.roleAPI !== 'ENSEIGNANT'} />
+      case 'import-eleves':
+        return <ImporterEleves />
       case 'list-personnel':
         return <PersonnelManagement section="list" ecoleIds={ecoleIds} canGererComptes={isSuperAdmin} />
       case 'create-personnel':

@@ -9,9 +9,9 @@ import {
 const RH_SAISIE = ['saisie-horaires', 'saisie-presences']
 
 export const MENU_PAR_ROLE = {
-  PRINCIPAL: ['dashboard', 'list-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', ...RH_SAISIE, 'parametres'],
-  DIRECTRICE: ['dashboard', 'list-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', ...RH_SAISIE, 'parametres'],
-  SECRETAIRE: ['dashboard', 'list-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'rapports-finance', 'affectations-enseignants', 'bulletins', ...RH_SAISIE, 'parametres'],
+  PRINCIPAL: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', ...RH_SAISIE, 'parametres'],
+  DIRECTRICE: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', ...RH_SAISIE, 'parametres'],
+  SECRETAIRE: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'rapports-finance', 'affectations-enseignants', 'bulletins', ...RH_SAISIE, 'parametres'],
   ECONOMAT: ['dashboard', 'list-eleves', 'list-ecoles', 'verification-financiere', 'parametres'],
   ENSEIGNANT: ['dashboard', 'list-eleves', 'mes-classes', 'cahier-texte-enseignant', 'saisie-notes', 'appel-presence', 'parametres'],
   SURVEILLANT_GENERAL: ['dashboard', 'presences-eleves', ...RH_SAISIE, 'parametres']
@@ -50,6 +50,7 @@ export default function SidebarSuperAdmin({ currentSection, setCurrentSection, l
       icon: Users,
       submenu: [
         { id: 'list-eleves', label: 'Liste des élèves' },
+        { id: 'import-eleves', label: 'Importer des élèves' },
         { id: 'paiement-status', label: 'Statuts de paiement' },
         { id: 'presences-eleves', label: 'Présences des élèves' }
       ]

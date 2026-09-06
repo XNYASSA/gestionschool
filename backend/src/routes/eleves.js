@@ -1,6 +1,7 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
 import { getEcoleIdsScope } from '../utils/ecoleScope.js'
+import { creerInscriptionsFraisPourEleve } from '../utils/inscriptionsFrais.js'
 
 const router = express.Router()
 
@@ -99,9 +100,103 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
       include: { classe: true }
     })
 
+    await creerInscriptionsFraisPourEleve(req.prisma, eleve.id, eleve.classe.ecoleId)
+
     res.status(201).json(eleve)
   } catch (error) {
     res.status(400).json({ error: error.message })
+  }
+})
+
+// IMPORT EN MASSE (Super Admin, Principal/Directrice, Secretaire) — depuis un fichier
+// préparé par la secrétaire ; chaque ligne est traitée indépendamment, une ligne en
+// erreur n'interrompt pas l'import des autres.
+router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
+  try {
+    const { ecoleId, lignes } = req.body
+
+    if (!ecoleId || !Array.isArray(lignes) || lignes.length === 0) {
+      return res.status(400).json({ error: 'ecoleId et lignes (tableau non vide) requis' })
+    }
+
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIds && !ecoleIds.includes(ecoleId)) {
+      return res.status(403).json({ error: 'Cette école ne vous est pas affectée' })
+    }
+
+    const classesEcole = await req.prisma.classe.findMany({ where: { ecoleId } })
+    const classeParNom = new Map(classesEcole.map(c => [c.nom.trim().toLowerCase(), c]))
+
+    const elevesExistants = await req.prisma.eleve.findMany({ select: { matricule: true } })
+    let prochainNumero = 1
+    elevesExistants.forEach(e => {
+      const match = e.matricule.match(/\d+/)
+      if (match) prochainNumero = Math.max(prochainNumero, parseInt(match[0]) + 1)
+    })
+    const matriculesExistants = new Set(elevesExistants.map(e => e.matricule))
+
+    const resultats = []
+
+    for (let i = 0; i < lignes.length; i++) {
+      const numeroLigne = i + 1
+      const ligne = lignes[i] || {}
+      try {
+        const { nom, prenom, sexe, dateNaissance, classe, nomParent, lieuParente, telephoneParent, emailParent, adresseParent, montantDejaVerse } = ligne
+
+        if (!nom || !prenom || !sexe || !dateNaissance || !classe || !nomParent || !telephoneParent) {
+          throw new Error('Champs obligatoires manquants (nom, prénom, sexe, date de naissance, classe, nom du parent, téléphone du parent)')
+        }
+
+        const sexeNormalise = /^m/i.test(String(sexe).trim()) ? 'MASCULIN' : /^f/i.test(String(sexe).trim()) ? 'FEMININ' : null
+        if (!sexeNormalise) {
+          throw new Error(`Sexe invalide : "${sexe}" (attendu M ou F)`)
+        }
+
+        const classeTrouvee = classeParNom.get(String(classe).trim().toLowerCase())
+        if (!classeTrouvee) {
+          throw new Error(`Classe "${classe}" introuvable dans cette école`)
+        }
+
+        const dateNaissanceParsed = new Date(dateNaissance)
+        if (isNaN(dateNaissanceParsed.getTime())) {
+          throw new Error(`Date de naissance invalide : "${dateNaissance}"`)
+        }
+
+        let matricule
+        do {
+          matricule = `MAT${String(prochainNumero).padStart(3, '0')}`
+          prochainNumero++
+        } while (matriculesExistants.has(matricule))
+        matriculesExistants.add(matricule)
+
+        const eleve = await req.prisma.eleve.create({
+          data: {
+            matricule,
+            nom,
+            prenom,
+            sexe: sexeNormalise,
+            dateNaissance: dateNaissanceParsed,
+            classeId: classeTrouvee.id,
+            nomParent,
+            lieuParente: lieuParente || null,
+            telephoneParent,
+            emailParent: emailParent || null,
+            adresseParent: adresseParent || null
+          }
+        })
+
+        await creerInscriptionsFraisPourEleve(req.prisma, eleve.id, ecoleId, parseInt(montantDejaVerse) || 0)
+
+        resultats.push({ ligne: numeroLigne, succes: true, message: `${prenom} ${nom} (${matricule}) créé(e)` })
+      } catch (err) {
+        resultats.push({ ligne: numeroLigne, succes: false, message: err.message })
+      }
+    }
+
+    const reussis = resultats.filter(r => r.succes).length
+    res.json({ total: lignes.length, reussis, echoues: lignes.length - reussis, resultats })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
   }
 })
 

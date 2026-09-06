@@ -1,18 +1,13 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
 import { getEcoleIdsScope } from '../utils/ecoleScope.js'
+import { calculerStatut } from '../utils/inscriptionsFrais.js'
 
 const router = express.Router()
 
 const includeFull = {
   ecole: true,
   tranches: { orderBy: { numero: 'asc' } }
-}
-
-function calculerStatut(montantDu, montantPaye) {
-  if (montantDu > 0 && montantPaye >= montantDu) return 'SOLDE'
-  if (montantPaye > 0) return 'PARTIEL'
-  return 'IMPAYE'
 }
 
 // Propage un montant de tranche (ou d'inscription) modifié dans ConfigurationFrais

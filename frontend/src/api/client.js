@@ -182,6 +182,13 @@ class APIClient {
     })
   }
 
+  async importerEleves(ecoleId, lignes) {
+    return this.request('/eleves/import', {
+      method: 'POST',
+      body: JSON.stringify({ ecoleId, lignes })
+    })
+  }
+
   async deleteEleve(id) {
     return this.request(`/eleves/${id}`, {
       method: 'DELETE'
