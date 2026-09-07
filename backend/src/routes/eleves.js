@@ -144,7 +144,7 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
       const numeroLigne = i + 1
       const ligne = lignes[i] || {}
       try {
-        const { nom, prenom, sexe, dateNaissance, classe, nomParent, lieuParente, telephoneParent, emailParent, adresseParent, montantDejaVerse } = ligne
+        const { matricule: matriculeFourni, nom, prenom, sexe, dateNaissance, classe, nomParent, lieuParente, telephoneParent, emailParent, adresseParent, montantDejaVerse } = ligne
 
         if (!nom || !prenom || !sexe || !dateNaissance || !classe || !nomParent || !telephoneParent) {
           throw new Error('Champs obligatoires manquants (nom, prénom, sexe, date de naissance, classe, nom du parent, téléphone du parent)')
@@ -165,11 +165,20 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
           throw new Error(`Date de naissance invalide : "${dateNaissance}"`)
         }
 
+        const matriculeFourniTrim = matriculeFourni ? String(matriculeFourni).trim() : ''
+        if (matriculeFourniTrim && matriculesExistants.has(matriculeFourniTrim)) {
+          throw new Error(`Matricule "${matriculeFourniTrim}" déjà utilisé`)
+        }
+
         let matricule
-        do {
-          matricule = `MAT${String(prochainNumero).padStart(3, '0')}`
-          prochainNumero++
-        } while (matriculesExistants.has(matricule))
+        if (matriculeFourniTrim) {
+          matricule = matriculeFourniTrim
+        } else {
+          do {
+            matricule = `MAT${String(prochainNumero).padStart(3, '0')}`
+            prochainNumero++
+          } while (matriculesExistants.has(matricule))
+        }
         matriculesExistants.add(matricule)
 
         const eleve = await req.prisma.eleve.create({
