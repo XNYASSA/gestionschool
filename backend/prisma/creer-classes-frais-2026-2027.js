@@ -32,15 +32,37 @@ const NOUVELLES_CLASSES = {
     ['Petite Section', 'PS'], ['Moyenne Section', 'MS'], ['Grande Section', 'GS'], ['SIL', 'SIL'],
     ['CP', 'CP'], ['CE1', 'CE1'], ['CE2', 'CE2'], ['CM1', 'CM1'], ['CM2', 'CM2'],
     'Nursery', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6'
+  ],
+  // CBM : classes réelles issues du fichier de la secrétaire (SCOLARITE 2026-2027 CBM),
+  // en plus des 6ème/5ème déjà existantes. Aucun vrai barème CBM pour l'instant
+  // (montants placeholder), voir NIVEAUX_A_RATTACHER ci-dessous.
+  CBM: [
+    '4ème Espagnol', '4ème Allemand', '3ème Espagnol', '3ème Allemand',
+    '2nde Espagnol', '2nde Allemand', '2nde C',
+    '1ère Espagnol', '1ère Allemand', '1ère D', '1ère C',
+    'Tle Espagnol', 'Tle Allemand', 'Tle D', 'Tle C'
   ]
 }
 
 // EBSB/EBRP : la section Anglophone (Nursery à Class 6) a les mêmes montants
 // que la section Francophone (Maternelle à CM2) — un seul barème couvre les
 // deux, il faut juste y rattacher les nouveaux niveaux anglophones.
-const NIVEAUX_ANGLOPHONES_A_RATTACHER = {
+// CBM : aucun vrai barème pour l'instant, tous les niveaux (existants + nouveaux)
+// doivent rester rattachés au barème placeholder pour que l'inscription
+// d'élèves fonctionne. libelleConfig: null cible ce barème placeholder.
+const NIVEAUX_A_RATTACHER = {
   EBSB: { libelleConfig: 'Maternelle à CM2', niveaux: ['Nursery', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6'] },
-  EBRP: { libelleConfig: 'Maternelle à CM2', niveaux: ['Nursery', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6'] }
+  EBRP: { libelleConfig: 'Maternelle à CM2', niveaux: ['Nursery', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6'] },
+  CBM: {
+    libelleConfig: null,
+    niveaux: [
+      '6ème', '5ème',
+      '4ème Espagnol', '4ème Allemand', '3ème Espagnol', '3ème Allemand',
+      '2nde Espagnol', '2nde Allemand', '2nde C',
+      '1ère Espagnol', '1ère Allemand', '1ère D', '1ère C',
+      'Tle Espagnol', 'Tle Allemand', 'Tle D', 'Tle C'
+    ]
+  }
 }
 
 async function main() {
@@ -67,15 +89,15 @@ async function main() {
     }
   }
 
-  console.log(DRY_RUN ? '\n🔍 Rattachement des niveaux anglophones (dry-run) :\n' : '\n✍️  Rattachement des niveaux anglophones au barème existant :\n')
+  console.log(DRY_RUN ? '\n🔍 Rattachement des niveaux aux barèmes existants (dry-run) :\n' : '\n✍️  Rattachement des niveaux aux barèmes existants :\n')
 
-  for (const [nomCourt, { libelleConfig, niveaux }] of Object.entries(NIVEAUX_ANGLOPHONES_A_RATTACHER)) {
+  for (const [nomCourt, { libelleConfig, niveaux }] of Object.entries(NIVEAUX_A_RATTACHER)) {
     const ecole = await prisma.ecole.findUnique({ where: { nomCourt } })
     if (!ecole) continue
 
     const config = await prisma.configurationFrais.findFirst({ where: { ecoleId: ecole.id, libelle: libelleConfig } })
     if (!config) {
-      console.log(`⚠️  ${nomCourt} — barème "${libelleConfig}" introuvable, rattachement ignoré.`)
+      console.log(`⚠️  ${nomCourt} — barème "${libelleConfig ?? '(placeholder)'}" introuvable, rattachement ignoré.`)
       continue
     }
 
