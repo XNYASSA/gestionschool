@@ -1,6 +1,7 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
 import { getEcoleIdsScope } from '../utils/ecoleScope.js'
+import { calculerStatut } from '../utils/inscriptionsFrais.js'
 
 const router = express.Router()
 
@@ -42,7 +43,7 @@ router.post('/enregistrer-paiement', verifyToken, checkRole(['SECRETAIRE']), asy
       }
 
       const nouveauMontantPaye = frais.montantPaye + montant
-      const nouveauStatut = nouveauMontantPaye >= frais.montantDu ? 'SOLDE' : 'PARTIEL'
+      const nouveauStatut = calculerStatut(frais.montantDu, nouveauMontantPaye)
 
       await req.prisma.$transaction([
         req.prisma.inscriptionFrais.update({

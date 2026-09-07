@@ -331,8 +331,12 @@ class APIClient {
     return this.request('/configurations-frais')
   }
 
-  async getConfigurationFraisByEcole(ecoleId) {
+  async getConfigurationsFraisByEcole(ecoleId) {
     return this.request(`/configurations-frais/ecole/${ecoleId}`)
+  }
+
+  async getConfigurationFraisParNiveau(ecoleId, niveau) {
+    return this.request(`/configurations-frais/ecole/${ecoleId}/niveau/${encodeURIComponent(niveau)}`)
   }
 
   async createConfigurationFrais(data) {
@@ -365,6 +369,26 @@ class APIClient {
 
   async deleteTranche(configId, trancheNum) {
     return this.request(`/configurations-frais/${configId}/tranches/${trancheNum}`, {
+      method: 'DELETE'
+    })
+  }
+
+  async addFraisAnnexe(configId, nom, montant, dateLimite) {
+    return this.request(`/configurations-frais/${configId}/frais-annexes`, {
+      method: 'POST',
+      body: JSON.stringify({ nom, montant, dateLimite })
+    })
+  }
+
+  async updateFraisAnnexe(id, montant, dateLimite) {
+    return this.request(`/configurations-frais/frais-annexes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ montant, dateLimite })
+    })
+  }
+
+  async deleteFraisAnnexe(id) {
+    return this.request(`/configurations-frais/frais-annexes/${id}`, {
       method: 'DELETE'
     })
   }

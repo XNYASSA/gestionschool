@@ -133,7 +133,8 @@ model InscriptionFrais {
   id                  String             @id @default(cuid())
   eleve               Eleve              @relation(fields: [eleveId], references: [id], onDelete: Cascade)
   eleveId             String
-  tranche             String             // "inscription", "tranche1", "tranche2", etc.
+  tranche             String             // "inscription", "tranche1", "tranche2", "annexe_<slug>", etc.
+  libelle             String?            // label d'affichage (ex: "Matière d'Œuvre") — évite de déduire le nom depuis `tranche`
   montantDu           Int                // montant en FCFA
   montantPaye         Int    @default(0) // montant payé en FCFA
   modePayement        String?            // ORANGE_MONEY, MTN_MOMO, WAVE, ESPECES, VIREMENT_BANCAIRE
@@ -309,6 +310,7 @@ model ConfigurationFrais {
   id             String @id @default(cuid())
   ecole          Ecole  @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
   ecoleId        String
+  libelle        String?   // ex: "6ème à 4ème" — nom du barème quand une école en a plusieurs
   montantInscription     Int @default(50000)
   montantFraisTotal      Int @default(80000)
   dateLimiteInscription  DateTime?
@@ -317,8 +319,21 @@ model ConfigurationFrais {
 
   // Relations
   tranches       Tranche[]
+  fraisAnnexes   FraisAnnexe[]
+  niveaux        ConfigurationFraisNiveau[]
+}
 
-  @@unique([ecoleId])
+// Lie un barème (ConfigurationFrais) aux niveaux de classe (Classe.niveau) auxquels
+// il s'applique — permet plusieurs barèmes par école, sélectionnés selon le niveau
+// de l'élève. Un niveau ne peut appartenir qu'à un seul barème par école.
+model ConfigurationFraisNiveau {
+  id                   String @id @default(cuid())
+  configurationFrais   ConfigurationFrais @relation(fields: [configurationFraisId], references: [id], onDelete: Cascade)
+  configurationFraisId String
+  ecoleId              String // dénormalisé : permet un lookup direct {ecoleId, niveau} sans jointure
+  niveau               String
+
+  @@unique([ecoleId, niveau])
 }
 
 model Tranche {
@@ -332,6 +347,20 @@ model Tranche {
   updatedAt        DateTime @updatedAt
 
   @@unique([configurationFraisId, numero])
+}
+
+// Frais nommés hors inscription/tranches (Livret médical, Matière d'œuvre, Trousse...)
+model FraisAnnexe {
+  id                   String @id @default(cuid())
+  configurationFrais   ConfigurationFrais @relation(fields: [configurationFraisId], references: [id], onDelete: Cascade)
+  configurationFraisId String
+  nom                  String
+  montant              Int
+  dateLimite           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([configurationFraisId, nom])
 }
 
 // ===== DAILY ENTRIES & ANOMALIES DETECTION =====

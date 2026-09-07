@@ -7,7 +7,7 @@ import RechercheEleve from '../../components/RechercheEleve'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
-const labelPoste = (tranche) => tranche === 'inscription' ? "Frais d'inscription" : `Tranche ${tranche.replace('tranche', '')}`
+const labelPoste = (poste) => poste.libelle || (poste.tranche === 'inscription' ? "Frais d'inscription" : `Tranche ${poste.tranche.replace('tranche', '')}`)
 
 export default function RapportFinancierSecretaire() {
   const [eleves, setEleves] = useState([])
@@ -53,11 +53,13 @@ export default function RapportFinancierSecretaire() {
     setMessage('')
   }
 
+  const ordrePoste = (tranche) => tranche === 'inscription' ? 0 : tranche.startsWith('annexe_') ? 1 : 2
+
   const postesEleve = useMemo(() => {
     if (!eleveSelectionne) return []
     return frais
       .filter(f => f.eleveId === eleveSelectionne.id)
-      .sort((a, b) => (a.tranche === 'inscription' ? -1 : a.tranche.localeCompare(b.tranche)))
+      .sort((a, b) => ordrePoste(a.tranche) - ordrePoste(b.tranche) || a.tranche.localeCompare(b.tranche))
   }, [frais, eleveSelectionne])
 
   const handleSubmit = async (e) => {
@@ -91,8 +93,9 @@ export default function RapportFinancierSecretaire() {
     [paiements, period, selectedDate]
   )
   const inscriptions = paiementsPeriode.filter(p => p.tranche === 'inscription').reduce((sum, p) => sum + p.montant, 0)
-  const pensions = paiementsPeriode.filter(p => p.tranche !== 'inscription').reduce((sum, p) => sum + p.montant, 0)
-  const total = inscriptions + pensions
+  const fraisAnnexes = paiementsPeriode.filter(p => p.tranche.startsWith('annexe_')).reduce((sum, p) => sum + p.montant, 0)
+  const pensions = paiementsPeriode.filter(p => p.tranche !== 'inscription' && !p.tranche.startsWith('annexe_')).reduce((sum, p) => sum + p.montant, 0)
+  const total = inscriptions + fraisAnnexes + pensions
   const dateLabel = referenceDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
   // Regroupement par élève : montant total versé pendant la période
@@ -147,7 +150,7 @@ export default function RapportFinancierSecretaire() {
                 {postesEleve.map(poste => (
                   <div key={poste.id}>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      {labelPoste(poste.tranche)}
+                      {labelPoste(poste)}
                       <span className="block text-xs text-slate-400 font-normal">
                         Dû : {formatFCFA(poste.montantDu)} — Payé : {formatFCFA(poste.montantPaye)} — Reste : {formatFCFA(poste.montantDu - poste.montantPaye)}
                       </span>
@@ -202,10 +205,14 @@ export default function RapportFinancierSecretaire() {
           Total des opérations pour <strong>{PERIOD_LABELS[period]?.toLowerCase()}</strong> — ancré sur le <strong>{dateLabel}</strong>
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-4 bg-slate-50 rounded-lg">
             <p className="text-sm text-slate-600">Frais d'inscription</p>
             <p className="text-xl font-bold text-slate-900">{formatFCFA(inscriptions)}</p>
+          </div>
+          <div className="p-4 bg-slate-50 rounded-lg">
+            <p className="text-sm text-slate-600">Frais annexes</p>
+            <p className="text-xl font-bold text-slate-900">{formatFCFA(fraisAnnexes)}</p>
           </div>
           <div className="p-4 bg-slate-50 rounded-lg">
             <p className="text-sm text-slate-600">Tranches de pension</p>

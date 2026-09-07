@@ -100,9 +100,12 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
       include: { classe: true }
     })
 
-    await creerInscriptionsFraisPourEleve(req.prisma, eleve.id, eleve.classe.ecoleId)
+    const postesFrais = await creerInscriptionsFraisPourEleve(req.prisma, eleve.id, eleve.classe.ecoleId, eleve.classe.niveau)
 
-    res.status(201).json(eleve)
+    res.status(201).json({
+      ...eleve,
+      ...(postesFrais.length === 0 && { avertissement: 'Aucun barème de frais configuré pour ce niveau — pensez à en créer un dans Configuration des frais.' })
+    })
   } catch (error) {
     res.status(400).json({ error: error.message })
   }
@@ -185,9 +188,15 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
           }
         })
 
-        await creerInscriptionsFraisPourEleve(req.prisma, eleve.id, ecoleId, parseInt(montantDejaVerse) || 0)
+        const postesFrais = await creerInscriptionsFraisPourEleve(req.prisma, eleve.id, ecoleId, classeTrouvee.niveau, parseInt(montantDejaVerse) || 0)
 
-        resultats.push({ ligne: numeroLigne, succes: true, message: `${prenom} ${nom} (${matricule}) créé(e)` })
+        resultats.push({
+          ligne: numeroLigne,
+          succes: true,
+          message: postesFrais.length === 0
+            ? `${prenom} ${nom} (${matricule}) créé(e) — aucun barème de frais pour le niveau "${classeTrouvee.niveau}"`
+            : `${prenom} ${nom} (${matricule}) créé(e)`
+        })
       } catch (err) {
         resultats.push({ ligne: numeroLigne, succes: false, message: err.message })
       }

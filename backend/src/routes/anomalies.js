@@ -1,5 +1,6 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
+import { categoriserPoste } from '../utils/inscriptionsFrais.js'
 
 const router = express.Router()
 
@@ -174,10 +175,11 @@ router.get('/rapport', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE']), asyn
     }
 
     const detailSysteme = {
-      inscriptions: paiements.filter(p => p.tranche === 'inscription').reduce((s, p) => s + p.montantPaye, 0),
-      pensions: paiements.filter(p => p.tranche !== 'inscription').reduce((s, p) => s + p.montantPaye, 0)
+      inscriptions: paiements.filter(p => categoriserPoste(p.tranche) === 'INSCRIPTION').reduce((s, p) => s + p.montantPaye, 0),
+      pensions: paiements.filter(p => categoriserPoste(p.tranche) === 'TRANCHE').reduce((s, p) => s + p.montantPaye, 0),
+      fraisAnnexes: paiements.filter(p => categoriserPoste(p.tranche) === 'FRAIS_ANNEXE').reduce((s, p) => s + p.montantPaye, 0)
     }
-    detailSysteme.total = detailSysteme.inscriptions + detailSysteme.pensions
+    detailSysteme.total = detailSysteme.inscriptions + detailSysteme.pensions + detailSysteme.fraisAnnexes
 
     // Comparaisons deux-à-deux entre les 3 déclarations, et chacune vs le total système réel
     const sources = [

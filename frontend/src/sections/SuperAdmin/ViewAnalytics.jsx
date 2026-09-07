@@ -3,13 +3,6 @@ import { TrendingUp, TrendingDown, Loader } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { isInPeriod } from '../../utils/periodFilter'
 
-const TRANCHE_LABELS = {
-  inscription: "Frais d'inscription",
-  tranche1: 'Tranche 1',
-  tranche2: 'Tranche 2',
-  tranche3: 'Tranche 3'
-}
-
 export default function ViewAnalytics() {
   const [frais, setFrais] = useState([])
   const [depenses, setDepenses] = useState([])
@@ -78,7 +71,9 @@ export default function ViewAnalytics() {
   const entreesParTranche = useMemo(() => {
     const map = {}
     fraisFiltres.forEach(f => {
-      map[f.tranche] = (map[f.tranche] || 0) + f.montantPaye
+      const existant = map[f.tranche] || { libelle: f.libelle || f.tranche, montant: 0 }
+      existant.montant += f.montantPaye
+      map[f.tranche] = existant
     })
     return map
   }, [fraisFiltres])
@@ -174,9 +169,9 @@ export default function ViewAnalytics() {
                 {Object.keys(entreesParTranche).length === 0 ? (
                   <p className="text-slate-500 text-sm">Aucune entrée sur cette période</p>
                 ) : (
-                  Object.entries(entreesParTranche).map(([tranche, montant]) => (
+                  Object.entries(entreesParTranche).map(([tranche, { libelle, montant }]) => (
                     <div key={tranche} className="flex justify-between text-sm border-b pb-2">
-                      <span className="text-slate-600">{TRANCHE_LABELS[tranche] || tranche}</span>
+                      <span className="text-slate-600">{libelle}</span>
                       <span className="font-semibold text-green-600">{formatFCFA(montant)}</span>
                     </div>
                   ))
