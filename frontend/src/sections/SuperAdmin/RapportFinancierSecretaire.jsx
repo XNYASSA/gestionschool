@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Wallet, TrendingUp, Loader, Calendar, Check, Users } from 'lucide-react'
+import { Wallet, TrendingUp, Loader, Calendar, Check, Users, Upload } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { isInPeriod, PERIOD_LABELS } from '../../utils/periodFilter'
 import { getStatutPaiement, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 import RechercheEleve from '../../components/RechercheEleve'
+import ImporterPaiementsSecretaire from './ImporterPaiementsSecretaire'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
@@ -23,6 +24,8 @@ export default function RapportFinancierSecretaire() {
 
   const [period, setPeriod] = useState('jour')
   const [selectedDate, setSelectedDate] = useState(todayISO())
+
+  const [mode, setMode] = useState('formulaire')
 
   useEffect(() => {
     loadDonnees()
@@ -128,7 +131,26 @@ export default function RapportFinancierSecretaire() {
       {error && <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">⚠️ {error}</div>}
       {message && <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700">✓ {message}</div>}
 
+      {/* Choix du mode de saisie */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setMode('formulaire')}
+          className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${mode === 'formulaire' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+        >
+          <TrendingUp className="w-4 h-4" /> Formulaire
+        </button>
+        <button
+          onClick={() => setMode('import')}
+          className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${mode === 'import' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+        >
+          <Upload className="w-4 h-4" /> Importer un fichier Excel
+        </button>
+      </div>
+
+      {mode === 'import' && <ImporterPaiementsSecretaire onImportTermine={loadDonnees} />}
+
       {/* Formulaire d'entrée d'argent */}
+      {mode === 'formulaire' && (
       <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-green-600" />
@@ -175,6 +197,7 @@ export default function RapportFinancierSecretaire() {
           </form>
         )}
       </div>
+      )}
 
       {/* Résumé par période */}
       <div className="bg-white rounded-lg shadow-md p-6">

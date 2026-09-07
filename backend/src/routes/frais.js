@@ -68,6 +68,138 @@ router.post('/enregistrer-paiement', verifyToken, checkRole(['SECRETAIRE']), asy
   }
 })
 
+// Résout l'élève d'une ligne importée : par matricule si fourni, sinon par
+// nom+prénom+classe (les fichiers des secrétaires ne suivent pas tous le même
+// format et ne contiennent pas toujours de matricule fiable).
+async function resoudreEleveLigne(prisma, ecoleIds, ligne) {
+  const matricule = String(ligne.matricule || '').trim()
+  if (matricule) {
+    const eleve = await prisma.eleve.findFirst({
+      where: { matricule, ...(ecoleIds ? { classe: { ecoleId: { in: ecoleIds } } } : {}) },
+      include: { classe: true }
+    })
+    if (eleve) return eleve
+  }
+
+  const nom = String(ligne.nom || '').trim()
+  const prenom = String(ligne.prenom || '').trim()
+  const classe = String(ligne.classe || '').trim()
+  if (!nom || !prenom || !classe) return null
+
+  return prisma.eleve.findFirst({
+    where: {
+      nom: { equals: nom },
+      prenom: { equals: prenom },
+      classe: { nom: { equals: classe }, ...(ecoleIds ? { ecoleId: { in: ecoleIds } } : {}) }
+    },
+    include: { classe: true }
+  })
+}
+
+// IMPORTER DES PAIEMENTS EN MASSE (Secrétaire) — même logique que
+// /enregistrer-paiement, une ligne par élève avec un montant par poste précis.
+router.post('/importer-paiements', verifyToken, checkRole(['SECRETAIRE']), async (req, res) => {
+  try {
+    const { lignes } = req.body
+    if (!Array.isArray(lignes) || lignes.length === 0) {
+      return res.status(400).json({ error: 'lignes (tableau non vide) requis' })
+    }
+
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    const resultats = []
+
+    for (let i = 0; i < lignes.length; i++) {
+      const numeroLigne = i + 1
+      const ligne = lignes[i] || {}
+      try {
+        const eleve = await resoudreEleveLigne(req.prisma, ecoleIds, ligne)
+        if (!eleve) throw new Error('Élève introuvable (vérifier matricule ou nom/prénom/classe)')
+
+        const montants = {
+          inscription: ligne.inscription,
+          tranche1: ligne.tranche1,
+          tranche2: ligne.tranche2,
+          tranche3: ligne.tranche3
+        }
+
+        const postesEnregistres = []
+        for (const [tranche, montantBrut] of Object.entries(montants)) {
+          const montant = parseInt(montantBrut)
+          if (!montant || montant <= 0) continue
+
+          const frais = await req.prisma.inscriptionFrais.findFirst({ where: { eleveId: eleve.id, tranche } })
+          if (!frais) continue
+
+          const nouveauMontantPaye = frais.montantPaye + montant
+          const nouveauStatut = calculerStatut(frais.montantDu, nouveauMontantPaye)
+
+          await req.prisma.$transaction([
+            req.prisma.inscriptionFrais.update({
+              where: { id: frais.id },
+              data: { montantPaye: nouveauMontantPaye, datePayement: new Date(), statut: nouveauStatut }
+            }),
+            req.prisma.paiement.create({
+              data: { eleveId: eleve.id, inscriptionFraisId: frais.id, tranche, montant, effectueParId: req.user.id }
+            })
+          ])
+          postesEnregistres.push(`${tranche}: ${montant.toLocaleString('fr-FR')} FCFA`)
+        }
+
+        if (postesEnregistres.length === 0) {
+          throw new Error('Aucun montant valide à enregistrer pour cet élève')
+        }
+
+        resultats.push({ ligne: numeroLigne, succes: true, message: `${eleve.prenom} ${eleve.nom} — ${postesEnregistres.join(', ')}` })
+      } catch (err) {
+        resultats.push({ ligne: numeroLigne, succes: false, message: err.message })
+      }
+    }
+
+    const reussis = resultats.filter(r => r.succes).length
+    res.json({ total: lignes.length, reussis, echoues: lignes.length - reussis, resultats })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// IMPORTER DES VÉRIFICATIONS DE CAISSE EN MASSE (Économat) — même logique que
+// /verification-paiement, une ligne par élève avec un montant perçu global.
+router.post('/importer-verifications', verifyToken, checkRole(['ECONOMAT']), async (req, res) => {
+  try {
+    const { lignes } = req.body
+    if (!Array.isArray(lignes) || lignes.length === 0) {
+      return res.status(400).json({ error: 'lignes (tableau non vide) requis' })
+    }
+
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    const resultats = []
+
+    for (let i = 0; i < lignes.length; i++) {
+      const numeroLigne = i + 1
+      const ligne = lignes[i] || {}
+      try {
+        const montant = parseInt(ligne.montant)
+        if (!montant || montant <= 0) throw new Error('Montant perçu invalide')
+
+        const eleve = await resoudreEleveLigne(req.prisma, ecoleIds, ligne)
+        if (!eleve) throw new Error('Élève introuvable (vérifier matricule ou nom/prénom/classe)')
+
+        await req.prisma.verificationPaiement.create({
+          data: { eleveId: eleve.id, montant, effectueParId: req.user.id }
+        })
+        resultats.push({ ligne: numeroLigne, succes: true, message: `${eleve.prenom} ${eleve.nom} — ${montant.toLocaleString('fr-FR')} FCFA` })
+      } catch (err) {
+        resultats.push({ ligne: numeroLigne, succes: false, message: err.message })
+      }
+    }
+
+    const reussis = resultats.filter(r => r.succes).length
+    res.json({ total: lignes.length, reussis, echoues: lignes.length - reussis, resultats })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // ENREGISTRER UNE VÉRIFICATION DE CAISSE (Économat) — déclaration indépendante,
 // n'affecte jamais le solde de l'élève : sert uniquement à la réconciliation
 // avec les montants déclarés par la Secrétaire (voir GET /verifications-paiement).

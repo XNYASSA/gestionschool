@@ -214,6 +214,20 @@ class APIClient {
     })
   }
 
+  async importerPaiements(lignes) {
+    return this.request('/frais/importer-paiements', {
+      method: 'POST',
+      body: JSON.stringify({ lignes })
+    })
+  }
+
+  async importerVerifications(lignes) {
+    return this.request('/frais/importer-verifications', {
+      method: 'POST',
+      body: JSON.stringify({ lignes })
+    })
+  }
+
   async getVerificationsPaiement() {
     return this.request('/frais/verifications-paiement')
   }

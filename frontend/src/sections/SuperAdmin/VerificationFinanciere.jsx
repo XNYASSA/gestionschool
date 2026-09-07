@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Wallet, Loader, Calendar, Check } from 'lucide-react'
+import { Wallet, Loader, Calendar, Check, Upload } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { isInPeriod, PERIOD_LABELS } from '../../utils/periodFilter'
 import RechercheEleve from '../../components/RechercheEleve'
+import ImporterVerificationsEconomat from './ImporterVerificationsEconomat'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
@@ -20,6 +21,8 @@ export default function VerificationFinanciere() {
 
   const [period, setPeriod] = useState('jour')
   const [selectedDate, setSelectedDate] = useState(todayISO())
+
+  const [mode, setMode] = useState('formulaire')
 
   useEffect(() => {
     loadDonnees()
@@ -123,7 +126,26 @@ export default function VerificationFinanciere() {
       {error && <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">⚠️ {error}</div>}
       {message && <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700">✓ {message}</div>}
 
+      {/* Choix du mode de saisie */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setMode('formulaire')}
+          className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${mode === 'formulaire' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+        >
+          <Check className="w-4 h-4" /> Formulaire
+        </button>
+        <button
+          onClick={() => setMode('import')}
+          className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${mode === 'import' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+        >
+          <Upload className="w-4 h-4" /> Importer un fichier Excel
+        </button>
+      </div>
+
+      {mode === 'import' && <ImporterVerificationsEconomat onImportTermine={loadDonnees} />}
+
       {/* Formulaire de vérification */}
+      {mode === 'formulaire' && (
       <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
         <h3 className="text-lg font-bold text-slate-900">Enregistrer un montant perçu</h3>
 
@@ -157,6 +179,7 @@ export default function VerificationFinanciere() {
           Cette vérification est indépendante et comparée aux montants déclarés par la Secrétaire pour chaque élève, ci-dessous.
         </p>
       </div>
+      )}
 
       {/* Sélecteur de période */}
       <div className="bg-white rounded-lg shadow-md p-4 flex flex-wrap items-center gap-4">
