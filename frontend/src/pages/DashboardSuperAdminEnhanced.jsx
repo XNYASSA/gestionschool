@@ -1,6 +1,6 @@
 import { useContext, useState, useEffect } from 'react'
 import { AuthContext } from '../context/AuthContext'
-import { LogOut, TrendingUp, AlertCircle, Menu } from 'lucide-react'
+import { LogOut, TrendingUp, AlertCircle, Menu, Search } from 'lucide-react'
 import { apiClient } from '../api/client'
 import { isInPeriod, PERIOD_LABELS } from '../utils/periodFilter'
 import SidebarSuperAdmin, { MENU_PAR_ROLE } from '../components/SidebarSuperAdmin'
@@ -33,6 +33,7 @@ import SaisieNotesEnseignant from '../sections/SuperAdmin/SaisieNotesEnseignant'
 import AppelPresence from '../sections/SuperAdmin/AppelPresence'
 import ConsultationPresences from '../sections/SuperAdmin/ConsultationPresences'
 import ImporterEleves from '../sections/SuperAdmin/ImporterEleves'
+import FraisParEcole from '../sections/SuperAdmin/FraisParEcole'
 
 const TITRES_PAR_ROLE = {
   SUPER_ADMIN: { sidebar: '👑 TDB Admin', header: '👑 Super Admin Dashboard' },
@@ -63,6 +64,7 @@ export default function DashboardSuperAdminEnhanced() {
   const [depenses, setDepenses] = useState([])
   const [personnelActif, setPersonnelActif] = useState([])
   const [period, setPeriod] = useState('mois') // jour, semaine, mois
+  const [eleveSearchQuery, setEleveSearchQuery] = useState('')
 
   useEffect(() => {
     loadStats()
@@ -114,14 +116,16 @@ export default function DashboardSuperAdminEnhanced() {
   const renderSection = () => {
     switch (currentSection) {
       case 'dashboard':
-        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} />
+        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} onNavigate={navigateToSection} onRechercherEleve={(terme) => { setEleveSearchQuery(terme); navigateToSection('list-eleves') }} />
       case 'revenus':
         return <ViewAnalytics />
       case 'paiements':
       case 'paiement-status':
         return <SuiviPaiements />
       case 'list-eleves':
-        return <ListeEleves ecoleIds={ecoleIds} showStatutPaiement={user?.roleAPI !== 'ENSEIGNANT'} />
+        return <ListeEleves ecoleIds={ecoleIds} showStatutPaiement={user?.roleAPI !== 'ENSEIGNANT'} initialSearch={eleveSearchQuery} />
+      case 'frais-par-ecole':
+        return <FraisParEcole />
       case 'import-eleves':
         return <ImporterEleves />
       case 'list-personnel':
@@ -179,7 +183,7 @@ export default function DashboardSuperAdminEnhanced() {
       case 'comptes':
         return <UsersManagement />
       default:
-        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} />
+        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} onNavigate={navigateToSection} onRechercherEleve={(terme) => { setEleveSearchQuery(terme); navigateToSection('list-eleves') }} />
     }
   }
 
@@ -252,8 +256,14 @@ export default function DashboardSuperAdminEnhanced() {
 }
 
 // Section Overview du Dashboard
-function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = [], period, setPeriod, showAnomalies = true, showFinances = true }) {
+function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = [], period, setPeriod, showAnomalies = true, showFinances = true, onNavigate, onRechercherEleve }) {
+  const [rechercheEleve, setRechercheEleve] = useState('')
   const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
+
+  const handleRecherche = (e) => {
+    e.preventDefault()
+    if (rechercheEleve.trim()) onRechercherEleve?.(rechercheEleve.trim())
+  }
 
   const fraisPeriode = frais.filter(f => f.montantPaye > 0 && isInPeriod(f.datePayement || f.createdAt, period))
   const inscriptions = fraisPeriode.filter(f => f.tranche === 'inscription').reduce((sum, f) => sum + f.montantPaye, 0)
@@ -289,6 +299,25 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
         ))}
       </div>
 
+      {/* Recherche rapide d'un élève par nom */}
+      {onRechercherEleve && (
+        <form onSubmit={handleRecherche} className="bg-white rounded-lg shadow-md p-4 flex gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={rechercheEleve}
+              onChange={(e) => setRechercheEleve(e.target.value)}
+              placeholder="Rechercher un élève par nom..."
+              className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg"
+            />
+          </div>
+          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+            Rechercher
+          </button>
+        </form>
+      )}
+
       {/* Stats Cards */}
       <div className={`grid grid-cols-1 gap-4 ${showAnomalies && showFinances ? 'md:grid-cols-4' : showAnomalies || showFinances ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         <StatCard
@@ -296,12 +325,14 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
           value={stats.totalEcoles}
           icon="🏫"
           color="blue"
+          onClick={onNavigate && (() => onNavigate('list-ecoles'))}
         />
         <StatCard
           title="Total élèves"
           value={stats.totalEleves || 0}
           icon="👥"
           color="green"
+          onClick={onNavigate && (() => onNavigate('classes'))}
         />
         {showAnomalies && (
           <StatCard
@@ -309,6 +340,7 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
             value={stats.anomalies || 0}
             icon="🚨"
             color="red"
+            onClick={onNavigate && (() => onNavigate('anomalies'))}
           />
         )}
         {showFinances && (
@@ -317,6 +349,7 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
             value={stats.personnels || 0}
             icon="👔"
             color="purple"
+            onClick={onNavigate && (() => onNavigate('list-personnel'))}
           />
         )}
       </div>
@@ -326,7 +359,10 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
           {/* Entrées/Sorties d'argent */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Entrées d'argent */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div
+              onClick={onNavigate && (() => onNavigate('frais-par-ecole'))}
+              className={`bg-white rounded-lg shadow-md p-6 ${onNavigate ? 'cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-blue-400 transition' : ''}`}
+            >
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="w-5 h-5 text-green-600" />
                 <h2 className="text-lg font-bold text-slate-900">Entrées d'argent</h2>
@@ -339,6 +375,7 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
                   <span className="text-green-600">{formatFCFA(totalEntrees)}</span>
                 </div>
               </div>
+              {onNavigate && <p className="text-xs text-slate-400 mt-3">Cliquez pour voir le détail par école puis par classe</p>}
             </div>
 
             {/* Sorties d'argent */}
@@ -373,7 +410,7 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
   )
 }
 
-function StatCard({ title, value, icon, color }) {
+function StatCard({ title, value, icon, color, onClick }) {
   const colorClasses = {
     blue: 'border-blue-500 bg-blue-50',
     green: 'border-green-500 bg-green-50',
@@ -391,7 +428,10 @@ function StatCard({ title, value, icon, color }) {
   }
 
   return (
-    <div className={`rounded-lg shadow-md p-4 border-l-4 ${colorClasses[color]}`}>
+    <div
+      onClick={onClick}
+      className={`rounded-lg shadow-md p-4 border-l-4 ${colorClasses[color]} ${onClick ? 'cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-blue-400 transition' : ''}`}
+    >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-slate-600 text-xs font-medium">{title}</p>

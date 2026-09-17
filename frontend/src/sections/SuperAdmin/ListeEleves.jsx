@@ -16,11 +16,11 @@ const emptyForm = {
   adresseParent: ''
 }
 
-export default function ListeEleves({ showStatutPaiement = true }) {
+export default function ListeEleves({ showStatutPaiement = true, initialSearch = '' }) {
   const [eleves, setEleves] = useState([])
   const [classes, setClasses] = useState([])
   const [ecoles, setEcoles] = useState([])
-  const [searchTerm, setSearchTerm] = useState('')
+  const [searchTerm, setSearchTerm] = useState(initialSearch)
   const [filterEcole, setFilterEcole] = useState('')
   const [filterClasse, setFilterClasse] = useState('')
 
