@@ -1,6 +1,6 @@
 import { useContext, useState, useEffect } from 'react'
 import { AuthContext } from '../context/AuthContext'
-import { LogOut, TrendingUp, AlertCircle, Menu, Search } from 'lucide-react'
+import { LogOut, TrendingUp, AlertCircle, Menu, Search, ArrowLeft } from 'lucide-react'
 import { apiClient } from '../api/client'
 import { isInPeriod, PERIOD_LABELS } from '../utils/periodFilter'
 import SidebarSuperAdmin, { MENU_PAR_ROLE } from '../components/SidebarSuperAdmin'
@@ -65,6 +65,7 @@ export default function DashboardSuperAdminEnhanced() {
   const [personnelActif, setPersonnelActif] = useState([])
   const [period, setPeriod] = useState('mois') // jour, semaine, mois
   const [eleveSearchQuery, setEleveSearchQuery] = useState('')
+  const [cameFromDashboard, setCameFromDashboard] = useState(false)
 
   useEffect(() => {
     loadStats()
@@ -73,17 +74,21 @@ export default function DashboardSuperAdminEnhanced() {
   // Le bouton retour du navigateur doit revenir à la section précédente de
   // l'application (et non quitter l'app), tant qu'il reste des sections visitées.
   useEffect(() => {
-    window.history.replaceState({ section: 'dashboard' }, '')
+    window.history.replaceState({ section: 'dashboard', fromDashboard: false }, '')
     const onPopState = (e) => {
       setCurrentSection(e.state?.section || 'dashboard')
+      setCameFromDashboard(!!e.state?.fromDashboard)
     }
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
-  const navigateToSection = (section) => {
+  // fromDashboard=true affiche une flèche "Retour à l'accueil" dans la section
+  // ouverte, pour les écrans atteints en cliquant une carte du tableau de bord.
+  const navigateToSection = (section, fromDashboard = false) => {
     setCurrentSection(section)
-    window.history.pushState({ section }, '')
+    setCameFromDashboard(fromDashboard)
+    window.history.pushState({ section, fromDashboard }, '')
   }
 
   const loadStats = async () => {
@@ -116,7 +121,7 @@ export default function DashboardSuperAdminEnhanced() {
   const renderSection = () => {
     switch (currentSection) {
       case 'dashboard':
-        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} onNavigate={navigateToSection} onRechercherEleve={(terme) => { setEleveSearchQuery(terme); navigateToSection('list-eleves') }} />
+        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} onNavigate={navigateToSection} onRechercherEleve={(terme) => { setEleveSearchQuery(terme); navigateToSection('list-eleves', true) }} />
       case 'revenus':
         return <ViewAnalytics />
       case 'paiements':
@@ -183,7 +188,7 @@ export default function DashboardSuperAdminEnhanced() {
       case 'comptes':
         return <UsersManagement />
       default:
-        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} onNavigate={navigateToSection} onRechercherEleve={(terme) => { setEleveSearchQuery(terme); navigateToSection('list-eleves') }} />
+        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} onNavigate={navigateToSection} onRechercherEleve={(terme) => { setEleveSearchQuery(terme); navigateToSection('list-eleves', true) }} />
     }
   }
 
@@ -247,6 +252,14 @@ export default function DashboardSuperAdminEnhanced() {
         {/* Content Area */}
         <div className="flex-1 overflow-auto">
           <div className="p-4 md:p-8">
+            {cameFromDashboard && currentSection !== 'dashboard' && (
+              <button
+                onClick={() => navigateToSection('dashboard')}
+                className="mb-4 flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition"
+              >
+                <ArrowLeft className="w-4 h-4" /> Retour à l'accueil
+              </button>
+            )}
             {renderSection()}
           </div>
         </div>
@@ -325,14 +338,14 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
           value={stats.totalEcoles}
           icon="🏫"
           color="blue"
-          onClick={onNavigate && (() => onNavigate('list-ecoles'))}
+          onClick={onNavigate && (() => onNavigate('list-ecoles', true))}
         />
         <StatCard
           title="Total élèves"
           value={stats.totalEleves || 0}
           icon="👥"
           color="green"
-          onClick={onNavigate && (() => onNavigate('classes'))}
+          onClick={onNavigate && (() => onNavigate('classes', true))}
         />
         {showAnomalies && (
           <StatCard
@@ -340,7 +353,7 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
             value={stats.anomalies || 0}
             icon="🚨"
             color="red"
-            onClick={onNavigate && (() => onNavigate('anomalies'))}
+            onClick={onNavigate && (() => onNavigate('anomalies', true))}
           />
         )}
         {showFinances && (
@@ -349,7 +362,7 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
             value={stats.personnels || 0}
             icon="👔"
             color="purple"
-            onClick={onNavigate && (() => onNavigate('list-personnel'))}
+            onClick={onNavigate && (() => onNavigate('list-personnel', true))}
           />
         )}
       </div>
@@ -360,7 +373,7 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Entrées d'argent */}
             <div
-              onClick={onNavigate && (() => onNavigate('frais-par-ecole'))}
+              onClick={onNavigate && (() => onNavigate('frais-par-ecole', true))}
               className={`bg-white rounded-lg shadow-md p-6 ${onNavigate ? 'cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-blue-400 transition' : ''}`}
             >
               <div className="flex items-center gap-2 mb-4">
@@ -379,7 +392,10 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
             </div>
 
             {/* Sorties d'argent */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div
+              onClick={onNavigate && (() => onNavigate('depenses', true))}
+              className={`bg-white rounded-lg shadow-md p-6 ${onNavigate ? 'cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-blue-400 transition' : ''}`}
+            >
               <div className="flex items-center gap-2 mb-4">
                 <AlertCircle className="w-5 h-5 text-red-600" />
                 <h2 className="text-lg font-bold text-slate-900">Sorties d'argent</h2>
@@ -393,16 +409,20 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
                   <span className="text-red-600">{formatFCFA(totalSorties)}</span>
                 </div>
               </div>
+              {onNavigate && <p className="text-xs text-slate-400 mt-3">Cliquez pour voir le détail des dépenses</p>}
             </div>
           </div>
 
           {/* Bénéfice/Perte */}
-          <div className={`rounded-lg shadow-md p-6 text-white bg-gradient-to-r ${
-            resultatNet >= 0 ? 'from-blue-600 to-blue-700' : 'from-red-600 to-red-700'
-          }`}>
+          <div
+            onClick={onNavigate && (() => onNavigate('rapports-finance', true))}
+            className={`rounded-lg shadow-md p-6 text-white bg-gradient-to-r ${
+              resultatNet >= 0 ? 'from-blue-600 to-blue-700' : 'from-red-600 to-red-700'
+            } ${onNavigate ? 'cursor-pointer hover:brightness-110 transition' : ''}`}
+          >
             <h2 className="text-lg font-bold mb-2">Résultat net ({PERIOD_LABELS[period]})</h2>
             <p className="text-2xl md:text-4xl font-bold break-words">{resultatNet >= 0 ? '+' : ''}{formatFCFA(resultatNet)}</p>
-            <p className="text-sm text-white/80 mt-2">Entrées - Sorties</p>
+            <p className="text-sm text-white/80 mt-2">Entrées - Sorties {onNavigate ? '— Cliquez pour le rapport financier complet' : ''}</p>
           </div>
         </>
       )}
