@@ -5,6 +5,18 @@ import { apiClient } from '../../api/client'
 const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
 const toDateInput = (d) => d ? new Date(d).toISOString().split('T')[0] : ''
 
+// Frais annexes courants, proposés en suggestion (nom + montant habituel) —
+// l'utilisateur reste libre de saisir un autre nom/montant.
+const FRAIS_ANNEXES_PRESETS = [
+  { nom: 'Tenue de classe', montant: 10000 },
+  { nom: 'Tenue de sport', montant: 4000 },
+  { nom: 'Polo', montant: 5000 },
+  { nom: 'Trousse (tech)', montant: 25000 },
+  { nom: 'Package (ang)', montant: 25000 },
+  { nom: 'Rame', montant: 3500 },
+  { nom: 'Rame + papier T', montant: 5000 }
+]
+
 export default function ConfigurationFrais() {
   const [ecoles, setEcoles] = useState([])
   const [selectedEcoleId, setSelectedEcoleId] = useState('')
@@ -266,6 +278,9 @@ export default function ConfigurationFrais() {
 
   return (
     <div className="space-y-6">
+      <datalist id="frais-annexes-presets">
+        {FRAIS_ANNEXES_PRESETS.map(p => <option key={p.nom} value={p.nom} />)}
+      </datalist>
       <h2 className="text-2xl font-bold text-slate-900">⚙️ Configuration des frais</h2>
       <p className="text-sm text-slate-500 -mt-4">
         Une école peut avoir plusieurs barèmes (ex: un par niveau ou groupe de niveaux). Chaque élève reçoit automatiquement le barème correspondant au niveau de sa classe.
@@ -432,8 +447,13 @@ export default function ConfigurationFrais() {
                           {selectedConfigId === 'new' ? (
                             <input
                               type="text"
+                              list="frais-annexes-presets"
                               value={f.nom}
-                              onChange={(e) => setFraisAnnexes(fraisAnnexes.map((x, j) => j === i ? { ...x, nom: e.target.value } : x))}
+                              onChange={(e) => {
+                                const nom = e.target.value
+                                const preset = FRAIS_ANNEXES_PRESETS.find(p => p.nom === nom)
+                                setFraisAnnexes(fraisAnnexes.map((x, j) => j === i ? { ...x, nom, montant: preset && !x.montant ? preset.montant : x.montant } : x))
+                              }}
                               placeholder="Ex: Livret Médical"
                               className="w-48 px-2 py-1 border border-slate-300 rounded"
                             />
@@ -480,7 +500,19 @@ export default function ConfigurationFrais() {
               <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-end gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Nouveau frais — nom</label>
-                  <input type="text" value={newAnnexeNom} onChange={(e) => setNewAnnexeNom(e.target.value)} placeholder="Ex: Trousse" className="w-48 px-3 py-2 border border-slate-300 rounded-lg" />
+                  <input
+                    type="text"
+                    list="frais-annexes-presets"
+                    value={newAnnexeNom}
+                    onChange={(e) => {
+                      const nom = e.target.value
+                      setNewAnnexeNom(nom)
+                      const preset = FRAIS_ANNEXES_PRESETS.find(p => p.nom === nom)
+                      if (preset && !newAnnexeMontant) setNewAnnexeMontant(String(preset.montant))
+                    }}
+                    placeholder="Ex: Trousse"
+                    className="w-48 px-3 py-2 border border-slate-300 rounded-lg"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Montant (FCFA)</label>
