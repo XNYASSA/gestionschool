@@ -68,6 +68,10 @@ export default function RapportsFinanciers() {
 
   const resultatNet = totalEntrees - totalSorties
 
+  // Montant restant à percevoir : indépendant de la période, photo de la dette
+  // actuelle des élèves (dû - déjà payé), toutes échéances confondues.
+  const resteAPercevoir = frais.reduce((sum, f) => sum + Math.max(0, f.montantDu - f.montantPaye), 0)
+
   const dateLabel = referenceDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
@@ -168,7 +172,23 @@ export default function RapportsFinanciers() {
           }`}>
             <h2 className="text-lg font-bold mb-2">Résultat net ({PERIOD_LABELS[period]?.toLowerCase()} — {dateLabel})</h2>
             <p className="text-2xl md:text-4xl font-bold break-words">{resultatNet >= 0 ? '+' : ''}{formatFCFA(resultatNet)}</p>
-            <p className="text-sm text-white/80 mt-2">Entrées - Sorties</p>
+            <p className="text-sm font-semibold text-white/90 mt-1">
+              {resultatNet >= 0 ? '📈 Vous gagnez de l\'argent sur cette période' : '📉 Vous perdez de l\'argent sur cette période'}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-white/20 text-sm">
+              <div>
+                <p className="text-white/70">Entrées</p>
+                <p className="font-bold">{formatFCFA(totalEntrees)}</p>
+              </div>
+              <div>
+                <p className="text-white/70">Sorties</p>
+                <p className="font-bold">{formatFCFA(totalSorties)}</p>
+              </div>
+              <div>
+                <p className="text-white/70">Reste à percevoir (élèves)</p>
+                <p className="font-bold">{formatFCFA(resteAPercevoir)}</p>
+              </div>
+            </div>
           </div>
         </>
       )}
