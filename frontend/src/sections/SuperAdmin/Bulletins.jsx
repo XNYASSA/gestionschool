@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
-import { GraduationCap, Loader, ChevronDown, ChevronUp, Settings2 } from 'lucide-react'
+import { GraduationCap, Loader, ChevronDown, ChevronUp, Settings2, Eye, Printer, X } from 'lucide-react'
 import { apiClient } from '../../api/client'
+import BulletinTemplate from './BulletinTemplate'
 
 const TRIMESTRES = [1, 2, 3]
 
@@ -25,6 +26,9 @@ export default function Bulletins() {
   const [showCoefficients, setShowCoefficients] = useState(false)
   const [matieres, setMatieres] = useState([])
   const [coeffEdits, setCoeffEdits] = useState({})
+
+  const [bulletinAffiche, setBulletinAffiche] = useState(null)
+  const [chargementApercu, setChargementApercu] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -97,6 +101,8 @@ export default function Bulletins() {
 
       const data = await apiClient.genererBulletins(payload)
       setResultats(data)
+      // Un seul bulletin généré : on l'affiche directement, pas besoin de cliquer à nouveau.
+      if (data.length === 1) await ouvrirApercu(data[0].bulletinId)
     } catch (err) {
       setError(err.message || 'Erreur lors de la génération des bulletins')
     } finally {
@@ -116,6 +122,19 @@ export default function Bulletins() {
     }
   }
 
+  const ouvrirApercu = async (bulletinId) => {
+    setChargementApercu(true)
+    setError('')
+    try {
+      const data = await apiClient.getBulletinData(bulletinId)
+      setBulletinAffiche(data)
+    } catch (err) {
+      setError(err.message || "Erreur lors du chargement de l'aperçu")
+    } finally {
+      setChargementApercu(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-2 bg-white rounded-lg shadow-md">
@@ -131,8 +150,9 @@ export default function Bulletins() {
       </h2>
 
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-800 text-sm">
-        ℹ️ Le modèle visuel définitif du bulletin (propre à chaque école/classe) sera appliqué une fois fourni.
-        En attendant, la génération calcule les moyennes réelles à partir des notes saisies par les enseignants et des coefficients ci-dessous.
+        ℹ️ Le modèle visuel reproduit le bulletin papier fourni par le client. Les groupes de matières, la discipline
+        et le conseil de classe ne sont pas encore alimentés (données à venir) ; les notes, coefficients, moyenne,
+        rang et effectif sont réels.
       </div>
 
       {error && (
@@ -252,8 +272,9 @@ export default function Bulletins() {
       {/* Résultats */}
       {resultats && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="bg-slate-50 border-b border-slate-200 p-4 font-bold text-slate-900">
-            Bulletins générés ({resultats.length})
+          <div className="bg-slate-50 border-b border-slate-200 p-4 font-bold text-slate-900 flex items-center justify-between">
+            <span>Bulletins générés ({resultats.length})</span>
+            <span className="text-xs font-normal text-slate-500">Cliquez sur "Voir le bulletin" pour l'aperçu et l'impression/PDF</span>
           </div>
           <div className="divide-y divide-slate-200">
             {resultats.map(r => (
@@ -270,6 +291,12 @@ export default function Bulletins() {
                     <span className="text-xs text-slate-500">Rang {r.rang}/{r.effectif}</span>
                     <span className="font-bold text-purple-600">{r.moyenneGenerale}/20</span>
                     <span className="text-xs text-slate-600">{r.appreciation}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); ouvrirApercu(r.bulletinId) }}
+                      className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-xs font-medium flex items-center gap-1.5"
+                    >
+                      <Eye className="w-4 h-4" /> Voir le bulletin
+                    </button>
                     {detailOuvert[r.bulletinId] ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </div>
                 </button>
@@ -303,6 +330,38 @@ export default function Bulletins() {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {chargementApercu && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 flex items-center gap-2 text-slate-600">
+            <Loader className="w-5 h-5 animate-spin" /> Chargement de l'aperçu...
+          </div>
+        </div>
+      )}
+
+      {bulletinAffiche && (
+        <div className="fixed inset-0 bg-black/70 z-50 overflow-y-auto py-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="no-print flex justify-end gap-2 mb-3 px-2">
+              <button
+                onClick={() => window.print()}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" /> Imprimer / Télécharger en PDF
+              </button>
+              <button
+                onClick={() => setBulletinAffiche(null)}
+                className="px-4 py-2 bg-white text-slate-700 rounded-lg hover:bg-slate-100 transition flex items-center gap-2"
+              >
+                <X className="w-4 h-4" /> Fermer
+              </button>
+            </div>
+            <div id="bulletin-print-area" className="shadow-2xl">
+              <BulletinTemplate data={bulletinAffiche} />
+            </div>
           </div>
         </div>
       )}

@@ -25,8 +25,11 @@ async function calculerNotesEleve(prisma, eleveId, trimestre) {
       matiere: n.enseignantClasseMatiere.matiere.nom,
       note: n.valeur,
       coefficient: n.enseignantClasseMatiere.matiere.coefficient,
-      observation: n.observation
+      observation: n.observation,
+      mention: mentionMatiere(n.valeur)
     })),
+    totalCoefficients,
+    totalPoints,
     moyenneGenerale
   }
 }
@@ -37,6 +40,33 @@ function appreciation(moyenne) {
     : moyenne >= 13 ? '👍 Assez Bien'
     : moyenne >= 10 ? '📚 Passable'
     : '⚠️ Insuffisant'
+}
+
+// Mention par matière (échelle du modèle papier fourni par le client)
+function mentionMatiere(note) {
+  return note >= 18 ? 'Excellent'
+    : note >= 16 ? 'Très bien'
+    : note >= 14 ? 'Bien'
+    : note >= 12 ? 'Assez bien'
+    : note >= 10 ? 'Passable'
+    : note >= 2 ? 'Très faible'
+    : 'Nul'
+}
+
+// Rang de l'élève dans sa classe pour ce trimestre, recalculé à la volée
+// (le rang n'est pas stocké : il dépend des notes de toute la classe, qui
+// peuvent changer après la génération du bulletin).
+async function calculerRang(prisma, eleve, trimestre) {
+  const camarades = await prisma.eleve.findMany({ where: { classeId: eleve.classeId } })
+  const moyennes = await Promise.all(camarades.map(async (e) => ({
+    eleveId: e.id,
+    moyenne: (await calculerNotesEleve(prisma, e.id, trimestre)).moyenneGenerale
+  })))
+  const classement = moyennes.sort((a, b) => b.moyenne - a.moyenne)
+  return {
+    rang: classement.findIndex(c => c.eleveId === eleve.id) + 1,
+    effectif: camarades.length
+  }
 }
 
 // GET BULLETINS BY ELEVE
@@ -154,7 +184,8 @@ router.get('/:bulletinId/data', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Bulletin non trouvé' })
     }
 
-    const { notes, moyenneGenerale } = await calculerNotesEleve(req.prisma, bulletin.eleveId, bulletin.trimestre)
+    const { notes, totalCoefficients, totalPoints, moyenneGenerale } = await calculerNotesEleve(req.prisma, bulletin.eleveId, bulletin.trimestre)
+    const { rang, effectif } = await calculerRang(req.prisma, bulletin.eleve, bulletin.trimestre)
 
     res.json({
       bulletin,
@@ -162,10 +193,24 @@ router.get('/:bulletinId/data', verifyToken, async (req, res) => {
         nom: bulletin.eleve.nom,
         prenom: bulletin.eleve.prenom,
         matricule: bulletin.eleve.matricule,
+        sexe: bulletin.eleve.sexe,
+        dateNaissance: bulletin.eleve.dateNaissance,
         classe: bulletin.eleve.classe.nom,
-        ecole: bulletin.eleve.classe.ecole.nomComplet
+        niveau: bulletin.eleve.classe.niveau
       },
+      ecole: {
+        nomCourt: bulletin.eleve.classe.ecole.nomCourt,
+        nomComplet: bulletin.eleve.classe.ecole.nomComplet,
+        niveau: bulletin.eleve.classe.ecole.niveau,
+        adresse: bulletin.eleve.classe.ecole.adresse,
+        telephone: bulletin.eleve.classe.ecole.telephone,
+        email: bulletin.eleve.classe.ecole.email
+      },
+      effectif,
+      rang,
       notes,
+      totalCoefficients,
+      totalPoints,
       moyenneGenerale,
       appreciation: appreciation(moyenneGenerale),
       trimestre: bulletin.trimestre,

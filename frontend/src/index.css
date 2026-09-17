@@ -56,3 +56,20 @@ body {
 .btn-secondary {
   @apply bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors duration-200;
 }
+
+/* Impression d'un seul bulletin : masque tout le reste de l'application
+   (SPA sans routeur, donc pas de page dédiée à imprimer séparément). */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #bulletin-print-area, #bulletin-print-area * {
+    visibility: visible;
+  }
+  #bulletin-print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+}
