@@ -34,6 +34,7 @@ import AppelPresence from '../sections/SuperAdmin/AppelPresence'
 import ConsultationPresences from '../sections/SuperAdmin/ConsultationPresences'
 import ImporterEleves from '../sections/SuperAdmin/ImporterEleves'
 import FraisParEcole from '../sections/SuperAdmin/FraisParEcole'
+import Matieres from '../sections/SuperAdmin/Matieres'
 
 const TITRES_PAR_ROLE = {
   SUPER_ADMIN: { sidebar: '👑 TDB Admin', header: '👑 Super Admin Dashboard' },
@@ -161,6 +162,8 @@ export default function DashboardSuperAdminEnhanced() {
         return <EmploiTemps ecoleIds={ecoleIds} />
       case 'bulletins':
         return <Bulletins ecoleIds={ecoleIds} />
+      case 'matieres':
+        return <Matieres />
       case 'saisie-horaires':
         return <PersonnelRH vue="horaires" />
       case 'saisie-presences':

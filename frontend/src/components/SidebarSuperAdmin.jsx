@@ -9,12 +9,12 @@ import {
 const RH_SAISIE = ['saisie-horaires', 'saisie-presences']
 
 export const MENU_PAR_ROLE = {
-  PRINCIPAL: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', ...RH_SAISIE, 'parametres'],
-  DIRECTRICE: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', ...RH_SAISIE, 'parametres'],
-  SECRETAIRE: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'rapports-finance', 'affectations-enseignants', 'bulletins', ...RH_SAISIE, 'parametres'],
+  PRINCIPAL: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', 'matieres', ...RH_SAISIE, 'parametres'],
+  DIRECTRICE: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', 'matieres', ...RH_SAISIE, 'parametres'],
+  SECRETAIRE: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'rapports-finance', 'affectations-enseignants', 'bulletins', 'matieres', ...RH_SAISIE, 'parametres'],
   ECONOMAT: ['dashboard', 'list-eleves', 'import-eleves', 'list-ecoles', 'verification-financiere', 'parametres'],
-  ENSEIGNANT: ['dashboard', 'list-eleves', 'mes-classes', 'cahier-texte-enseignant', 'saisie-notes', 'appel-presence', 'parametres'],
-  SURVEILLANT_GENERAL: ['dashboard', 'presences-eleves', ...RH_SAISIE, 'parametres']
+  ENSEIGNANT: ['dashboard', 'list-eleves', 'mes-classes', 'cahier-texte-enseignant', 'saisie-notes', 'appel-presence', 'matieres', 'parametres'],
+  SURVEILLANT_GENERAL: ['dashboard', 'presences-eleves', 'matieres', ...RH_SAISIE, 'parametres']
 }
 
 export default function SidebarSuperAdmin({ currentSection, setCurrentSection, logout, allowedIds = null, titre = '👑 TDB Admin' }) {
@@ -94,7 +94,8 @@ export default function SidebarSuperAdmin({ currentSection, setCurrentSection, l
         { id: 'affectations-enseignants', label: 'Affectations enseignants' },
         { id: 'cahier-textes', label: 'Cahier de textes' },
         { id: 'emploi-temps', label: 'Emploi du temps' },
-        { id: 'bulletins', label: 'Bulletins' }
+        { id: 'bulletins', label: 'Bulletins' },
+        { id: 'matieres', label: 'Matières' }
       ]
     },
     {
