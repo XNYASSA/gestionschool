@@ -197,6 +197,9 @@ model Enseignant {
 model Matiere {
   id             String @id @default(cuid())
   nom            String
+  code           String?  // ex: "M012" — code source (EagleSoft), non unique entre filières
+  abreviation    String?  // ex: "INFO"
+  departement    String?  // regroupement pédagogique, ex: "LITTERATURE", "SCIENTIFIQUES"
   ecole          Ecole  @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
   ecoleId        String
   coefficient    Int    @default(3)
