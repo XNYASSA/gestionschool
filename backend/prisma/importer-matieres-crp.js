@@ -241,7 +241,9 @@ const EST_FR = [
 const CATALOGUES_PAR_ECOLE = {
   CRP_FRANCOPHONE: [ESG_FR],
   CRP_ANGLOPHONE: [ESG_ANGLO],
-  CRP_TECHNIQUE: [EST_FR, EST_ANGLO]
+  CRP_TECHNIQUE: [EST_FR, EST_ANGLO],
+  // CBM n'a qu'une section générale francophone (pas d'anglophone ni de technique).
+  CBM: [ESG_FR]
 }
 
 async function main() {
