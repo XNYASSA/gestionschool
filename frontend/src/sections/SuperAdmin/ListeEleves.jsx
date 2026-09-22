@@ -269,7 +269,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nom *</label>
                   <input
@@ -315,7 +315,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                   />
                 </div>
 
-                <div className="col-span-2">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Classe *</label>
                   <select
                     value={formData.classeId}
@@ -330,7 +330,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                   </select>
                 </div>
 
-                <div className="col-span-2">
+                <div>
                   <label className="text-sm font-semibold text-slate-900 block mb-3">Informations parent/tuteur</label>
                 </div>
 
@@ -383,7 +383,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                   />
                 </div>
 
-                <div className="col-span-2">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Adresse</label>
                   <input
                     type="text"
