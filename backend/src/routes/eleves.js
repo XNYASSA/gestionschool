@@ -43,7 +43,7 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
     let { matricule, nom, prenom, sexe, dateNaissance, classeId, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
 
     // Valider les champs requis
-    if (!nom || !prenom || !sexe || !dateNaissance || !classeId || !nomParent || !telephoneParent) {
+    if (!nom || !prenom || !classeId || !nomParent || !telephoneParent) {
       return res.status(400).json({ error: 'Champs obligatoires manquants' })
     }
 
@@ -88,8 +88,8 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
         matricule,
         nom,
         prenom,
-        sexe,
-        dateNaissance: new Date(dateNaissance),
+        sexe: sexe || null,
+        dateNaissance: dateNaissance ? new Date(dateNaissance) : null,
         classeId,
         nomParent,
         lieuParente,
@@ -146,13 +146,16 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
       try {
         const { matricule: matriculeFourni, nom, prenom, sexe, dateNaissance, classe, nomParent, lieuParente, telephoneParent, emailParent, adresseParent, montantDejaVerse } = ligne
 
-        if (!nom || !prenom || !sexe || !dateNaissance || !classe || !nomParent || !telephoneParent) {
-          throw new Error('Champs obligatoires manquants (nom, prénom, sexe, date de naissance, classe, nom du parent, téléphone du parent)')
+        if (!nom || !prenom || !classe || !nomParent || !telephoneParent) {
+          throw new Error('Champs obligatoires manquants (nom, prénom, classe, nom du parent, téléphone du parent)')
         }
 
-        const sexeNormalise = /^m/i.test(String(sexe).trim()) ? 'MASCULIN' : /^f/i.test(String(sexe).trim()) ? 'FEMININ' : null
-        if (!sexeNormalise) {
-          throw new Error(`Sexe invalide : "${sexe}" (attendu M ou F)`)
+        let sexeNormalise = null
+        if (sexe) {
+          sexeNormalise = /^m/i.test(String(sexe).trim()) ? 'MASCULIN' : /^f/i.test(String(sexe).trim()) ? 'FEMININ' : null
+          if (!sexeNormalise) {
+            throw new Error(`Sexe invalide : "${sexe}" (attendu M ou F)`)
+          }
         }
 
         const classeTrouvee = classeParNom.get(String(classe).trim().toLowerCase())
@@ -160,9 +163,12 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
           throw new Error(`Classe "${classe}" introuvable dans cette école`)
         }
 
-        const dateNaissanceParsed = new Date(dateNaissance)
-        if (isNaN(dateNaissanceParsed.getTime())) {
-          throw new Error(`Date de naissance invalide : "${dateNaissance}"`)
+        let dateNaissanceParsed = null
+        if (dateNaissance) {
+          dateNaissanceParsed = new Date(dateNaissance)
+          if (isNaN(dateNaissanceParsed.getTime())) {
+            throw new Error(`Date de naissance invalide : "${dateNaissance}"`)
+          }
         }
 
         const matriculeFourniTrim = matriculeFourni ? String(matriculeFourni).trim() : ''

@@ -102,8 +102,8 @@ model Eleve {
   matricule       String   @unique
   nom             String
   prenom          String
-  sexe            String   // MASCULIN, FEMININ
-  dateNaissance   DateTime
+  sexe            String?  // MASCULIN, FEMININ
+  dateNaissance   DateTime?
   classe          Classe   @relation(fields: [classeId], references: [id], onDelete: Cascade)
   classeId        String
 

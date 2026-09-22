@@ -107,7 +107,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
   }
 
   const handleSave = async () => {
-    if (!formData.nom || !formData.prenom || !formData.dateNaissance || !formData.classeId || !formData.nomParent || !formData.telephoneParent) {
+    if (!formData.nom || !formData.prenom || !formData.classeId || !formData.nomParent || !formData.telephoneParent) {
       alert('Veuillez remplir tous les champs obligatoires')
       return
     }
@@ -305,7 +305,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Date de naissance *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Date de naissance</label>
                   <input
                     type="date"
                     value={formData.dateNaissance}
