@@ -15,7 +15,8 @@ router.get('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE'
       include: {
         classe: { include: { ecole: true } },
         inscriptionsFrais: { select: { tranche: true, montantDu: true, montantPaye: true, statut: true } }
-      }
+      },
+      orderBy: [{ nom: 'asc' }, { prenom: 'asc' }]
     })
     res.json(eleves)
   } catch (error) {

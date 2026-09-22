@@ -35,7 +35,7 @@ router.get('/:ecoleId', verifyToken, checkEcoleAccess, async (req, res) => {
         classes: {
           orderBy: { nom: 'asc' },
           include: {
-            eleves: { orderBy: { prenom: 'asc' } }
+            eleves: { orderBy: [{ nom: 'asc' }, { prenom: 'asc' }] }
           }
         },
         matieres: { orderBy: { nom: 'asc' } },
@@ -142,20 +142,18 @@ router.get('/:ecoleId/eleves', verifyToken, checkEcoleAccess, async (req, res) =
     const classes = await req.prisma.classe.findMany({
       where: { ecoleId: req.params.ecoleId },
       include: {
-        eleves: {
-          orderBy: { prenom: 'asc' }
-        }
+        eleves: true
       }
     })
 
-    // Aplatir les élèves et ajouter infos classe
+    // Aplatir les élèves, ajouter infos classe et trier par ordre alphabétique global
     const eleves = classes.flatMap(classe =>
       classe.eleves.map(eleve => ({
         ...eleve,
         classe: { id: classe.id, nom: classe.nom },
         ecoleId: req.params.ecoleId
       }))
-    )
+    ).sort((a, b) => a.nom.localeCompare(b.nom) || a.prenom.localeCompare(b.prenom))
 
     res.json(eleves)
   } catch (error) {
