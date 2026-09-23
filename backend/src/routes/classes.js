@@ -25,7 +25,7 @@ router.get('/:id', verifyToken, async (req, res) => {
   try {
     const classe = await req.prisma.classe.findUnique({
       where: { id: req.params.id },
-      include: { eleves: true, enseignantClasseMatieres: true, ecole: true }
+      include: { eleves: { orderBy: [{ nom: 'asc' }, { prenom: 'asc' }] }, enseignantClasseMatieres: true, ecole: true }
     })
     if (!classe) return res.status(404).json({ error: 'Classe non trouvée' })
     res.json(classe)

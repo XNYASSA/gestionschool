@@ -12,7 +12,8 @@ router.get('/', verifyToken, checkRole(['SECRETAIRE', 'SUPER_ADMIN', 'PRINCIPAL'
 
     const frais = await req.prisma.inscriptionFrais.findMany({
       where: ecoleIds ? { eleve: { classe: { ecoleId: { in: ecoleIds } } } } : {},
-      include: { eleve: { include: { classe: { include: { ecole: true } } } } }
+      include: { eleve: { include: { classe: { include: { ecole: true } } } } },
+      orderBy: [{ eleve: { nom: 'asc' } }, { eleve: { prenom: 'asc' } }]
     })
     res.json(frais)
   } catch (error) {

@@ -115,7 +115,9 @@ export default function SuiviPaiements() {
   // Niveau 3 : élèves de la classe sélectionnée, séparés solvables / insolvables
   const elevesClasse = useMemo(() => {
     if (!selectedClasse) return { solvables: [], insolvables: [] }
-    const eleves = elevesAvecStatut.filter(e => e.classeId === selectedClasse.id)
+    const eleves = elevesAvecStatut
+      .filter(e => e.classeId === selectedClasse.id)
+      .sort((a, b) => a.nom.localeCompare(b.nom) || a.prenom.localeCompare(b.prenom))
     return {
       solvables: eleves.filter(e => e.statut === 'SOLDE'),
       insolvables: eleves.filter(e => e.statut !== 'SOLDE')
