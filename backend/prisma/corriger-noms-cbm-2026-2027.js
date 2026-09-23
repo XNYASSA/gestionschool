@@ -28,19 +28,37 @@ function motsDe(texte) {
   return new Set(String(texte).toUpperCase().split(/\s+/).filter(Boolean))
 }
 
-function ontUnMotCommun(a, b) {
-  for (const mot of a) if (b.has(mot)) return true
-  return false
+function nombreMotsCommuns(a, b) {
+  let n = 0
+  for (const mot of a) if (b.has(mot)) n++
+  return n
+}
+
+// Pour chaque élève existant, retient la (ou les) ligne(s) du fichier avec
+// le plus grand nombre de mots communs (un score de 3/3 mots l'emporte
+// clairement sur un score de 1/3 dû à un seul nom de famille partagé) —
+// n'accepte qu'un score strictement le plus élevé et non nul.
+function meilleursCandidats(mots, motsFichier) {
+  let meilleurScore = 0
+  let meilleurs = []
+  for (let j = 0; j < motsFichier.length; j++) {
+    const score = nombreMotsCommuns(mots, motsFichier[j])
+    if (score === 0) continue
+    if (score > meilleurScore) {
+      meilleurScore = score
+      meilleurs = [j]
+    } else if (score === meilleurScore) {
+      meilleurs.push(j)
+    }
+  }
+  return meilleurs
 }
 
 function apparier(existants, fichier) {
   const motsExistants = existants.map(e => motsDe(`${e.nom} ${e.prenom}`))
   const motsFichier = fichier.map(f => motsDe(f.nomComplet))
 
-  // Candidats de chaque côté
-  const candidatsPourExistant = existants.map((_, i) =>
-    fichier.map((_, j) => j).filter(j => ontUnMotCommun(motsExistants[i], motsFichier[j]))
-  )
+  const candidatsPourExistant = existants.map((_, i) => meilleursCandidats(motsExistants[i], motsFichier))
 
   const resultats = existants.map(() => ({ type: 'orphelin' }))
   const fichierCouvert = new Set()
