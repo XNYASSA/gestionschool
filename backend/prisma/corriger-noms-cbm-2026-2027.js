@@ -13,55 +13,62 @@ const DRY_RUN = process.argv.includes('--dry-run')
 // admissions présentes dans le fichier le plus récent de la secrétaire.
 //
 // Stratégie de correspondance : ni le nom (qui change justement) ni le
-// matricule système MAT0xx (jamais aligné sur les codes "Mle" du fichier)
-// ne peuvent servir de clé directe. On s'appuie sur l'ordre : au sein d'une
-// même classe, les N premières lignes du fichier correspondent aux N élèves
-// déjà en base dans leur ordre de création (matricule croissant).
-//
-// Garde-fou : avant toute mise à jour, on vérifie qu'au moins un mot est
-// commun entre l'ancien nom+prénom en base et le nouveau nom complet du
-// fichier à la position correspondante. Si aucun décalage ne donne une
-// concordance parfaite et qu'un mot commun manque, la ligne est laissée
-// intacte et signalée — jamais écrasée à l'aveugle (un décalage d'une
-// ligne parasite dans le fichier source a été détecté sur 2 classes lors
-// de la vérification manuelle : mieux vaut rater une mise à jour que
-// réattribuer le dossier financier d'un élève à un autre par erreur).
+// matricule (mélange de MAT0xx générés et de codes Mle d'origine repris
+// tels quels pour d'anciennes corrections manuelles) ne peuvent servir de
+// clé fiable, et l'ordre de création n'est pas non plus fiable (un élève
+// ajouté manuellement plus tard peut se retrouver hors ordre par rapport
+// au fichier). On associe donc chaque élève déjà en base à la ligne du
+// fichier avec laquelle il partage au moins un mot du nom — uniquement
+// quand cette correspondance est unique des deux côtés. Toute ambiguïté
+// (aucune correspondance, ou plusieurs candidats) est signalée et laissée
+// intacte plutôt que risquer de réattribuer le dossier financier d'un
+// élève à un autre.
 
-function motsCommuns(a, b) {
-  const wa = new Set(a.toUpperCase().split(/\s+/).filter(Boolean))
-  const wb = new Set(String(b).toUpperCase().split(/\s+/).filter(Boolean))
-  for (const w of wa) if (wb.has(w)) return true
+function motsDe(texte) {
+  return new Set(String(texte).toUpperCase().split(/\s+/).filter(Boolean))
+}
+
+function ontUnMotCommun(a, b) {
+  for (const mot of a) if (b.has(mot)) return true
   return false
 }
 
-// Cherche un décalage constant (-3 à +3) entre l'ordre des élèves déjà en
-// base et l'ordre des lignes du fichier, uniquement si ce décalage donne
-// une concordance parfaite (chaque nom en base partage au moins un mot
-// avec la ligne du fichier à cette position) — sinon, aucun décalage n'est
-// appliqué et chaque ligne est vérifiée individuellement.
-function trouverDecalage(existants, fichier) {
-  const score = (decalage) => {
-    let concordent = 0, total = 0
-    for (let i = 0; i < existants.length; i++) {
-      const j = i + decalage
-      if (j < 0 || j >= fichier.length) continue
-      const nomComplet = `${existants[i].nom} ${existants[i].prenom}`.trim()
-      if (!nomComplet) continue
-      total++
-      if (motsCommuns(nomComplet, fichier[j].nomComplet)) concordent++
+function apparier(existants, fichier) {
+  const motsExistants = existants.map(e => motsDe(`${e.nom} ${e.prenom}`))
+  const motsFichier = fichier.map(f => motsDe(f.nomComplet))
+
+  // Candidats de chaque côté
+  const candidatsPourExistant = existants.map((_, i) =>
+    fichier.map((_, j) => j).filter(j => ontUnMotCommun(motsExistants[i], motsFichier[j]))
+  )
+
+  const resultats = existants.map(() => ({ type: 'orphelin' }))
+  const fichierCouvert = new Set()
+
+  for (let i = 0; i < existants.length; i++) {
+    const candidats = candidatsPourExistant[i]
+    if (candidats.length === 0) {
+      resultats[i] = { type: 'orphelin' }
+      continue
     }
-    return { concordent, total }
+    if (candidats.length > 1) {
+      resultats[i] = { type: 'ambigu', candidats }
+      continue
+    }
+    const j = candidats[0]
+    // Vérifie qu'aucun autre élève existant ne revendique la même ligne
+    const autresCandidats = existants
+      .map((_, k) => k)
+      .filter(k => k !== i && candidatsPourExistant[k].includes(j))
+    if (autresCandidats.length > 0) {
+      resultats[i] = { type: 'conflit', j, autres: autresCandidats }
+      continue
+    }
+    resultats[i] = { type: 'match', j }
+    fichierCouvert.add(j)
   }
 
-  const base = score(0)
-  if (base.total > 0 && base.concordent === base.total) return 0
-
-  for (let decalage = -3; decalage <= 3; decalage++) {
-    if (decalage === 0) continue
-    const { concordent, total } = score(decalage)
-    if (total > 0 && concordent === total) return decalage
-  }
-  return 0
+  return { resultats, fichierCouvert }
 }
 
 async function main() {
@@ -79,8 +86,8 @@ async function main() {
   const elevesExistantsGlobal = await prisma.eleve.findMany({ select: { matricule: true } })
   let prochainNumero = 1
   elevesExistantsGlobal.forEach(e => {
-    const match = e.matricule.match(/\d+/)
-    if (match) prochainNumero = Math.max(prochainNumero, parseInt(match[0]) + 1)
+    const match = e.matricule.match(/^MAT(\d+)$/)
+    if (match) prochainNumero = Math.max(prochainNumero, parseInt(match[1]) + 1)
   })
 
   let totalMisAJour = 0
@@ -101,33 +108,32 @@ async function main() {
 
     console.log(`\n=== ${nomClasse} (${elevesExistants.length} en base, ${lignesFichier.length} dans le fichier) ===`)
 
-    const decalage = trouverDecalage(elevesExistants, lignesFichier)
-    if (decalage !== 0) {
-      console.log(`  ↳ décalage de ${decalage} détecté et corrigé automatiquement (concordance parfaite des noms à ce décalage)`)
-    }
-
-    const indicesFichierCouverts = new Set()
+    const { resultats, fichierCouvert } = apparier(elevesExistants, lignesFichier)
 
     for (let i = 0; i < elevesExistants.length; i++) {
       const eleve = elevesExistants[i]
-      const j = i + decalage
-
-      if (j < 0 || j >= lignesFichier.length) {
-        console.log(`  ⚠️  [${eleve.matricule}] "${eleve.nom} ${eleve.prenom}" — aucune ligne correspondante dans le fichier, laissé tel quel (à vérifier manuellement)`)
-        totalAmbigus++
-        continue
-      }
-
-      const ligne = lignesFichier[j]
+      const r = resultats[i]
       const nomCompletExistant = `${eleve.nom} ${eleve.prenom}`.trim()
-      if (nomCompletExistant && !motsCommuns(nomCompletExistant, ligne.nomComplet)) {
-        console.log(`  ⚠️  [${eleve.matricule}] "${nomCompletExistant}" vs fichier "${ligne.nomComplet}" — aucun mot commun, laissé tel quel (à vérifier manuellement)`)
+
+      if (r.type === 'orphelin') {
+        console.log(`  ⚠️  [${eleve.matricule}] "${nomCompletExistant}" — aucune ligne correspondante dans le fichier, laissé tel quel (à vérifier manuellement)`)
+        totalAmbigus++
+        continue
+      }
+      if (r.type === 'ambigu') {
+        const options = r.candidats.map(j => `"${lignesFichier[j].nomComplet}"`).join(', ')
+        console.log(`  ⚠️  [${eleve.matricule}] "${nomCompletExistant}" — plusieurs correspondances possibles (${options}), laissé tel quel (à vérifier manuellement)`)
+        totalAmbigus++
+        continue
+      }
+      if (r.type === 'conflit') {
+        const autresMatricules = r.autres.map(k => elevesExistants[k].matricule).join(', ')
+        console.log(`  ⚠️  [${eleve.matricule}] "${nomCompletExistant}" — même ligne fichier revendiquée par ${autresMatricules}, laissé tel quel (à vérifier manuellement)`)
         totalAmbigus++
         continue
       }
 
-      indicesFichierCouverts.add(j)
-
+      const ligne = lignesFichier[r.j]
       const changements = []
       if (eleve.nom !== ligne.nom || eleve.prenom !== ligne.prenom) {
         changements.push(`nom/prénom: "${eleve.nom} ${eleve.prenom}" → "${ligne.nom} ${ligne.prenom}"`)
@@ -158,7 +164,7 @@ async function main() {
     }
 
     for (let j = 0; j < lignesFichier.length; j++) {
-      if (indicesFichierCouverts.has(j)) continue
+      if (fichierCouvert.has(j)) continue
       const ligne = lignesFichier[j]
       const matricule = `MAT${String(prochainNumero).padStart(3, '0')}`
       prochainNumero++
