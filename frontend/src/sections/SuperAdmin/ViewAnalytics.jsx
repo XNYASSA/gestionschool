@@ -3,7 +3,7 @@ import { TrendingUp, TrendingDown, Loader } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { isInPeriod } from '../../utils/periodFilter'
 
-export default function ViewAnalytics() {
+export default function ViewAnalytics({ onNavigate }) {
   const [frais, setFrais] = useState([])
   const [depenses, setDepenses] = useState([])
   const [ecoles, setEcoles] = useState([])
@@ -160,7 +160,10 @@ export default function ViewAnalytics() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Entrées d'argent */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div
+              onClick={onNavigate && (() => onNavigate('frais-par-ecole', true))}
+              className={`bg-white rounded-lg shadow-md p-6 ${onNavigate ? 'cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-blue-400 transition' : ''}`}
+            >
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="w-5 h-5 text-green-600" />
                 <h3 className="text-lg font-bold text-slate-900">Entrées d'argent</h3>
@@ -181,10 +184,14 @@ export default function ViewAnalytics() {
                   <span className="text-green-600">{formatFCFA(totalEntrees)}</span>
                 </div>
               </div>
+              {onNavigate && <p className="text-xs text-slate-400 mt-3">Cliquez pour voir le détail par école puis par classe</p>}
             </div>
 
             {/* Sorties d'argent */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div
+              onClick={onNavigate && (() => onNavigate('depenses', true))}
+              className={`bg-white rounded-lg shadow-md p-6 ${onNavigate ? 'cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-blue-400 transition' : ''}`}
+            >
               <div className="flex items-center gap-2 mb-4">
                 <TrendingDown className="w-5 h-5 text-red-600" />
                 <h3 className="text-lg font-bold text-slate-900">Sorties d'argent</h3>
@@ -207,6 +214,7 @@ export default function ViewAnalytics() {
                   <span className="text-red-600">{formatFCFA(totalSorties)}</span>
                 </div>
               </div>
+              {onNavigate && <p className="text-xs text-slate-400 mt-3">Cliquez pour voir le détail des dépenses</p>}
             </div>
           </div>
 

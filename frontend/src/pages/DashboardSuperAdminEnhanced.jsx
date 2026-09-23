@@ -124,7 +124,7 @@ export default function DashboardSuperAdminEnhanced() {
       case 'dashboard':
         return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} onNavigate={navigateToSection} onRechercherEleve={(terme) => { setEleveSearchQuery(terme); navigateToSection('list-eleves', true) }} />
       case 'revenus':
-        return <ViewAnalytics />
+        return <ViewAnalytics onNavigate={navigateToSection} />
       case 'paiements':
       case 'paiement-status':
         return <SuiviPaiements />
@@ -148,7 +148,7 @@ export default function DashboardSuperAdminEnhanced() {
         return <ModuleDepenses ecoleIds={ecoleIds} />
       case 'rapports-finance':
         return isSuperAdmin
-          ? <RapportsFinanciers />
+          ? <RapportsFinanciers onNavigate={navigateToSection} />
           : user?.roleAPI === 'SECRETAIRE'
             ? <RapportFinancierSecretaire />
             : <RapportFinancierForm ecoleIds={ecoleIds} />

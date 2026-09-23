@@ -5,7 +5,7 @@ import { isInPeriod, PERIOD_LABELS } from '../../utils/periodFilter'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 
-export default function RapportsFinanciers() {
+export default function RapportsFinanciers({ onNavigate }) {
   const [stats, setStats] = useState({ totalEcoles: 0, totalEleves: 0, personnels: 0, anomalies: 0 })
   const [frais, setFrais] = useState([])
   const [depenses, setDepenses] = useState([])
@@ -124,16 +124,19 @@ export default function RapportsFinanciers() {
         <>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <StatCard title="Écoles" value={stats.totalEcoles} icon="🏫" color="blue" />
-            <StatCard title="Total élèves" value={stats.totalEleves || 0} icon="👥" color="green" />
-            <StatCard title="Anomalies non résolues" value={stats.anomalies || 0} icon="🚨" color="red" />
-            <StatCard title="Personnels" value={stats.personnels || 0} icon="👔" color="purple" />
+            <StatCard title="Écoles" value={stats.totalEcoles} icon="🏫" color="blue" onClick={onNavigate && (() => onNavigate('list-ecoles', true))} />
+            <StatCard title="Total élèves" value={stats.totalEleves || 0} icon="👥" color="green" onClick={onNavigate && (() => onNavigate('classes', true))} />
+            <StatCard title="Anomalies non résolues" value={stats.anomalies || 0} icon="🚨" color="red" onClick={onNavigate && (() => onNavigate('anomalies', true))} />
+            <StatCard title="Personnels" value={stats.personnels || 0} icon="👔" color="purple" onClick={onNavigate && (() => onNavigate('list-personnel', true))} />
           </div>
 
           {/* Entrées/Sorties d'argent */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Entrées d'argent */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div
+              onClick={onNavigate && (() => onNavigate('frais-par-ecole', true))}
+              className={`bg-white rounded-lg shadow-md p-6 ${onNavigate ? 'cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-blue-400 transition' : ''}`}
+            >
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="w-5 h-5 text-green-600" />
                 <h2 className="text-lg font-bold text-slate-900">Entrées d'argent</h2>
@@ -146,10 +149,14 @@ export default function RapportsFinanciers() {
                   <span className="text-green-600">{formatFCFA(totalEntrees)}</span>
                 </div>
               </div>
+              {onNavigate && <p className="text-xs text-slate-400 mt-3">Cliquez pour voir le détail par école puis par classe</p>}
             </div>
 
             {/* Sorties d'argent */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div
+              onClick={onNavigate && (() => onNavigate('depenses', true))}
+              className={`bg-white rounded-lg shadow-md p-6 ${onNavigate ? 'cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-blue-400 transition' : ''}`}
+            >
               <div className="flex items-center gap-2 mb-4">
                 <AlertCircle className="w-5 h-5 text-red-600" />
                 <h2 className="text-lg font-bold text-slate-900">Sorties d'argent</h2>
@@ -163,6 +170,7 @@ export default function RapportsFinanciers() {
                   <span className="text-red-600">{formatFCFA(totalSorties)}</span>
                 </div>
               </div>
+              {onNavigate && <p className="text-xs text-slate-400 mt-3">Cliquez pour voir le détail des dépenses</p>}
             </div>
           </div>
 
@@ -184,7 +192,10 @@ export default function RapportsFinanciers() {
                 <p className="text-white/70">Sorties</p>
                 <p className="font-bold">{formatFCFA(totalSorties)}</p>
               </div>
-              <div>
+              <div
+                onClick={onNavigate && (() => onNavigate('list-eleves', true))}
+                className={onNavigate ? 'cursor-pointer hover:underline' : ''}
+              >
                 <p className="text-white/70">Reste à percevoir (élèves)</p>
                 <p className="font-bold">{formatFCFA(resteAPercevoir)}</p>
               </div>
@@ -196,7 +207,7 @@ export default function RapportsFinanciers() {
   )
 }
 
-function StatCard({ title, value, icon, color }) {
+function StatCard({ title, value, icon, color, onClick }) {
   const colorClasses = {
     blue: 'border-blue-500 bg-blue-50',
     green: 'border-green-500 bg-green-50',
@@ -210,7 +221,10 @@ function StatCard({ title, value, icon, color }) {
     purple: 'text-purple-600'
   }
   return (
-    <div className={`rounded-lg shadow-md p-4 border-l-4 ${colorClasses[color]}`}>
+    <div
+      onClick={onClick}
+      className={`rounded-lg shadow-md p-4 border-l-4 ${colorClasses[color]} ${onClick ? 'cursor-pointer hover:shadow-lg hover:ring-2 hover:ring-blue-400 transition' : ''}`}
+    >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-slate-600 text-xs font-medium">{title}</p>
