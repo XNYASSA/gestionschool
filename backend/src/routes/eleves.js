@@ -172,9 +172,46 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
           }
         }
 
+        const nomTrim = String(nom).trim()
+        const prenomTrim = String(prenom).trim()
         const matriculeFourniTrim = matriculeFourni ? String(matriculeFourni).trim() : ''
-        if (matriculeFourniTrim && matriculesExistants.has(matriculeFourniTrim)) {
+
+        // Reconnaît un élève déjà importé (même nom + prénom + classe) pour le
+        // mettre à jour au lieu de le dupliquer — le fichier de la secrétaire
+        // grossit au fil de l'année et est réimporté en entier à chaque fois.
+        const eleveExistant = await req.prisma.eleve.findFirst({
+          where: { classeId: classeTrouvee.id, nom: nomTrim, prenom: prenomTrim }
+        })
+
+        if (matriculeFourniTrim && matriculeFourniTrim !== eleveExistant?.matricule && matriculesExistants.has(matriculeFourniTrim)) {
           throw new Error(`Matricule "${matriculeFourniTrim}" déjà utilisé`)
+        }
+
+        if (eleveExistant) {
+          const eleve = await req.prisma.eleve.update({
+            where: { id: eleveExistant.id },
+            data: {
+              ...(matriculeFourniTrim && { matricule: matriculeFourniTrim }),
+              ...(sexeNormalise && { sexe: sexeNormalise }),
+              ...(dateNaissanceParsed && { dateNaissance: dateNaissanceParsed }),
+              nomParent,
+              ...(lieuParente && { lieuParente }),
+              telephoneParent,
+              ...(emailParent && { emailParent }),
+              ...(adresseParent && { adresseParent })
+            }
+          })
+          if (matriculeFourniTrim) {
+            matriculesExistants.delete(eleveExistant.matricule)
+            matriculesExistants.add(eleve.matricule)
+          }
+
+          resultats.push({
+            ligne: numeroLigne,
+            succes: true,
+            message: `${prenomTrim} ${nomTrim} (${eleve.matricule}) mis à jour`
+          })
+          continue
         }
 
         let matricule
@@ -191,8 +228,8 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
         const eleve = await req.prisma.eleve.create({
           data: {
             matricule,
-            nom,
-            prenom,
+            nom: nomTrim,
+            prenom: prenomTrim,
             sexe: sexeNormalise,
             dateNaissance: dateNaissanceParsed,
             classeId: classeTrouvee.id,
@@ -210,8 +247,8 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
           ligne: numeroLigne,
           succes: true,
           message: postesFrais.length === 0
-            ? `${prenom} ${nom} (${matricule}) créé(e) — aucun barème de frais pour le niveau "${classeTrouvee.niveau}"`
-            : `${prenom} ${nom} (${matricule}) créé(e)`
+            ? `${prenomTrim} ${nomTrim} (${matricule}) créé(e) — aucun barème de frais pour le niveau "${classeTrouvee.niveau}"`
+            : `${prenomTrim} ${nomTrim} (${matricule}) créé(e)`
         })
       } catch (err) {
         resultats.push({ ligne: numeroLigne, succes: false, message: err.message })
