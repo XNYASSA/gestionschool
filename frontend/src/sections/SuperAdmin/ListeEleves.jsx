@@ -95,7 +95,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
   }
 
   const handleDelete = async (eleve) => {
-    if (!confirm(`Êtes-vous sûr de vouloir supprimer ${eleve.prenom} ${eleve.nom} ? Cette action est irréversible et supprimera aussi ses frais, notes et présences.`)) {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer ${eleve.nom} ${eleve.prenom} ? Cette action est irréversible et supprimera aussi ses frais, notes et présences.`)) {
       return
     }
     try {
@@ -209,7 +209,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                 {filteredEleves.map(eleve => (
                   <tr key={eleve.id} className="border-b border-slate-200 hover:bg-slate-50">
                     <td className="px-6 py-3 font-mono text-xs text-slate-600">{eleve.matricule || '-'}</td>
-                    <td className="px-6 py-3 text-slate-900">{eleve.prenom} {eleve.nom}</td>
+                    <td className="px-6 py-3 text-slate-900">{eleve.nom} {eleve.prenom}</td>
                     <td className="px-6 py-3 text-slate-600">{eleve.classe?.nom || '-'}</td>
                     <td className="px-6 py-3 text-slate-600">{eleve.classe?.ecole?.nomCourt || '-'}</td>
                     <td className="px-6 py-3 text-slate-600 text-xs">

@@ -136,7 +136,7 @@ export default function ConsultationPresences() {
                     const info = p ? STATUT_LABEL[p.statut] : null
                     return (
                       <tr key={eleve.id} className="border-b border-slate-200 hover:bg-slate-50">
-                        <td className="px-4 py-2 text-slate-900">{eleve.prenom} {eleve.nom}</td>
+                        <td className="px-4 py-2 text-slate-900">{eleve.nom} {eleve.prenom}</td>
                         <td className="px-4 py-2 text-slate-500">{eleve.matricule}</td>
                         <td className="px-4 py-2 text-center">
                           <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${info?.className || 'bg-slate-100 text-slate-500'}`}>

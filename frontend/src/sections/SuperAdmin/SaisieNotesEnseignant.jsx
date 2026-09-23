@@ -116,7 +116,7 @@ export default function SaisieNotesEnseignant() {
                   >
                     <option value="">Sélectionner un élève</option>
                     {elevesClasse.map(eleve => (
-                      <option key={eleve.id} value={eleve.id}>{eleve.prenom} {eleve.nom}</option>
+                      <option key={eleve.id} value={eleve.id}>{eleve.nom} {eleve.prenom}</option>
                     ))}
                   </select>
                 </div>
@@ -192,7 +192,7 @@ export default function SaisieNotesEnseignant() {
                   <tbody>
                     {notesEcm.map(note => (
                       <tr key={note.id} className="border-b border-slate-200 hover:bg-slate-50">
-                        <td className="px-4 py-2 text-slate-900">{note.eleve?.prenom} {note.eleve?.nom}</td>
+                        <td className="px-4 py-2 text-slate-900">{note.eleve?.nom} {note.eleve?.prenom}</td>
                         <td className="px-4 py-2 text-center text-slate-600">{note.trimestre}</td>
                         <td className="px-4 py-2 text-center font-semibold text-slate-900">{note.valeur}/20</td>
                         <td className="px-4 py-2 text-center">

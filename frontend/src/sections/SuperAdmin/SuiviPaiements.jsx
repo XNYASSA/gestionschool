@@ -345,7 +345,7 @@ function EleveGroupTable({ title, icon, eleves, getStatusBadge }) {
             <tbody>
               {eleves.map(eleve => (
                 <tr key={eleve.id} className="border-b border-slate-200 hover:bg-slate-50">
-                  <td className="px-6 py-3 text-slate-900">{eleve.prenom} {eleve.nom}</td>
+                  <td className="px-6 py-3 text-slate-900">{eleve.nom} {eleve.prenom}</td>
                   <td className="px-6 py-3 text-center text-slate-600">{eleve.sexe === 'MASCULIN' ? '♂ M' : eleve.sexe === 'FEMININ' ? '♀ F' : '-'}</td>
                   <td className="px-6 py-3 text-slate-600">{eleve.parent}{eleve.lieuParente ? ` (${eleve.lieuParente})` : ''}</td>
                   <td className="px-6 py-3 text-slate-600">{eleve.tel}</td>

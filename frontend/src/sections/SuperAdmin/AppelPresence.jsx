@@ -121,7 +121,7 @@ export default function AppelPresence() {
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {eleves.map(eleve => (
                     <div key={eleve.id} className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg hover:bg-slate-100">
-                      <span className="flex-1 text-slate-900">{eleve.prenom} {eleve.nom}</span>
+                      <span className="flex-1 text-slate-900">{eleve.nom} {eleve.prenom}</span>
                       <span className="text-xs text-slate-500">{eleve.matricule}</span>
                       <select
                         value={statuts[eleve.id] || 'PRESENT'}
