@@ -96,7 +96,7 @@ async function main() {
 
     const elevesExistants = await prisma.eleve.findMany({
       where: { classeId: classe.id },
-      orderBy: { matricule: 'asc' }
+      orderBy: { createdAt: 'asc' }
     })
 
     console.log(`\n=== ${nomClasse} (${elevesExistants.length} en base, ${lignesFichier.length} dans le fichier) ===`)
