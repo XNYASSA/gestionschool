@@ -161,7 +161,7 @@ export default function DashboardSuperAdminEnhanced() {
       case 'emploi-temps':
         return <EmploiTemps ecoleIds={ecoleIds} />
       case 'bulletins':
-        return <Bulletins ecoleIds={ecoleIds} />
+        return <Bulletins ecoleIds={ecoleIds} onNavigate={navigateToSection} />
       case 'matieres':
         return <Matieres />
       case 'saisie-horaires':

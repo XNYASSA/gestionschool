@@ -10,7 +10,7 @@ function versEtat(matieres) {
   }]))
 }
 
-export default function ProgrammeClasse({ classeId, ecoleId, peutModifier }) {
+export default function ProgrammeClasse({ classeId, ecoleId, peutModifier, onAjouterEnseignant }) {
   const [programme, setProgramme] = useState(null)
   const [enseignants, setEnseignants] = useState([])
   const [etat, setEtat] = useState({})
@@ -127,6 +127,20 @@ export default function ProgrammeClasse({ classeId, ecoleId, peutModifier }) {
       {error && <div className="mx-4 mt-4 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">⚠️ {error}</div>}
       {message && <div className="mx-4 mt-4 bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 text-sm">✅ {message}</div>}
 
+      {enseignants.length === 0 && (
+        <div className="mx-4 mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm flex flex-wrap items-center justify-between gap-3">
+          <span>
+            Aucun enseignant n'est enregistré pour l'école {programme.classe.ecoleNom}, la liste « Enseignant » est donc vide.
+            Ajoutez-les dans <strong>Personnel → Ajouter du personnel</strong> (rôle « Enseignant », cette école cochée).
+          </span>
+          {peutModifier && onAjouterEnseignant && (
+            <button onClick={onAjouterEnseignant} className="px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-xs font-medium shrink-0">
+              Ajouter un enseignant
+            </button>
+          )}
+        </div>
+      )}
+
       {programme.matieres.length === 0 ? (
         <p className="p-6 text-sm text-slate-500">Aucune matière définie pour cette école : le programme ne peut pas être établi.</p>
       ) : (
@@ -188,8 +202,8 @@ export default function ProgrammeClasse({ classeId, ecoleId, peutModifier }) {
                         <td className="px-4 py-2">
                           <select
                             value={ligne.enseignantUtilisateurId}
-                            disabled={!peutModifier || !inclus || m.verrouille}
-                            onChange={(e) => modifier(m.matiereId, { enseignantUtilisateurId: e.target.value })}
+                            disabled={!peutModifier || m.verrouille}
+                            onChange={(e) => modifier(m.matiereId, { enseignantUtilisateurId: e.target.value, ...(e.target.value && { inclus: true }) })}
                             className="w-full px-2 py-1 border border-slate-300 rounded-lg disabled:bg-slate-100"
                           >
                             <option value="">--- Aucun professeur ---</option>
@@ -205,8 +219,8 @@ export default function ProgrammeClasse({ classeId, ecoleId, peutModifier }) {
                             min="0"
                             max="100"
                             value={ligne.coefficient}
-                            disabled={!peutModifier || !inclus}
-                            onChange={(e) => modifier(m.matiereId, { coefficient: e.target.value })}
+                            disabled={!peutModifier}
+                            onChange={(e) => modifier(m.matiereId, { coefficient: e.target.value, inclus: true })}
                             className="w-20 px-2 py-1 border border-slate-300 rounded-lg text-center disabled:bg-slate-100"
                           />
                         </td>

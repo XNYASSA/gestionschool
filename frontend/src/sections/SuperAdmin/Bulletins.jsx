@@ -7,7 +7,7 @@ import ProgrammeClasse from './ProgrammeClasse'
 
 const TRIMESTRES = [1, 2, 3]
 
-export default function Bulletins() {
+export default function Bulletins({ onNavigate }) {
   const { user } = useContext(AuthContext)
   const peutModifierProgramme = ['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE'].includes(user?.roleAPI)
 
@@ -211,7 +211,13 @@ export default function Bulletins() {
 
       {/* Programme de la classe sélectionnée : matières, enseignant, coefficient */}
       {classeId ? (
-        <ProgrammeClasse key={classeId} classeId={classeId} ecoleId={ecoleId} peutModifier={peutModifierProgramme} />
+        <ProgrammeClasse
+          key={classeId}
+          classeId={classeId}
+          ecoleId={ecoleId}
+          peutModifier={peutModifierProgramme}
+          onAjouterEnseignant={onNavigate && (() => onNavigate('create-personnel'))}
+        />
       ) : (
         <div className="bg-white rounded-lg shadow-md p-4 text-sm text-slate-500">
           Sélectionnez une classe pour définir son programme (matières, enseignants et coefficients) et générer ses bulletins.
