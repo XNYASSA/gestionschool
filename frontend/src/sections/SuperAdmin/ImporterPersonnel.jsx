@@ -2,8 +2,15 @@ import { useState } from 'react'
 import { Download, Upload, Loader, CheckCircle2, XCircle, MinusCircle, X } from 'lucide-react'
 import { apiClient } from '../../api/client'
 
-const ENTETES_MODELE = ['Nom', 'Prénom', 'Rôle']
-const EXEMPLES_MODELE = [['NKOMO', 'Jean', 'Enseignant'], ['MBALLA', 'Marie', 'Secrétaire']]
+// Fonctions proposées dans la liste déroulante du modèle Excel et dans le formulaire du personnel
+export const FONCTIONS_PERSONNEL = [
+  'Enseignant', 'Secrétaire', 'Surveillant Général', 'Censeur', 'Préfet des études',
+  'Principal', 'Directrice', 'Économat', 'Secrétaire Général', 'Intendant'
+]
+
+const ENTETES_MODELE = ['Nom', 'Prénom', 'Fonction', 'Numéro de téléphone']
+const EXEMPLES_MODELE = [['NKOMO', 'Jean', 'Enseignant', '699000001'], ['MBALLA', 'Marie', 'Secrétaire', '677000002']]
+const LIGNES_LISTE_DEROULANTE = 500
 
 const normaliser = (v) => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '')
 
@@ -35,6 +42,19 @@ export default function ImporterPersonnel({ ecoles, peutCreerAdmin, onFermer, on
     feuille.getRow(1).font = { bold: true }
     feuille.columns.forEach(col => { col.width = 24 })
 
+    // Liste des fonctions sur une feuille à part, proposée en liste déroulante (saisie libre tolérée)
+    const listes = workbook.addWorksheet('Listes')
+    FONCTIONS_PERSONNEL.forEach(f => listes.addRow([f]))
+    listes.getColumn(1).width = 28
+    for (let ligne = 2; ligne <= LIGNES_LISTE_DEROULANTE; ligne++) {
+      feuille.getCell(`C${ligne}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        showErrorMessage: false,
+        formulae: [`Listes!$A$1:$A$${FONCTIONS_PERSONNEL.length}`]
+      }
+    }
+
     const buffer = await workbook.xlsx.writeBuffer()
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const url = URL.createObjectURL(blob)
@@ -63,10 +83,11 @@ export default function ImporterPersonnel({ ecoles, peutCreerAdmin, onFermer, on
       const entetes = feuille.getRow(1).values.slice(1).map(normaliser)
       const idxPrenom = entetes.findIndex(h => h.includes('prenom'))
       const idxNom = entetes.findIndex(h => h.includes('nom') && !h.includes('prenom'))
-      const idxRole = entetes.findIndex(h => h.includes('role') || h.includes('poste') || h.includes('fonction'))
+      const idxFonction = entetes.findIndex(h => h.includes('fonction') || h.includes('role') || h.includes('poste'))
+      const idxTelephone = entetes.findIndex(h => h.includes('telephone') || h.includes('tel') || h.includes('numero'))
 
-      if (idxNom === -1 && idxPrenom === -1) {
-        setErreur('Colonnes introuvables : la première ligne du fichier doit contenir les titres « Nom », « Prénom » et « Rôle ».')
+      if (idxNom === -1 && idxPrenom === -1 && idxFonction === -1 && idxTelephone === -1) {
+        setErreur('Colonnes introuvables : la première ligne du fichier doit contenir les titres « Nom », « Prénom », « Fonction » et « Numéro de téléphone ».')
         return
       }
 
@@ -77,9 +98,10 @@ export default function ImporterPersonnel({ ecoles, peutCreerAdmin, onFermer, on
         const ligne = {
           nom: idxNom !== -1 ? texteCellule(valeurs[idxNom]) : '',
           prenom: idxPrenom !== -1 ? texteCellule(valeurs[idxPrenom]) : '',
-          role: idxRole !== -1 ? texteCellule(valeurs[idxRole]) : ''
+          fonction: idxFonction !== -1 ? texteCellule(valeurs[idxFonction]) : '',
+          telephone: idxTelephone !== -1 ? texteCellule(valeurs[idxTelephone]) : ''
         }
-        if (!ligne.nom && !ligne.prenom && !ligne.role) return
+        if (!ligne.nom && !ligne.prenom && !ligne.fonction && !ligne.telephone) return
         lues.push(ligne)
       })
 
@@ -110,9 +132,9 @@ export default function ImporterPersonnel({ ecoles, peutCreerAdmin, onFermer, on
         <div>
           <h3 className="text-lg font-bold text-slate-900">📥 Importer une liste du personnel</h3>
           <p className="text-sm text-slate-500 mt-1">
-            Colonnes du fichier Excel : <strong>Nom</strong>, <strong>Prénom</strong>, <strong>Rôle</strong>
-            {' '}({peutCreerAdmin ? 'Enseignant, Secrétaire, Économat, Surveillant Général, Principal, Directrice, Autre personnel' : 'Enseignant, Secrétaire, Économat, Surveillant Général, Autre personnel'}).
-            Un rôle laissé vide est considéré comme « Enseignant ». Les personnes déjà présentes dans l'école sont ignorées, vous pouvez donc réimporter une liste complétée.
+            Colonnes du fichier Excel : <strong>Nom</strong>, <strong>Prénom</strong>, <strong>Fonction</strong> (liste de choix dans le modèle), <strong>Numéro de téléphone</strong>.
+            Aucune colonne n'est obligatoire. Une fonction laissée vide est considérée comme « Enseignant » ; Censeur, Préfet des études, Intendant… sont enregistrés comme personnel administratif{peutCreerAdmin ? '' : " (les fonctions Principal et Directrice sont réservées à l'administrateur)"}.
+            Les personnes déjà présentes dans l'école sont ignorées, vous pouvez donc réimporter une liste complétée.
           </p>
         </div>
         <button onClick={onFermer} className="text-slate-500 hover:text-slate-700 shrink-0" title="Fermer"><X className="w-5 h-5" /></button>

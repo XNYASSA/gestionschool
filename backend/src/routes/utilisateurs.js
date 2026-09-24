@@ -53,7 +53,9 @@ const ROLES_IMPORT = {
   economat: 'ECONOMAT', econome: 'ECONOMAT', economie: 'ECONOMAT',
   'surveillant general': 'SURVEILLANT_GENERAL', 'surveillante generale': 'SURVEILLANT_GENERAL', sg: 'SURVEILLANT_GENERAL',
   personnel: 'PERSONNEL', 'autre personnel administratif': 'PERSONNEL', 'personnel administratif': 'PERSONNEL', autre: 'PERSONNEL',
-  principal: 'PRINCIPAL', principale: 'PRINCIPAL', directrice: 'DIRECTRICE', directeur: 'DIRECTRICE'
+  principal: 'PRINCIPAL', principale: 'PRINCIPAL', directrice: 'DIRECTRICE', directeur: 'DIRECTRICE',
+  censeur: 'PERSONNEL', 'prefet des etudes': 'PERSONNEL', 'prefet etudes': 'PERSONNEL',
+  'secretaire general': 'PERSONNEL', intendant: 'PERSONNEL'
 }
 
 const publicSelect = {
@@ -340,7 +342,11 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
   }
 })
 
-// POST /import - Importer une liste du personnel (nom, prénom, rôle) dans UNE école.
+// POST /import - Importer une liste du personnel (nom, prénom, fonction, téléphone) dans
+// UNE école. Aucune colonne n'est obligatoire : seule une ligne entièrement vide est refusée.
+// La fonction détermine le rôle (Enseignant, Secrétaire, Surveillant Général, Économat,
+// Principal, Directrice) ; les autres fonctions (Censeur, Préfet des études...) sont des
+// membres du personnel administratif, avec la fonction conservée telle que saisie.
 // Chaque ligne est traitée indépendamment. Les comptes créés n'ont pas de connexion
 // (voir DOMAINE_SANS_CONNEXION). Une personne déjà présente dans l'école (même nom,
 // quel que soit l'ordre prénom/nom) est ignorée : on peut réimporter un fichier qui grossit.
@@ -372,19 +378,20 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
       try {
         const nom = texte(ligne.nom)
         const prenom = texte(ligne.prenom)
-        if (!nom && !prenom) throw new Error('Nom et prénom manquants')
-        const nomComplet = `${nom} ${prenom}`.trim()
+        const fonction = texte(ligne.fonction ?? ligne.role)
+        const telephone = texte(ligne.telephone)
+        if (!nom && !prenom && !fonction && !telephone) throw new Error('Ligne vide')
+        const nomComplet = `${nom} ${prenom}`.trim() || 'Sans nom'
 
-        // Rôle vide = enseignant (la liste importée est celle des enseignants)
-        const libelleRole = texte(ligne.role)
-        const roleFinal = libelleRole ? ROLES_IMPORT[normaliserTexte(libelleRole)] : 'ENSEIGNANT'
-        if (!roleFinal) throw new Error(`Rôle non reconnu : « ${libelleRole} »`)
+        // Fonction vide = enseignant ; fonction inconnue = personnel administratif (fonction conservée)
+        const roleFinal = fonction ? (ROLES_IMPORT[normaliserTexte(fonction)] || 'PERSONNEL') : 'ENSEIGNANT'
         if (req.user.role !== 'SUPER_ADMIN' && !ROLES_ASSIGNABLES_NON_ADMIN.includes(roleFinal)) {
-          throw new Error(`Vous ne pouvez pas attribuer le rôle « ${libelleRole} »`)
+          throw new Error(`Vous ne pouvez pas attribuer la fonction « ${fonction} »`)
         }
 
+        // Sans nom ni prénom, impossible de reconnaître un doublon : la ligne est toujours créée
         const cle = cleNom(nomComplet)
-        if (clesPresentes.has(cle)) {
+        if ((nom || prenom) && clesPresentes.has(cle)) {
           resultats.push({ ligne: numeroLigne, statut: 'ignore', message: `${nomComplet} — déjà présent(e) dans cette école, ignoré(e)` })
           continue
         }
@@ -395,13 +402,16 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
             email: emailSansConnexion(),
             motDePasse: await motDePasseInutilisable(),
             role: roleFinal,
+            fonction: fonction || null,
+            telephone: telephone || null,
             actif: true,
             utilisateurEcoles: { create: { ecoleId, role: roleFinal } },
-            ...(roleFinal === 'ENSEIGNANT' && { enseignant: { create: { telephone: '' } } })
+            ...(roleFinal === 'ENSEIGNANT' && { enseignant: { create: { telephone } } })
           }
         })
-        clesPresentes.add(cle)
-        resultats.push({ ligne: numeroLigne, statut: 'cree', message: `${nomComplet} — ajouté(e) (${roleFinal})` })
+        if (nom || prenom) clesPresentes.add(cle)
+        const inconnue = fonction && !ROLES_IMPORT[normaliserTexte(fonction)]
+        resultats.push({ ligne: numeroLigne, statut: 'cree', message: `${nomComplet} — ajouté(e) (${fonction || 'Enseignant'}${inconnue ? ', enregistrée comme personnel administratif' : ''})` })
       } catch (err) {
         const personne = `${texte(ligne.nom)} ${texte(ligne.prenom)}`.trim()
         resultats.push({ ligne: numeroLigne, statut: 'erreur', message: personne ? `${personne} — ${err.message}` : err.message })

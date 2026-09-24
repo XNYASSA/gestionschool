@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from 'react'
 import { Plus, Edit2, Trash2, X, Loader, Power, Phone, Wallet, Upload } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { AuthContext } from '../../context/AuthContext'
-import ImporterPersonnel from './ImporterPersonnel'
+import ImporterPersonnel, { FONCTIONS_PERSONNEL } from './ImporterPersonnel'
 
 const estSansConnexion = (email) => String(email || '').toLowerCase().endsWith('@personnel.local')
 
@@ -18,10 +18,7 @@ const ROLES = [
 
 const ROLE_LABELS = Object.fromEntries(ROLES.map(r => [r.value, r.label]))
 
-const FONCTIONS_SUGGESTIONS = [
-  'Enseignante', 'Enseignant', 'Secrétaire', 'Économat', 'Surveillant Général',
-  'Censeur', 'Secrétaire Général', 'Intendant', 'Principal', 'Directrice'
-]
+const FONCTIONS_SUGGESTIONS = FONCTIONS_PERSONNEL
 
 const emptyForm = {
   nom: '',
