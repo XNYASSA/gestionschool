@@ -14,10 +14,13 @@ const COLONNES = [
   { titre: 'Téléphone du parent*', cle: 'telephoneParent' },
   { titre: 'Email du parent', cle: 'emailParent' },
   { titre: 'Adresse du parent', cle: 'adresseParent' },
-  { titre: 'Montant déjà versé (FCFA)', cle: 'montantDejaVerse' }
+  { titre: 'Inscription déjà payée (FCFA)', cle: 'inscription' },
+  { titre: 'Tranche 1 déjà payée (FCFA)', cle: 'tranche1' },
+  { titre: 'Tranche 2 déjà payée (FCFA)', cle: 'tranche2' },
+  { titre: 'Tranche 3 déjà payée (FCFA)', cle: 'tranche3' }
 ]
 
-const EXEMPLE = ['', 'Nkomo', 'Jean', 'M', '15/03/2015', '6ème A', 'Marie Nkomo', 'Mère', '677123456', '', '', '50000']
+const EXEMPLE = ['', 'Nkomo', 'Jean', 'M', '15/03/2015', '6ème A', 'Marie Nkomo', 'Mère', '677123456', '', '', '21000', '', '', '']
 
 function formatDate(valeur) {
   if (valeur instanceof Date) {

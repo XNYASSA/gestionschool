@@ -3,46 +3,34 @@ import { verifyToken, checkRole } from '../middleware/auth.js'
 import { getEcoleIdsScope } from '../utils/ecoleScope.js'
 import { creerInscriptionsFraisPourEleve, calculerStatut } from '../utils/inscriptionsFrais.js'
 
-// Ordre des postes pour la répartition d'un montant déjà versé : inscription,
-// puis tranche1, tranche2, ... par numéro croissant (les frais annexes ne
-// sont pas concernés par ce montant global, qui vient du fichier Excel).
-function ordonnerPostesFrais(postes) {
-  return [...postes].sort((a, b) => {
-    if (a.tranche === 'inscription') return -1
-    if (b.tranche === 'inscription') return 1
-    const na = parseInt((a.tranche.match(/\d+/) || [0])[0])
-    const nb = parseInt((b.tranche.match(/\d+/) || [0])[0])
-    return na - nb
-  })
-}
+// Synchronise les postes d'inscription/tranches d'un élève avec les montants
+// explicites du fichier Excel (colonnes Inscription/Tranche 1/2/3) — chaque
+// poste est rapproché par sa clé exacte, sans avoir à deviner un ordre de
+// répartition. N'augmente jamais que vers le haut : un montant du fichier
+// inférieur ou égal à ce qui est déjà enregistré est ignoré, pour ne jamais
+// écraser un paiement saisi en direct dans l'app depuis.
+async function synchroniserPaiementImport(prisma, eleveId, montants) {
+  const postes = await prisma.inscriptionFrais.findMany({ where: { eleveId } })
+  const posteParTranche = Object.fromEntries(postes.map(p => [p.tranche, p]))
 
-// Met à jour les postes d'un élève déjà inscrit si le fichier réimporté
-// indique un montant total versé supérieur à ce qui est déjà enregistré —
-// jamais l'inverse (un paiement saisi en direct dans l'app depuis ne doit
-// jamais être effacé par un réimport). N'applique la répartition que si
-// aucun poste ne baisserait par rapport à l'existant.
-async function synchroniserPaiementImport(prisma, eleveId, montantDejaVerseFichier) {
-  if (montantDejaVerseFichier === undefined || montantDejaVerseFichier === null || montantDejaVerseFichier === '') return
-  const cible = parseInt(montantDejaVerseFichier)
-  if (isNaN(cible) || cible <= 0) return
+  const cibles = {
+    inscription: montants.inscription,
+    tranche1: montants.tranche1,
+    tranche2: montants.tranche2,
+    tranche3: montants.tranche3
+  }
 
-  const postes = ordonnerPostesFrais(await prisma.inscriptionFrais.findMany({ where: { eleveId } }))
-  if (postes.length === 0) return
+  for (const [tranche, valeurBrute] of Object.entries(cibles)) {
+    if (valeurBrute === undefined || valeurBrute === null || valeurBrute === '') continue
+    const cible = parseInt(valeurBrute)
+    if (isNaN(cible) || cible < 0) continue
 
-  const actuel = postes.reduce((s, p) => s + p.montantPaye, 0)
-  if (cible <= actuel) return
+    const poste = posteParTranche[tranche]
+    if (!poste) continue
 
-  let restant = cible
-  const propositions = postes.map(p => {
-    const montant = Math.max(0, Math.min(restant, p.montantDu))
-    restant -= montant
-    return { poste: p, nouveauMontantPaye: montant }
-  })
+    const nouveauMontantPaye = Math.min(cible, poste.montantDu)
+    if (nouveauMontantPaye <= poste.montantPaye) continue
 
-  if (propositions.some(p => p.nouveauMontantPaye < p.poste.montantPaye)) return
-
-  for (const { poste, nouveauMontantPaye } of propositions) {
-    if (nouveauMontantPaye === poste.montantPaye) continue
     await prisma.inscriptionFrais.update({
       where: { id: poste.id },
       data: { montantPaye: nouveauMontantPaye, statut: calculerStatut(poste.montantDu, nouveauMontantPaye) }
@@ -192,7 +180,8 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
       const numeroLigne = i + 1
       const ligne = lignes[i] || {}
       try {
-        const { matricule: matriculeFourni, nom, prenom, sexe, dateNaissance, classe, nomParent, lieuParente, telephoneParent, emailParent, adresseParent, montantDejaVerse } = ligne
+        const { matricule: matriculeFourni, nom, prenom, sexe, dateNaissance, classe, nomParent, lieuParente, telephoneParent, emailParent, adresseParent, inscription, tranche1, tranche2, tranche3 } = ligne
+        const montantsPostes = { inscription, tranche1, tranche2, tranche3 }
 
         if (!nom || !prenom || !classe || !nomParent || !telephoneParent) {
           throw new Error('Champs obligatoires manquants (nom, prénom, classe, nom du parent, téléphone du parent)')
@@ -253,7 +242,7 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
             matriculesExistants.add(eleve.matricule)
           }
 
-          await synchroniserPaiementImport(req.prisma, eleve.id, montantDejaVerse)
+          await synchroniserPaiementImport(req.prisma, eleve.id, montantsPostes)
 
           resultats.push({
             ligne: numeroLigne,
@@ -290,7 +279,8 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
           }
         })
 
-        const postesFrais = await creerInscriptionsFraisPourEleve(req.prisma, eleve.id, ecoleId, classeTrouvee.niveau, parseInt(montantDejaVerse) || 0)
+        const postesFrais = await creerInscriptionsFraisPourEleve(req.prisma, eleve.id, ecoleId, classeTrouvee.niveau)
+        await synchroniserPaiementImport(req.prisma, eleve.id, montantsPostes)
 
         resultats.push({
           ligne: numeroLigne,
