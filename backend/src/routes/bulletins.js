@@ -3,32 +3,52 @@ import { verifyToken, checkRole } from '../middleware/auth.js'
 
 const router = express.Router()
 
-// Moyenne pondérée par les coefficients des matières (propres à chaque école) + appréciation
+// Bulletin d'un élève : une ligne par matière du programme de sa classe (avec la
+// note validée du trimestre si elle existe) et moyenne pondérée par les
+// coefficients propres à la classe. Seules les matières notées comptent dans la moyenne.
 async function calculerNotesEleve(prisma, eleveId, trimestre) {
-  const notes = await prisma.note.findMany({
-    where: {
-      eleveId,
-      trimestre: parseInt(trimestre),
-      statutValidation: 'VALIDE'
-    },
-    include: {
-      enseignantClasseMatiere: { include: { matiere: true } }
-    }
-  })
+  const eleve = await prisma.eleve.findUnique({ where: { id: eleveId }, select: { classeId: true } })
 
-  const totalCoefficients = notes.reduce((sum, n) => sum + n.enseignantClasseMatiere.matiere.coefficient, 0)
-  const totalPoints = notes.reduce((sum, n) => sum + n.valeur * n.enseignantClasseMatiere.matiere.coefficient, 0)
-  const moyenneGenerale = totalCoefficients > 0 ? Number((totalPoints / totalCoefficients).toFixed(2)) : 0
+  const [programme, notesValidees] = await Promise.all([
+    prisma.classeMatiere.findMany({ where: { classeId: eleve.classeId }, include: { matiere: true } }),
+    prisma.note.findMany({
+      where: {
+        eleveId,
+        trimestre: parseInt(trimestre),
+        statutValidation: 'VALIDE'
+      },
+      include: {
+        enseignantClasseMatiere: { include: { matiere: true } }
+      }
+    })
+  ])
 
-  return {
-    notes: notes.map(n => ({
+  const coefParMatiere = new Map(programme.map(p => [p.matiereId, p.coefficient]))
+  const matieresNotees = new Set(notesValidees.map(n => n.enseignantClasseMatiere.matiereId))
+
+  const lignes = [
+    ...notesValidees.map(n => ({
       matiere: n.enseignantClasseMatiere.matiere.nom,
       note: n.valeur,
-      coefficient: n.enseignantClasseMatiere.matiere.coefficient,
+      coefficient: coefParMatiere.get(n.enseignantClasseMatiere.matiereId) ?? 0,
       observation: n.observation,
       mention: mentionMatiere(n.valeur)
     })),
+    ...programme
+      .filter(p => !matieresNotees.has(p.matiereId))
+      .map(p => ({ matiere: p.matiere.nom, note: null, coefficient: p.coefficient, observation: null, mention: '' }))
+  ].sort((a, b) => a.matiere.localeCompare(b.matiere))
+
+  const notees = lignes.filter(l => l.note !== null)
+  const totalCoefficients = notees.reduce((sum, l) => sum + l.coefficient, 0)
+  const totalPoints = notees.reduce((sum, l) => sum + l.note * l.coefficient, 0)
+  const moyenneGenerale = totalCoefficients > 0 ? Number((totalPoints / totalCoefficients).toFixed(2)) : 0
+
+  return {
+    notes: lignes,
     totalCoefficients,
+    totalCoefficientsProgramme: programme.reduce((sum, p) => sum + p.coefficient, 0),
+    programmeDefini: programme.length > 0,
     totalPoints,
     moyenneGenerale
   }
@@ -184,7 +204,7 @@ router.get('/:bulletinId/data', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Bulletin non trouvé' })
     }
 
-    const { notes, totalCoefficients, totalPoints, moyenneGenerale } = await calculerNotesEleve(req.prisma, bulletin.eleveId, bulletin.trimestre)
+    const { notes, totalCoefficients, totalCoefficientsProgramme, programmeDefini, totalPoints, moyenneGenerale } = await calculerNotesEleve(req.prisma, bulletin.eleveId, bulletin.trimestre)
     const { rang, effectif } = await calculerRang(req.prisma, bulletin.eleve, bulletin.trimestre)
 
     res.json({
@@ -210,6 +230,8 @@ router.get('/:bulletinId/data', verifyToken, async (req, res) => {
       rang,
       notes,
       totalCoefficients,
+      totalCoefficientsProgramme,
+      programmeDefini,
       totalPoints,
       moyenneGenerale,
       appreciation: appreciation(moyenneGenerale),

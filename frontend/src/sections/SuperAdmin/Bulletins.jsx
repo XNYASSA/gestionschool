@@ -1,11 +1,16 @@
-import { useState, useEffect, useMemo } from 'react'
-import { GraduationCap, Loader, ChevronDown, ChevronUp, Settings2, Eye, Printer, X } from 'lucide-react'
+import { useState, useEffect, useMemo, useContext } from 'react'
+import { GraduationCap, Loader, ChevronDown, ChevronUp, Eye, Printer, X } from 'lucide-react'
 import { apiClient } from '../../api/client'
+import { AuthContext } from '../../context/AuthContext'
 import BulletinTemplate from './BulletinTemplate'
+import ProgrammeClasse from './ProgrammeClasse'
 
 const TRIMESTRES = [1, 2, 3]
 
 export default function Bulletins() {
+  const { user } = useContext(AuthContext)
+  const peutModifierProgramme = ['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE'].includes(user?.roleAPI)
+
   const [ecoles, setEcoles] = useState([])
   const [classes, setClasses] = useState([])
   const [eleves, setEleves] = useState([])
@@ -22,10 +27,6 @@ export default function Bulletins() {
   const [generation, setGeneration] = useState(false)
   const [resultats, setResultats] = useState(null)
   const [detailOuvert, setDetailOuvert] = useState({})
-
-  const [showCoefficients, setShowCoefficients] = useState(false)
-  const [matieres, setMatieres] = useState([])
-  const [coeffEdits, setCoeffEdits] = useState({})
 
   const [bulletinAffiche, setBulletinAffiche] = useState(null)
   const [chargementApercu, setChargementApercu] = useState(false)
@@ -61,22 +62,12 @@ export default function Bulletins() {
     if (ecoleId) {
       const ecole = ecoles.find(e => e.id === ecoleId)
       if (ecole) setAnneeScolaire(ecole.anneeScolaireEnCours || anneeScolaire)
-      loadMatieres(ecoleId)
       setClasseId('')
       setEleveIdsChoisis([])
       setResultats(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ecoleId])
-
-  const loadMatieres = async (id) => {
-    try {
-      const data = await apiClient.getMatieresByEcole(id)
-      setMatieres(data)
-    } catch (err) {
-      setError(err.message || 'Erreur lors du chargement des matières')
-    }
-  }
 
   const classesEcole = useMemo(() => classes.filter(c => c.ecoleId === ecoleId), [classes, ecoleId])
   const elevesClasse = useMemo(() => eleves.filter(e => e.classeId === classeId), [eleves, classeId])
@@ -107,18 +98,6 @@ export default function Bulletins() {
       setError(err.message || 'Erreur lors de la génération des bulletins')
     } finally {
       setGeneration(false)
-    }
-  }
-
-  const handleSaveCoeff = async (matiereId) => {
-    const valeur = parseInt(coeffEdits[matiereId])
-    if (isNaN(valeur) || valeur < 1) return
-    try {
-      await apiClient.updateMatiere(matiereId, { coefficient: valeur })
-      await loadMatieres(ecoleId)
-      setCoeffEdits(prev => { const c = { ...prev }; delete c[matiereId]; return c })
-    } catch (err) {
-      setError(err.message || 'Erreur lors de la mise à jour du coefficient')
     }
   }
 
@@ -230,44 +209,14 @@ export default function Bulletins() {
         )}
       </div>
 
-      {/* Coefficients des matières de l'école sélectionnée */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <button
-          onClick={() => setShowCoefficients(!showCoefficients)}
-          className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition"
-        >
-          <span className="font-bold text-slate-900 flex items-center gap-2">
-            <Settings2 className="w-4 h-4" /> Coefficients des matières — {ecoles.find(e => e.id === ecoleId)?.nomCourt}
-          </span>
-          {showCoefficients ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-        {showCoefficients && (
-          matieres.length === 0 ? (
-            <p className="p-4 text-sm text-slate-500">Aucune matière définie pour cette école</p>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {matieres.map(m => (
-                <div key={m.id} className="flex items-center gap-3 px-4 py-2">
-                  <span className="flex-1 text-sm text-slate-900">{m.nom}</span>
-                  <input
-                    type="number"
-                    min="1"
-                    value={coeffEdits[m.id] ?? m.coefficient}
-                    onChange={(e) => setCoeffEdits({ ...coeffEdits, [m.id]: e.target.value })}
-                    className="w-20 px-2 py-1 border border-slate-300 rounded-lg text-center"
-                  />
-                  <button
-                    onClick={() => handleSaveCoeff(m.id)}
-                    className="px-3 py-1 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition text-sm"
-                  >
-                    Enregistrer
-                  </button>
-                </div>
-              ))}
-            </div>
-          )
-        )}
-      </div>
+      {/* Programme de la classe sélectionnée : matières, enseignant, coefficient */}
+      {classeId ? (
+        <ProgrammeClasse key={classeId} classeId={classeId} ecoleId={ecoleId} peutModifier={peutModifierProgramme} />
+      ) : (
+        <div className="bg-white rounded-lg shadow-md p-4 text-sm text-slate-500">
+          Sélectionnez une classe pour définir son programme (matières, enseignants et coefficients) et générer ses bulletins.
+        </div>
+      )}
 
       {/* Résultats */}
       {resultats && (
@@ -303,7 +252,7 @@ export default function Bulletins() {
                 {detailOuvert[r.bulletinId] && (
                   <div className="px-4 pb-4">
                     {r.notes.length === 0 ? (
-                      <p className="text-sm text-slate-500">Aucune note validée pour ce trimestre</p>
+                      <p className="text-sm text-slate-500">Le programme de cette classe n'est pas défini : cochez ses matières dans « Programme de la classe » ci-dessus.</p>
                     ) : (
                       <table className="w-full text-sm">
                         <thead>
@@ -318,7 +267,7 @@ export default function Bulletins() {
                           {r.notes.map((n, i) => (
                             <tr key={i} className="border-t border-slate-100">
                               <td className="py-1 text-slate-900">{n.matiere}</td>
-                              <td className="py-1 text-center">{n.note}/20</td>
+                              <td className="py-1 text-center">{n.note === null ? '-' : `${n.note}/20`}</td>
                               <td className="py-1 text-center">{n.coefficient}</td>
                               <td className="py-1 text-slate-500">{n.observation || '-'}</td>
                             </tr>

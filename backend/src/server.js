@@ -28,6 +28,7 @@ import bulletinsRoutes from './routes/bulletins.js'
 import leconsRoutes from './routes/lecons.js'
 import rhRoutes from './routes/rh.js'
 import affectationsRoutes from './routes/affectations.js'
+import programmesClassesRoutes from './routes/programmes-classes.js'
 
 dotenv.config()
 
@@ -83,6 +84,7 @@ app.use('/api/bulletins', bulletinsRoutes)
 app.use('/api/lecons', leconsRoutes)
 app.use('/api/rh', rhRoutes)
 app.use('/api/affectations', affectationsRoutes)
+app.use('/api/programmes-classes', programmesClassesRoutes)
 
 // Health check
 app.get('/health', (req, res) => {

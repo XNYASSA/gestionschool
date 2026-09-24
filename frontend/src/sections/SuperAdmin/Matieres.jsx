@@ -1,19 +1,14 @@
-import { useState, useEffect, useMemo, useContext } from 'react'
-import { BookOpen, Loader, Search, Save } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { BookOpen, Loader, Search } from 'lucide-react'
 import { apiClient } from '../../api/client'
-import { AuthContext } from '../../context/AuthContext'
 
 export default function Matieres() {
-  const { user } = useContext(AuthContext)
-  const peutModifierCoefficient = ['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE'].includes(user?.roleAPI)
-
   const [ecoles, setEcoles] = useState([])
   const [ecoleId, setEcoleId] = useState('')
   const [matieres, setMatieres] = useState([])
   const [recherche, setRecherche] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [coeffEdits, setCoeffEdits] = useState({})
 
   useEffect(() => {
     apiClient.getEcoles()
@@ -34,20 +29,8 @@ export default function Matieres() {
     try {
       const data = await apiClient.getMatieresByEcole(id)
       setMatieres(data)
-      setCoeffEdits({})
     } catch (err) {
       setError(err.message || 'Erreur lors du chargement des matières')
-    }
-  }
-
-  const handleSaveCoeff = async (matiereId) => {
-    const valeur = parseInt(coeffEdits[matiereId])
-    if (isNaN(valeur) || valeur < 1) return
-    try {
-      await apiClient.updateMatiere(matiereId, { coefficient: valeur })
-      await loadMatieres(ecoleId)
-    } catch (err) {
-      setError(err.message || 'Erreur lors de la mise à jour du coefficient')
     }
   }
 
@@ -84,6 +67,9 @@ export default function Matieres() {
       <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
         <BookOpen className="w-6 h-6 text-purple-500" /> Matières
       </h2>
+      <p className="text-sm text-slate-500 -mt-3">
+        Catalogue des matières de l'école. Les coefficients et les enseignants se définissent classe par classe dans Pédagogie → Bulletins → « Programme de la classe ».
+      </p>
 
       {error && <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">⚠️ {error}</div>}
 
@@ -127,8 +113,6 @@ export default function Matieres() {
                     <th className="px-4 py-2 text-left font-semibold text-slate-700">Matière</th>
                     <th className="px-4 py-2 text-left font-semibold text-slate-700">Abréviation</th>
                     <th className="px-4 py-2 text-left font-semibold text-slate-700">Code</th>
-                    <th className="px-4 py-2 text-center font-semibold text-slate-700">Coefficient</th>
-                    {peutModifierCoefficient && <th className="px-4 py-2"></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -137,30 +121,6 @@ export default function Matieres() {
                       <td className="px-4 py-2 text-slate-900">{m.nom}</td>
                       <td className="px-4 py-2 text-slate-500">{m.abreviation || '-'}</td>
                       <td className="px-4 py-2 text-slate-400 font-mono text-xs">{m.code || '-'}</td>
-                      <td className="px-4 py-2 text-center">
-                        {peutModifierCoefficient ? (
-                          <input
-                            type="number"
-                            min="1"
-                            value={coeffEdits[m.id] ?? m.coefficient}
-                            onChange={(e) => setCoeffEdits({ ...coeffEdits, [m.id]: e.target.value })}
-                            className="w-16 px-2 py-1 border border-slate-300 rounded text-center"
-                          />
-                        ) : (
-                          <span className="font-semibold text-slate-900">{m.coefficient}</span>
-                        )}
-                      </td>
-                      {peutModifierCoefficient && (
-                        <td className="px-4 py-2 text-center">
-                          <button
-                            onClick={() => handleSaveCoeff(m.id)}
-                            className="p-1.5 hover:bg-purple-100 rounded text-purple-600 transition"
-                            title="Enregistrer le coefficient"
-                          >
-                            <Save className="w-4 h-4" />
-                          </button>
-                        </td>
-                      )}
                     </tr>
                   ))}
                 </tbody>

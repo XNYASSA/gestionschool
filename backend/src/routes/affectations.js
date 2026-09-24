@@ -88,6 +88,13 @@ router.post('/', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE'
       data: { enseignantId: enseignant.id, classeId, matiereId }
     })
 
+    // La matière entre dans le programme de la classe (coefficient à définir par le Principal)
+    await req.prisma.classeMatiere.upsert({
+      where: { classeId_matiereId: { classeId, matiereId } },
+      create: { classeId, matiereId, coefficient: 0 },
+      update: {}
+    })
+
     res.status(201).json(affectation)
   } catch (error) {
     res.status(500).json({ error: error.message })

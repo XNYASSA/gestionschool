@@ -42,7 +42,7 @@ function Champ({ label, value }) {
 }
 
 export default function BulletinTemplate({ data }) {
-  const { eleve, ecole, effectif, rang, notes, totalCoefficients, totalPoints, moyenneGenerale, appreciation, trimestre, anneeScolaire } = data
+  const { eleve, ecole, effectif, rang, notes, totalCoefficients, totalCoefficientsProgramme, programmeDefini, totalPoints, moyenneGenerale, appreciation, trimestre, anneeScolaire } = data
   const ministere = ministereParNiveau(ecole.niveau)
 
   return (
@@ -115,16 +115,18 @@ export default function BulletinTemplate({ data }) {
           {notes.length === 0 ? (
             <tr>
               <td colSpan={6} className="border border-black px-2 py-4 text-center text-slate-400">
-                Aucune note validée pour ce trimestre
+                {programmeDefini === false
+                  ? "Le programme de cette classe (matières et coefficients) n'est pas encore défini"
+                  : 'Aucune note validée pour ce trimestre'}
               </td>
             </tr>
           ) : (
             notes.map((n, i) => (
               <tr key={i}>
                 <td className="border border-black px-1 py-0.5">{n.matiere}</td>
-                <td className={`border border-black px-1 py-0.5 text-center font-semibold ${n.note < 10 ? 'text-red-600' : 'text-green-700'}`}>{n.note}</td>
+                <td className={`border border-black px-1 py-0.5 text-center font-semibold ${n.note === null ? '' : n.note < 10 ? 'text-red-600' : 'text-green-700'}`}>{n.note === null ? '' : n.note}</td>
                 <td className="border border-black px-1 py-0.5 text-center">{n.coefficient}</td>
-                <td className="border border-black px-1 py-0.5 text-center">{(n.note * n.coefficient).toFixed(2)}</td>
+                <td className="border border-black px-1 py-0.5 text-center">{n.note === null ? '' : (n.note * n.coefficient).toFixed(2)}</td>
                 <td className="border border-black px-1 py-0.5 text-center">{n.mention}</td>
                 <td className="border border-black px-1 py-0.5">{n.observation || ''}</td>
               </tr>
@@ -166,11 +168,11 @@ export default function BulletinTemplate({ data }) {
         <div className="border border-black p-2">
           <p className="font-bold text-center border-b border-black pb-1 mb-1">TRAVAIL TRIMESTRE {trimestre}</p>
           <div className="space-y-1">
-            <p>Coefficients total : <span className="font-semibold">{totalCoefficients}</span></p>
+            <p>Coefficients total : <span className="font-semibold">{totalCoefficients}{totalCoefficientsProgramme > 0 ? ` / ${totalCoefficientsProgramme}` : ''}</span></p>
             <p>Total points : <span className="font-semibold">{totalPoints.toFixed(2)}</span></p>
             <p>Rang : <span className="font-semibold">{rang}ᵉ / {effectif}</span></p>
             <p>Moyenne générale : <span className="font-semibold">{moyenneGenerale}/20</span></p>
-            <p>Nombre de matières : <span className="font-semibold">{notes.length}</span></p>
+            <p>Matières notées : <span className="font-semibold">{notes.filter(n => n.note !== null).length} / {notes.length}</span></p>
           </div>
         </div>
       </div>

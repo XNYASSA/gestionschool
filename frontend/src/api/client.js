@@ -650,6 +650,18 @@ class APIClient {
     })
   }
 
+  // PROGRAMME D'UNE CLASSE (matières cochées, enseignant, coefficient propre à la classe)
+  async getProgrammeClasse(classeId) {
+    return this.request(`/programmes-classes/${classeId}`)
+  }
+
+  async saveProgrammeClasse(classeId, matieres) {
+    return this.request(`/programmes-classes/${classeId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ matieres })
+    })
+  }
+
   // ANOMALIES : rapprochement Économat / Secrétaire / Principal-Directrice
   async getRapportAnomalies(ecoleId, period, date) {
     const params = new URLSearchParams({ ecoleId, period, ...(date && { date }) })

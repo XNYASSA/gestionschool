@@ -42,7 +42,7 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
       data: {
         nom,
         ecoleId,
-        coefficient: coefficient || 3
+        coefficient: coefficient ?? 0
       },
       include: { ecole: { select: { id: true, nomCourt: true } } }
     })

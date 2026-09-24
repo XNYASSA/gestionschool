@@ -93,6 +93,7 @@ model Classe {
   eleves                   Eleve[]
   enseignantClasseMatieres EnseignantClasseMatiere[]
   presences                Presence[]
+  classeMatieres           ClasseMatiere[]
 }
 
 // ===== STUDENTS =====
@@ -208,6 +209,22 @@ model Matiere {
 
   // Relations
   enseignantClasseMatieres EnseignantClasseMatiere[]
+  classeMatieres           ClasseMatiere[]
+}
+
+// Programme d'une classe : matières enseignées et coefficient propre à la classe
+// (le bulletin se base sur cette table ; Matiere.coefficient n'est plus utilisé).
+model ClasseMatiere {
+  id          String   @id @default(cuid())
+  classe      Classe   @relation(fields: [classeId], references: [id], onDelete: Cascade)
+  classeId    String
+  matiere     Matiere  @relation(fields: [matiereId], references: [id], onDelete: Cascade)
+  matiereId   String
+  coefficient Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([classeId, matiereId])
 }
 
 model EnseignantClasseMatiere {
