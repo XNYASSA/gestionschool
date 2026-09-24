@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Home, BarChart3, Users, School, Settings, FileText, AlertCircle, LogOut,
-  ChevronDown, DollarSign, BookOpen, User, Eye, Menu, X, Clock, GraduationCap
+  ChevronDown, DollarSign, BookOpen, User, Eye, Menu, X, Clock, GraduationCap, ClipboardList
 } from 'lucide-react'
 
 // Fonctionnalités attribuées à chaque poste — null = accès complet (Super Admin).
@@ -9,9 +9,9 @@ import {
 const RH_SAISIE = ['saisie-horaires', 'saisie-presences']
 
 export const MENU_PAR_ROLE = {
-  PRINCIPAL: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', 'matieres', ...RH_SAISIE, 'parametres'],
-  DIRECTRICE: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', 'matieres', ...RH_SAISIE, 'parametres'],
-  SECRETAIRE: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'rapports-finance', 'affectations-enseignants', 'bulletins', 'matieres', ...RH_SAISIE, 'parametres'],
+  PRINCIPAL: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', 'bordereau-notes', 'bareme-notation', 'matieres', ...RH_SAISIE, 'parametres'],
+  DIRECTRICE: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'create-ecole', 'classes', 'depenses', 'rapports-finance', 'configuration', 'affectations-enseignants', 'cahier-textes', 'emploi-temps', 'bulletins', 'bordereau-notes', 'bareme-notation', 'matieres', ...RH_SAISIE, 'parametres'],
+  SECRETAIRE: ['dashboard', 'list-eleves', 'import-eleves', 'list-personnel', 'create-personnel', 'list-ecoles', 'rapports-finance', 'affectations-enseignants', 'bulletins', 'bordereau-notes', 'bareme-notation', 'matieres', ...RH_SAISIE, 'parametres'],
   ECONOMAT: ['dashboard', 'list-eleves', 'import-eleves', 'list-ecoles', 'verification-financiere', 'parametres'],
   ENSEIGNANT: ['dashboard', 'list-eleves', 'mes-classes', 'cahier-texte-enseignant', 'saisie-notes', 'appel-presence', 'matieres', 'parametres'],
   SURVEILLANT_GENERAL: ['dashboard', 'presences-eleves', 'matieres', ...RH_SAISIE, 'parametres']
@@ -96,6 +96,15 @@ export default function SidebarSuperAdmin({ currentSection, setCurrentSection, l
         { id: 'emploi-temps', label: 'Emploi du temps' },
         { id: 'bulletins', label: 'Bulletins' },
         { id: 'matieres', label: 'Matières' }
+      ]
+    },
+    {
+      id: 'examens',
+      label: '📝 Examens',
+      icon: ClipboardList,
+      submenu: [
+        { id: 'bordereau-notes', label: 'Bordereau des notes' },
+        { id: 'bareme-notation', label: 'Barème de notation' }
       ]
     },
     {

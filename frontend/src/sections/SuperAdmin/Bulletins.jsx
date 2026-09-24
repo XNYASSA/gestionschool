@@ -4,14 +4,9 @@ import { apiClient } from '../../api/client'
 import { AuthContext } from '../../context/AuthContext'
 import BulletinTemplate from './BulletinTemplate'
 import ProgrammeClasse from './ProgrammeClasse'
+import { ANNEE_SCOLAIRE_COURANTE, ANNEES_SCOLAIRES } from '../../utils/anneeScolaire'
 
 const TRIMESTRES = [1, 2, 3]
-
-// L'année scolaire commence en septembre : de septembre à décembre on est dans
-// "année-année+1", de janvier à août dans "année-1-année".
-const debutAnneeCourante = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1
-const ANNEE_SCOLAIRE_COURANTE = `${debutAnneeCourante}-${debutAnneeCourante + 1}`
-const ANNEES_SCOLAIRES = Array.from({ length: 8 }, (_, i) => `${debutAnneeCourante - 3 + i}-${debutAnneeCourante - 2 + i}`)
 
 export default function Bulletins({ onNavigate }) {
   const { user } = useContext(AuthContext)

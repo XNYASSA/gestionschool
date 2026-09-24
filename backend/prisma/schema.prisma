@@ -78,6 +78,7 @@ model Ecole {
   depenses               Depense[]
   horaires               HoraireTravail[]
   presencesPersonnel     PresencePersonnel[]
+  baremesNotation        BaremeNotation[]
 }
 
 model Classe {
@@ -126,6 +127,7 @@ model Eleve {
   bulletins           Bulletin[]
   paiements           Paiement[]
   verificationsPaiement VerificationPaiement[]
+  notesEvaluations    NoteEvaluation[]
 }
 
 // ===== PAYMENTS & FEES =====
@@ -210,6 +212,7 @@ model Matiere {
   // Relations
   enseignantClasseMatieres EnseignantClasseMatiere[]
   classeMatieres           ClasseMatiere[]
+  notesEvaluations         NoteEvaluation[]
 }
 
 // Programme d'une classe : matières enseignées et coefficient propre à la classe
@@ -495,4 +498,41 @@ model Parametres {
   echances              String // JSON
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+}
+
+// Note saisie au bordereau (une par élève, matière, année, trimestre et évaluation).
+// Distincte de Note (flux enseignant + validation) : elle sert de base aux bulletins.
+model NoteEvaluation {
+  id            String   @id @default(cuid())
+  eleve         Eleve    @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  eleveId       String
+  matiere       Matiere  @relation(fields: [matiereId], references: [id], onDelete: Cascade)
+  matiereId     String
+  anneeScolaire String   // ex: "2026-2027"
+  trimestre     Int      // 1, 2 ou 3
+  evaluation    Int      // 1 ou 2 (séquence dans le trimestre)
+  valeur        Float    // note sur 20
+  saisiePar     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([eleveId, matiereId, anneeScolaire, trimestre, evaluation])
+  @@index([matiereId, anneeScolaire, trimestre, evaluation])
+}
+
+// Barème de notation d'une école (jargon APC) : mention et niveau de compétence selon la note.
+// Aucune ligne = barème APC par défaut (voir utils/baremeNotation.js).
+model BaremeNotation {
+  id        String   @id @default(cuid())
+  ecole     Ecole    @relation(fields: [ecoleId], references: [id], onDelete: Cascade)
+  ecoleId   String
+  valMin    Float
+  valMax    Float
+  apc       String   @default("")
+  gpa       Float    @default(0)
+  mentionFr String   @default("")
+  mentionEn String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([ecoleId])
 }

@@ -657,6 +657,33 @@ class APIClient {
     })
   }
 
+  // EXAMENS : barème de notation (APC) et bordereau des notes
+  async getBaremeNotation(ecoleId) {
+    return this.request(`/examens/bareme?ecoleId=${ecoleId}`)
+  }
+
+  async saveBaremeNotation(ecoleId, lignes) {
+    return this.request('/examens/bareme', {
+      method: 'PUT',
+      body: JSON.stringify({ ecoleId, lignes })
+    })
+  }
+
+  async reinitialiserBaremeNotation(ecoleId) {
+    return this.request(`/examens/bareme?ecoleId=${ecoleId}`, { method: 'DELETE' })
+  }
+
+  async getBordereau({ classeId, anneeScolaire, trimestre, evaluation }) {
+    return this.request(`/examens/bordereau?classeId=${classeId}&anneeScolaire=${anneeScolaire}&trimestre=${trimestre}&evaluation=${evaluation}`)
+  }
+
+  async saveBordereau({ classeId, anneeScolaire, trimestre, evaluation, notes }) {
+    return this.request('/examens/bordereau', {
+      method: 'PUT',
+      body: JSON.stringify({ classeId, anneeScolaire, trimestre, evaluation, notes })
+    })
+  }
+
   // PROGRAMME D'UNE CLASSE (matières cochées, enseignant, coefficient propre à la classe)
   async getProgrammeClasse(classeId) {
     return this.request(`/programmes-classes/${classeId}`)

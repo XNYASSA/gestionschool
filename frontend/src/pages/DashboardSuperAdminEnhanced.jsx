@@ -21,6 +21,8 @@ import AffectationsEnseignants from '../sections/SuperAdmin/AffectationsEnseigna
 import CahierTextes from '../sections/SuperAdmin/CahierTextes'
 import EmploiTemps from '../sections/SuperAdmin/EmploiTemps'
 import Bulletins from '../sections/SuperAdmin/Bulletins'
+import BordereauNotes from '../sections/SuperAdmin/BordereauNotes'
+import BaremeNotation from '../sections/SuperAdmin/BaremeNotation'
 import Parametres from '../sections/SuperAdmin/Parametres'
 import UsersManagement from './UsersManagement'
 import PersonnelRH from '../components/PersonnelRH'
@@ -162,6 +164,10 @@ export default function DashboardSuperAdminEnhanced() {
         return <EmploiTemps ecoleIds={ecoleIds} />
       case 'bulletins':
         return <Bulletins ecoleIds={ecoleIds} onNavigate={navigateToSection} />
+      case 'bordereau-notes':
+        return <BordereauNotes onNavigate={navigateToSection} />
+      case 'bareme-notation':
+        return <BaremeNotation />
       case 'matieres':
         return <Matieres />
       case 'saisie-horaires':
