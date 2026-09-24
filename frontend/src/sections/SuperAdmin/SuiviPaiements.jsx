@@ -13,6 +13,17 @@ function calculerStatutEleve(fraisEleve) {
   return { montantDu, montantPaye, statut }
 }
 
+const POSTES_SUIVIS = ['inscription', 'tranche1', 'tranche2', 'tranche3']
+
+function extrairePostes(fraisEleve) {
+  const postes = {}
+  for (const tranche of POSTES_SUIVIS) {
+    const f = fraisEleve.find(fr => fr.tranche === tranche)
+    postes[tranche] = f ? { du: f.montantDu, paye: f.montantPaye } : null
+  }
+  return postes
+}
+
 const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
 
 export default function SuiviPaiements() {
@@ -68,6 +79,7 @@ export default function SuiviPaiements() {
         montantDu,
         montantPaye,
         restant: montantDu - montantPaye,
+        postes: extrairePostes(fraisEleve),
         statut
       }
     })
@@ -321,6 +333,21 @@ export default function SuiviPaiements() {
   )
 }
 
+function PosteCell({ poste }) {
+  if (!poste) return <span className="text-slate-300">—</span>
+  const couleur = poste.paye >= poste.du && poste.du > 0
+    ? 'text-green-600'
+    : poste.paye > 0
+      ? 'text-orange-600'
+      : 'text-slate-400'
+  return (
+    <span className={`font-semibold ${couleur}`}>
+      {formatFCFA(poste.paye)}
+      <span className="text-slate-400 font-normal"> / {formatFCFA(poste.du)}</span>
+    </span>
+  )
+}
+
 function EleveGroupTable({ title, icon, eleves, getStatusBadge }) {
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -339,8 +366,10 @@ function EleveGroupTable({ title, icon, eleves, getStatusBadge }) {
                 <th className="px-6 py-3 text-center font-semibold text-slate-700">Sexe</th>
                 <th className="px-6 py-3 text-left font-semibold text-slate-700">Parent</th>
                 <th className="px-6 py-3 text-left font-semibold text-slate-700">Téléphone</th>
-                <th className="px-6 py-3 text-center font-semibold text-slate-700">Montant dû</th>
-                <th className="px-6 py-3 text-center font-semibold text-slate-700">Montant payé</th>
+                <th className="px-6 py-3 text-center font-semibold text-slate-700">Inscription</th>
+                <th className="px-6 py-3 text-center font-semibold text-slate-700">Tranche 1</th>
+                <th className="px-6 py-3 text-center font-semibold text-slate-700">Tranche 2</th>
+                <th className="px-6 py-3 text-center font-semibold text-slate-700">Tranche 3</th>
                 <th className="px-6 py-3 text-center font-semibold text-slate-700">Statut</th>
               </tr>
             </thead>
@@ -351,8 +380,11 @@ function EleveGroupTable({ title, icon, eleves, getStatusBadge }) {
                   <td className="px-6 py-3 text-center text-slate-600">{eleve.sexe === 'MASCULIN' ? '♂ M' : eleve.sexe === 'FEMININ' ? '♀ F' : '-'}</td>
                   <td className="px-6 py-3 text-slate-600">{eleve.parent}{eleve.lieuParente ? ` (${eleve.lieuParente})` : ''}</td>
                   <td className="px-6 py-3 text-slate-600">{eleve.tel}</td>
-                  <td className="px-6 py-3 text-center font-mono">{formatFCFA(eleve.montantDu)}</td>
-                  <td className="px-6 py-3 text-center font-mono font-bold text-green-600">{formatFCFA(eleve.montantPaye)}</td>
+                  {POSTES_SUIVIS.map(tranche => (
+                    <td key={tranche} className="px-6 py-3 text-center font-mono">
+                      <PosteCell poste={eleve.postes[tranche]} />
+                    </td>
+                  ))}
                   <td className="px-6 py-3 text-center">{getStatusBadge(eleve.statut)}</td>
                 </tr>
               ))}

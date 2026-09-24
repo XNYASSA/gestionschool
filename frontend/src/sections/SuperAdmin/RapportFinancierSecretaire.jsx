@@ -109,14 +109,14 @@ export default function RapportFinancierSecretaire() {
   const total = inscriptions + fraisAnnexes + pensions
   const dateLabel = referenceDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
-  // Regroupement par élève : montant total versé pendant la période
+  // Regroupement par élève : montant versé par poste pendant la période
   const elevesAyantPaye = useMemo(() => {
     const map = new Map()
     paiementsPeriode.forEach(p => {
       if (!p.eleve) return
-      const existant = map.get(p.eleveId) || { eleve: p.eleve, total: 0, operations: 0 }
+      const existant = map.get(p.eleveId) || { eleve: p.eleve, total: 0, postes: { inscription: 0, tranche1: 0, tranche2: 0, tranche3: 0 } }
       existant.total += p.montant
-      existant.operations += 1
+      if (existant.postes[p.tranche] !== undefined) existant.postes[p.tranche] += p.montant
       map.set(p.eleveId, existant)
     })
     return Array.from(map.values()).sort((a, b) => b.total - a.total)
@@ -273,19 +273,25 @@ export default function RapportFinancierSecretaire() {
                 <tr>
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">Élève</th>
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">Classe</th>
-                  <th className="px-6 py-3 text-center font-semibold text-slate-700">Montant versé (période)</th>
+                  <th className="px-6 py-3 text-center font-semibold text-slate-700">Inscription</th>
+                  <th className="px-6 py-3 text-center font-semibold text-slate-700">Tranche 1</th>
+                  <th className="px-6 py-3 text-center font-semibold text-slate-700">Tranche 2</th>
+                  <th className="px-6 py-3 text-center font-semibold text-slate-700">Tranche 3</th>
                   <th className="px-6 py-3 text-center font-semibold text-slate-700">Statut global</th>
                 </tr>
               </thead>
               <tbody>
-                {elevesAyantPaye.map(({ eleve, total: montantPeriode }) => {
+                {elevesAyantPaye.map(({ eleve, postes }) => {
                   const eleveComplet = eleves.find(e => e.id === eleve.id) || eleve
                   const statut = STATUT_PAIEMENT_STYLE[getStatutPaiement(eleveComplet)]
                   return (
                     <tr key={eleve.id} className="border-b border-slate-200 hover:bg-slate-50">
                       <td className="px-6 py-3 text-slate-900">{eleve.nom} {eleve.prenom} <span className="text-xs text-slate-400">({eleve.matricule})</span></td>
                       <td className="px-6 py-3 text-slate-600">{eleve.classe?.nom || '-'}</td>
-                      <td className="px-6 py-3 text-center font-semibold text-slate-900">{formatFCFA(montantPeriode)}</td>
+                      <td className="px-6 py-3 text-center font-mono">{postes.inscription > 0 ? formatFCFA(postes.inscription) : <span className="text-slate-300">—</span>}</td>
+                      <td className="px-6 py-3 text-center font-mono">{postes.tranche1 > 0 ? formatFCFA(postes.tranche1) : <span className="text-slate-300">—</span>}</td>
+                      <td className="px-6 py-3 text-center font-mono">{postes.tranche2 > 0 ? formatFCFA(postes.tranche2) : <span className="text-slate-300">—</span>}</td>
+                      <td className="px-6 py-3 text-center font-mono">{postes.tranche3 > 0 ? formatFCFA(postes.tranche3) : <span className="text-slate-300">—</span>}</td>
                       <td className="px-6 py-3 text-center">
                         <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statut.className}`}>{statut.label}</span>
                       </td>
