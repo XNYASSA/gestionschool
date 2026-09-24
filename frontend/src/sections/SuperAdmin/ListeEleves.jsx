@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Search, Plus, Eye, Edit2, Trash2, X, Loader } from 'lucide-react'
 import { apiClient } from '../../api/client'
+import BoutonsExport from '../../components/BoutonsExport'
+import { exportListeEleves } from '../../utils/exportListes'
 import { getStatutPaiement, getResteAPayer, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 
 const emptyForm = {
@@ -182,8 +184,15 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
 
       {/* Tableau */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="bg-slate-50 border-b border-slate-200 p-4">
-          <h3 className="font-bold text-slate-900">Élèves ({filteredEleves.length})</h3>
+        <div className="bg-slate-50 border-b border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-slate-900">Élèves ({filteredEleves.length})</h3>
+            <p className="text-xs text-slate-500">L'export reprend les élèves affichés, une page par classe.</p>
+          </div>
+          <BoutonsExport
+            disabled={filteredEleves.length === 0}
+            construire={() => exportListeEleves(filteredEleves, { critere: searchTerm ? `Recherche : « ${searchTerm} »` : '' })}
+          />
         </div>
         {loading ? (
           <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-2">

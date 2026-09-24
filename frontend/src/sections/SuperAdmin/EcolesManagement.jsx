@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useContext } from 'react'
 import { Plus, Edit2, Trash2, X, Loader, School, Users, Layers, ArrowLeft } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { AuthContext } from '../../context/AuthContext'
+import BoutonsExport from '../../components/BoutonsExport'
+import { exportListeEleves } from '../../utils/exportListes'
 import { getStatutPaiement, getResteAPayer, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 
 const NIVEAUX_ECOLE = [
@@ -499,8 +501,9 @@ function GestionClasses({ ecoles, classes, eleves, onChange, initialEcoleId, onB
 
       {classeOuverte && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="bg-slate-50 border-b border-slate-200 p-4">
+          <div className="bg-slate-50 border-b border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-bold text-slate-900">Élèves de {classeOuverte.nom} ({elevesClasseOuverte.length})</h3>
+            <BoutonsExport disabled={elevesClasseOuverte.length === 0} construire={() => exportListeEleves(elevesClasseOuverte)} />
           </div>
           {elevesClasseOuverte.length === 0 ? (
             <div className="p-8 text-center text-slate-500">Aucun élève dans cette classe</div>

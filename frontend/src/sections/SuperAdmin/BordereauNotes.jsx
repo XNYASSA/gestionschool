@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
-import { ClipboardList, Loader, Save, Printer, FileSpreadsheet, AlertTriangle } from 'lucide-react'
+import { ClipboardList, Loader, Save, Printer, AlertTriangle } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { ANNEE_SCOLAIRE_COURANTE, ANNEES_SCOLAIRES } from '../../utils/anneeScolaire'
 import { mentionPourNote } from '../../utils/baremeNotation'
-import {
-  moyenneEleve, ouvrirImpression, htmlBordereau, htmlFicheMatiere, PAGE_SUIVANTE, telechargerExcelBordereau, libelleEvaluation
-} from '../../utils/impressionExamens'
+import { moyenneEleve, sectionBordereau, sectionFiche, libelleEvaluation } from '../../utils/impressionExamens'
+import { nomFichierSur } from '../../utils/exportTableau'
+import BoutonsExport from '../../components/BoutonsExport'
 
 const texteNote = (n) => (n === null || n === undefined ? '' : String(n).replace('.', ','))
 const versNombre = (t) => {
@@ -152,16 +152,19 @@ export default function BordereauNotes({ onNavigate }) {
   const matiereFiche = donnees?.matieres.find(m => m.matiereId === ficheMatiere)
   useEffect(() => { setProfesseur(matiereFiche?.enseignant || '') }, [ficheMatiere, donnees])
 
-  const imprimerBordereau = () => {
-    ouvrirImpression('Bordereau des notes', htmlBordereau(donnees, { avecNotes: contenuBordereau === 'notes', notesSaisies: notesNumeriques }))
-  }
+  const nomBase = donnees ? nomFichierSur(`${donnees.classe.ecole}-${donnees.classe.nom}-T${trimestre}-E${evaluation}-${anneeScolaire}`) : ''
 
-  const imprimerFiches = () => {
+  const construireBordereau = (avecNotes) => () => ({
+    sections: [sectionBordereau(donnees, { avecNotes, notesSaisies: notesNumeriques })],
+    nomFichier: `bordereau-${avecNotes ? '' : 'vierge-'}${nomBase}`
+  })
+
+  const construireFiches = () => {
     const matieres = matiereFiche ? [matiereFiche] : donnees.matieres
-    const corps = matieres
-      .map(m => htmlFicheMatiere(donnees, m, { professeur: matiereFiche ? professeur : m.enseignant, avecMatricule: optionFiche === 'matricule' }))
-      .join(PAGE_SUIVANTE)
-    ouvrirImpression('Fiches de notes', corps)
+    return {
+      sections: matieres.map(m => sectionFiche(donnees, m, { professeur: matiereFiche ? professeur : m.enseignant, avecMatricule: optionFiche === 'matricule' })),
+      nomFichier: `fiches-notes-${matiereFiche ? nomFichierSur(matiereFiche.abreviation) + '-' : ''}${nomBase}`
+    }
   }
 
   if (loading) {
@@ -248,14 +251,17 @@ export default function BordereauNotes({ onNavigate }) {
                 <h3 className="font-bold text-slate-900">{donnees.classe.nom} — {libelleEvaluation(trimestre, evaluation)} — {anneeScolaire}</h3>
                 <p className="text-xs text-slate-500">{donnees.eleves.length} élève(s) · notes saisies sur 20 · Entrée ou ↓ pour passer à l'élève suivant</p>
               </div>
-              <button
-                onClick={enregistrer}
-                disabled={saving || modifications.length === 0 || aDesErreurs}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2"
-              >
-                {saving ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Enregistrer les notes{modifications.length > 0 ? ` (${modifications.length})` : ''}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <BoutonsExport construire={construireBordereau(true)} disabled={donnees.eleves.length === 0} />
+                <button
+                  onClick={enregistrer}
+                  disabled={saving || modifications.length === 0 || aDesErreurs}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2"
+                >
+                  {saving ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Enregistrer les notes{modifications.length > 0 ? ` (${modifications.length})` : ''}
+                </button>
+              </div>
             </div>
             {aDesErreurs && <div className="px-4 py-2 bg-red-50 text-red-700 text-sm">Une note saisie est invalide (entre 0 et 20 attendu) : corrigez les cases en rouge.</div>}
 
@@ -341,14 +347,7 @@ export default function BordereauNotes({ onNavigate }) {
                 <option value="notes">Avec les notes saisies</option>
                 <option value="vierge">Vierge (cases vides à remplir à la main)</option>
               </select>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={imprimerBordereau} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
-                  <Printer className="w-4 h-4" /> Imprimer / PDF
-                </button>
-                <button onClick={() => telechargerExcelBordereau(donnees, notesNumeriques)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition flex items-center gap-2">
-                  <FileSpreadsheet className="w-4 h-4" /> Télécharger (Excel)
-                </button>
-              </div>
+              <BoutonsExport construire={construireBordereau(contenuBordereau === 'notes')} disabled={donnees.eleves.length === 0} />
             </div>
 
             <div className="bg-white rounded-lg shadow-md p-4 space-y-3">
@@ -375,9 +374,7 @@ export default function BordereauNotes({ onNavigate }) {
                   <input type="text" value={professeur} onChange={(e) => setProfesseur(e.target.value)} placeholder="Nom de l'enseignant (facultatif)" className={selecteur} />
                 </div>
               )}
-              <button onClick={imprimerFiches} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
-                <Printer className="w-4 h-4" /> Imprimer / PDF
-              </button>
+              <BoutonsExport construire={construireFiches} disabled={donnees.eleves.length === 0} excel={false} />
             </div>
           </div>
         </>

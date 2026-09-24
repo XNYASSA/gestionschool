@@ -3,6 +3,8 @@ import { Plus, Edit2, Trash2, X, Loader, Power, Phone, Wallet, Upload } from 'lu
 import { apiClient } from '../../api/client'
 import { AuthContext } from '../../context/AuthContext'
 import ImporterPersonnel, { FONCTIONS_PERSONNEL } from './ImporterPersonnel'
+import BoutonsExport from '../../components/BoutonsExport'
+import { exportListePersonnel } from '../../utils/exportListes'
 
 const estSansConnexion = (email) => String(email || '').toLowerCase().endsWith('@personnel.local')
 
@@ -42,6 +44,7 @@ export default function PersonnelManagement({ section, canGererComptes = true })
 
   const [showModal, setShowModal] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [filtreEcole, setFiltreEcole] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState(emptyForm)
 
@@ -180,6 +183,10 @@ export default function PersonnelManagement({ section, canGererComptes = true })
 
   const formatFCFA = (m) => m ? `${m.toLocaleString('fr-FR')} FCFA` : '-'
 
+  const personnelAffiche = filtreEcole
+    ? personnel.filter(p => p.utilisateurEcoles?.some(ue => ue.ecole.id === filtreEcole))
+    : personnel
+
   const masseSalariale = personnel
     .filter(p => p.actif)
     .reduce((sum, p) => sum + (p.salaireMensuel || 0), 0)
@@ -218,14 +225,30 @@ export default function PersonnelManagement({ section, canGererComptes = true })
       )}
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="bg-slate-50 border-b border-slate-200 p-4">
-          <h3 className="font-bold text-slate-900">Personnel ({personnel.length})</h3>
+        <div className="bg-slate-50 border-b border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="font-bold text-slate-900">Personnel ({personnelAffiche.length})</h3>
+            {ecoles.length > 1 && (
+              <select value={filtreEcole} onChange={(e) => setFiltreEcole(e.target.value)} className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white">
+                <option value="">Toutes les écoles</option>
+                {ecoles.map(e => <option key={e.id} value={e.id}>{e.nomCourt}</option>)}
+              </select>
+            )}
+          </div>
+          <BoutonsExport
+            disabled={personnelAffiche.length === 0}
+            construire={() => exportListePersonnel(personnelAffiche, {
+              libelleEcole: ecoles.find(e => e.id === filtreEcole)?.nomCourt || 'Toutes les écoles',
+              libelleRole: (role) => ROLE_LABELS[role] || role,
+              estSansConnexion
+            })}
+          />
         </div>
         {loading ? (
           <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-2">
             <Loader className="w-5 h-5 animate-spin" /> Chargement...
           </div>
-        ) : personnel.length === 0 ? (
+        ) : personnelAffiche.length === 0 ? (
           <div className="p-8 text-center text-slate-500">Aucun membre du personnel</div>
         ) : (
           <div className="overflow-x-auto">
@@ -242,7 +265,7 @@ export default function PersonnelManagement({ section, canGererComptes = true })
                 </tr>
               </thead>
               <tbody>
-                {personnel.map(p => (
+                {personnelAffiche.map(p => (
                   <tr key={p.id} className="border-b border-slate-200 hover:bg-slate-50">
                     <td className="px-6 py-3 text-slate-900">{p.nom}</td>
                     <td className="px-6 py-3 text-slate-600">
