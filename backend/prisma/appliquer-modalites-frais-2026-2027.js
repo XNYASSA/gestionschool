@@ -52,8 +52,7 @@ const SPECS = [
   { ecole: 'CRP_ANGLOPHONE GENERAL', lignes: [23], attendu: 'Form 5', libelle: 'Form 5', niveaux: ['FORM FIVE ART', 'FORM FIVE SCIENCE'] },
   { ecole: 'CRP_ANGLOPHONE GENERAL', lignes: [24], attendu: 'L6 Scs', libelle: 'L6 Scs', niveaux: ['L6SC'] },
   { ecole: 'CRP_ANGLOPHONE GENERAL', lignes: [25], attendu: 'U6 Arts', libelle: 'U6 Arts', niveaux: ['U6A', 'L6A'] },
-  // Le fichier indique 21 500 FCFA d'inscription (total 167 500) ; corrigé à 21 000 FCFA (total 167 000) sur instruction du 24/09/2026
-  { ecole: 'CRP_ANGLOPHONE GENERAL', lignes: [26], attendu: 'U6 Scs', libelle: 'U6 Scs', niveaux: ['U6SC'], correction: { champ: 'inscription', fichier: 21500, valeur: 21000 } },
+  { ecole: 'CRP_ANGLOPHONE GENERAL', lignes: [26], attendu: 'U6 Scs', libelle: 'U6 Scs', niveaux: ['U6SC'] },
 
   // ===== GSB Steve Biko : la 2ème tranche anglophone (08/12) diffère de la francophone (08/11) =====
   { ecole: 'GSB STEVE BIKO', lignes: [4], attendu: 'Maternelle au CM2', libelle: 'Maternelle au CM2 (Francophone)', niveaux: ['MAT1', 'MAT2', 'SIL', 'CP', 'CE1', 'CE2', 'CM1', 'CM2'] },

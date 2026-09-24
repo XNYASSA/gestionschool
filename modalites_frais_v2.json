@@ -689,7 +689,7 @@
     "ecole": "Rosa Parks College (RPC)",
     "section": "General Education (Anglophone)",
     "classe": "U6 Scs",
-    "inscription": 21500,
+    "inscription": 21000,
     "informatique": 0,
     "td": 0,
     "matiereOeuvre": 0,
@@ -704,14 +704,14 @@
     "t2": 50000,
     "t3": 20000,
     "pensionFichier": 120000,
-    "horsRameFichier": 167500,
+    "horsRameFichier": 167000,
     "dateInscription": "At Registration",
     "dateT1": "2026-10-05",
     "dateT2": "2026-11-05",
     "dateT3": "2026-12-05",
     "autresCalcule": 25000,
     "pensionCalculee": 120000,
-    "horsRameCalcule": 167500
+    "horsRameCalcule": 167000
   },
   {
     "ligne": 27,
