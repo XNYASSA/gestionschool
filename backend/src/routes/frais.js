@@ -1,7 +1,7 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
 import { getEcoleIdsScope } from '../utils/ecoleScope.js'
-import { calculerStatut } from '../utils/inscriptionsFrais.js'
+import { calculerStatut, postesInscription, repartirSurPostesInscription } from '../utils/inscriptionsFrais.js'
 
 const router = express.Router()
 
@@ -21,6 +21,65 @@ router.get('/', verifyToken, checkRole(['SECRETAIRE', 'SUPER_ADMIN', 'PRINCIPAL'
   }
 })
 
+// Enregistre les versements d'un élève. Un montant par poste précis (tranche1,
+// tranche2, un frais annexe...) ; la clé "inscription" désigne l'inscription et tous
+// les frais hors tranches (livret médical, laboratoire, TD...) : le montant est imputé
+// dans cet ordre, et refusé s'il dépasse le solde restant de l'ensemble.
+async function enregistrerMontants(prisma, eleveId, montants, userId) {
+  const postes = await prisma.inscriptionFrais.findMany({ where: { eleveId } })
+  const resultats = []
+
+  const operations = (poste, montant) => [
+    prisma.inscriptionFrais.update({
+      where: { id: poste.id },
+      data: { montantPaye: poste.montantPaye + montant, datePayement: new Date(), statut: calculerStatut(poste.montantDu, poste.montantPaye + montant) }
+    }),
+    prisma.paiement.create({
+      data: { eleveId, inscriptionFraisId: poste.id, tranche: poste.tranche, montant, effectueParId: userId }
+    })
+  ]
+
+  // Les postes nommés d'abord, le groupe "inscription" en dernier
+  const entrees = Object.entries(montants).sort(([a], [b]) => (a === 'inscription') - (b === 'inscription'))
+  for (const [tranche, montantBrut] of entrees) {
+    const montant = parseInt(montantBrut)
+    if (!montant || montant <= 0) continue
+
+    if (tranche === 'inscription') {
+      const groupe = postesInscription(postes)
+      if (groupe.length === 0) {
+        resultats.push({ tranche, succes: false, introuvable: true, message: 'Poste "inscription" introuvable pour cet élève' })
+        continue
+      }
+      const restant = groupe.reduce((sum, p) => sum + p.montantDu - p.montantPaye, 0)
+      if (montant > restant) {
+        resultats.push({ tranche, succes: false, message: `Montant supérieur au solde restant pour ce poste (${restant.toLocaleString('fr-FR')} FCFA)` })
+        continue
+      }
+      const { allocations } = repartirSurPostesInscription(groupe, montant)
+      await prisma.$transaction(allocations.flatMap(a => operations(a.poste, a.montant)))
+      allocations.forEach(a => { a.poste.montantPaye += a.montant })
+      resultats.push({ tranche, succes: true, message: `${montant.toLocaleString('fr-FR')} FCFA enregistré(s)` })
+      continue
+    }
+
+    const poste = postes.find(p => p.tranche === tranche)
+    if (!poste) {
+      resultats.push({ tranche, succes: false, introuvable: true, message: `Poste "${tranche}" introuvable pour cet élève` })
+      continue
+    }
+    const restant = poste.montantDu - poste.montantPaye
+    if (montant > restant) {
+      resultats.push({ tranche, succes: false, message: `Montant supérieur au solde restant pour ce poste (${restant.toLocaleString('fr-FR')} FCFA)` })
+      continue
+    }
+    await prisma.$transaction(operations(poste, montant))
+    poste.montantPaye += montant
+    resultats.push({ tranche, succes: true, message: `${montant.toLocaleString('fr-FR')} FCFA enregistré(s)` })
+  }
+  return resultats
+}
+
 // ENREGISTRER PAIEMENT (Secretaire) — un montant par poste précis (inscription,
 // tranche1, tranche2...), pas d'allocation automatique sur "la première échéance
 // impayée" : la secrétaire indique exactement ce qui a été reçu pour chaque poste.
@@ -32,38 +91,7 @@ router.post('/enregistrer-paiement', verifyToken, checkRole(['SECRETAIRE']), asy
       return res.status(400).json({ error: 'eleveId et montants requis' })
     }
 
-    const resultats = []
-    for (const [tranche, montantBrut] of Object.entries(montants)) {
-      const montant = parseInt(montantBrut)
-      if (!montant || montant <= 0) continue
-
-      const frais = await req.prisma.inscriptionFrais.findFirst({ where: { eleveId, tranche } })
-      if (!frais) {
-        resultats.push({ tranche, succes: false, message: `Poste "${tranche}" introuvable pour cet élève` })
-        continue
-      }
-
-      const restant = frais.montantDu - frais.montantPaye
-      if (montant > restant) {
-        resultats.push({ tranche, succes: false, message: `Montant supérieur au solde restant pour ce poste (${restant.toLocaleString('fr-FR')} FCFA)` })
-        continue
-      }
-
-      const nouveauMontantPaye = frais.montantPaye + montant
-      const nouveauStatut = calculerStatut(frais.montantDu, nouveauMontantPaye)
-
-      await req.prisma.$transaction([
-        req.prisma.inscriptionFrais.update({
-          where: { id: frais.id },
-          data: { montantPaye: nouveauMontantPaye, datePayement: new Date(), statut: nouveauStatut }
-        }),
-        req.prisma.paiement.create({
-          data: { eleveId, inscriptionFraisId: frais.id, tranche, montant, effectueParId: req.user.id }
-        })
-      ])
-
-      resultats.push({ tranche, succes: true, message: `${montant.toLocaleString('fr-FR')} FCFA enregistré(s)` })
-    }
+    const resultats = await enregistrerMontants(req.prisma, eleveId, montants, req.user.id)
 
     if (resultats.length === 0) {
       return res.status(400).json({ error: 'Aucun montant à enregistrer' })
@@ -129,35 +157,9 @@ router.post('/importer-paiements', verifyToken, checkRole(['SECRETAIRE']), async
           tranche3: ligne.tranche3
         }
 
-        const postesEnregistres = []
-        const postesEchoues = []
-        for (const [tranche, montantBrut] of Object.entries(montants)) {
-          const montant = parseInt(montantBrut)
-          if (!montant || montant <= 0) continue
-
-          const frais = await req.prisma.inscriptionFrais.findFirst({ where: { eleveId: eleve.id, tranche } })
-          if (!frais) continue
-
-          const restant = frais.montantDu - frais.montantPaye
-          if (montant > restant) {
-            postesEchoues.push(`${tranche}: dépasse le solde restant (${restant.toLocaleString('fr-FR')} FCFA)`)
-            continue
-          }
-
-          const nouveauMontantPaye = frais.montantPaye + montant
-          const nouveauStatut = calculerStatut(frais.montantDu, nouveauMontantPaye)
-
-          await req.prisma.$transaction([
-            req.prisma.inscriptionFrais.update({
-              where: { id: frais.id },
-              data: { montantPaye: nouveauMontantPaye, datePayement: new Date(), statut: nouveauStatut }
-            }),
-            req.prisma.paiement.create({
-              data: { eleveId: eleve.id, inscriptionFraisId: frais.id, tranche, montant, effectueParId: req.user.id }
-            })
-          ])
-          postesEnregistres.push(`${tranche}: ${montant.toLocaleString('fr-FR')} FCFA`)
-        }
+        const resultatsLigne = (await enregistrerMontants(req.prisma, eleve.id, montants, req.user.id)).filter(r => !r.introuvable)
+        const postesEnregistres = resultatsLigne.filter(r => r.succes).map(r => `${r.tranche}: ${r.message.replace(' enregistré(s)', '')}`)
+        const postesEchoues = resultatsLigne.filter(r => !r.succes).map(r => `${r.tranche}: ${r.message.replace('Montant supérieur au solde restant pour ce poste', 'dépasse le solde restant')}`)
 
         if (postesEnregistres.length === 0 && postesEchoues.length === 0) {
           throw new Error('Aucun montant valide à enregistrer pour cet élève')

@@ -103,7 +103,7 @@ export default function ImporterPaiementsSecretaire({ onImportTermine }) {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
       <p className="text-sm text-slate-500">
-        Format : Matricule (ou Nom + Prénom + Classe), puis un montant par poste (Inscription, Tranche 1, 2, 3).
+        Format : Matricule (ou Nom + Prénom + Classe), puis un montant par poste (Inscription, Tranche 1, 2, 3). L'inscription comprend les frais d'inscription et les autres frais hors tranches (livret médical, laboratoire, TD...).
         Les frais annexes se saisissent via le formulaire.
       </p>
 

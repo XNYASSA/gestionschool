@@ -15,11 +15,12 @@ function calculerStatutEleve(fraisEleve) {
 
 const POSTES_SUIVIS = ['inscription', 'tranche1', 'tranche2', 'tranche3']
 
+// "Inscription" = frais d'inscription + tous les frais hors tranches de pension (livret médical, laboratoire, TD...)
 function extrairePostes(fraisEleve) {
-  const postes = {}
-  for (const tranche of POSTES_SUIVIS) {
-    const f = fraisEleve.find(fr => fr.tranche === tranche)
-    postes[tranche] = f ? { du: f.montantDu, paye: f.montantPaye } : null
+  const somme = (liste) => liste.length ? { du: liste.reduce((s, f) => s + f.montantDu, 0), paye: liste.reduce((s, f) => s + f.montantPaye, 0) } : null
+  const postes = { inscription: somme(fraisEleve.filter(fr => !/^tranche\d+$/.test(fr.tranche))) }
+  for (const tranche of POSTES_SUIVIS.slice(1)) {
+    postes[tranche] = somme(fraisEleve.filter(fr => fr.tranche === tranche))
   }
   return postes
 }

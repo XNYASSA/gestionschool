@@ -1,42 +1,12 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
 import { getEcoleIdsScope } from '../utils/ecoleScope.js'
-import { creerInscriptionsFraisPourEleve, calculerStatut } from '../utils/inscriptionsFrais.js'
+import { creerInscriptionsFraisPourEleve, synchroniserPaiementsCibles } from '../utils/inscriptionsFrais.js'
 
-// Synchronise les postes d'inscription/tranches d'un élève avec les montants
-// explicites du fichier Excel (colonnes Inscription/Tranche 1/2/3) — chaque
-// poste est rapproché par sa clé exacte, sans avoir à deviner un ordre de
-// répartition. N'augmente jamais que vers le haut : un montant du fichier
-// inférieur ou égal à ce qui est déjà enregistré est ignoré, pour ne jamais
-// écraser un paiement saisi en direct dans l'app depuis.
-async function synchroniserPaiementImport(prisma, eleveId, montants) {
-  const postes = await prisma.inscriptionFrais.findMany({ where: { eleveId } })
-  const posteParTranche = Object.fromEntries(postes.map(p => [p.tranche, p]))
-
-  const cibles = {
-    inscription: montants.inscription,
-    tranche1: montants.tranche1,
-    tranche2: montants.tranche2,
-    tranche3: montants.tranche3
-  }
-
-  for (const [tranche, valeurBrute] of Object.entries(cibles)) {
-    if (valeurBrute === undefined || valeurBrute === null || valeurBrute === '') continue
-    const cible = parseInt(valeurBrute)
-    if (isNaN(cible) || cible < 0) continue
-
-    const poste = posteParTranche[tranche]
-    if (!poste) continue
-
-    const nouveauMontantPaye = Math.min(cible, poste.montantDu)
-    if (nouveauMontantPaye <= poste.montantPaye) continue
-
-    await prisma.inscriptionFrais.update({
-      where: { id: poste.id },
-      data: { montantPaye: nouveauMontantPaye, statut: calculerStatut(poste.montantDu, nouveauMontantPaye) }
-    })
-  }
-}
+const LIBELLES_POSTES = { inscription: 'Inscription', tranche1: 'Tranche 1', tranche2: 'Tranche 2', tranche3: 'Tranche 3' }
+const texteExces = (exces) => exces.length === 0
+  ? ''
+  : ` — attention : ${exces.map(e => `${e.montant.toLocaleString('fr-FR')} FCFA de ${LIBELLES_POSTES[e.tranche]} dépassent le montant dû`).join(', ')}`
 
 const router = express.Router()
 
@@ -242,12 +212,12 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
             matriculesExistants.add(eleve.matricule)
           }
 
-          await synchroniserPaiementImport(req.prisma, eleve.id, montantsPostes)
+          const { exces } = await synchroniserPaiementsCibles(req.prisma, eleve.id, montantsPostes)
 
           resultats.push({
             ligne: numeroLigne,
             succes: true,
-            message: `${prenomTrim} ${nomTrim} (${eleve.matricule}) mis à jour`
+            message: `${prenomTrim} ${nomTrim} (${eleve.matricule}) mis à jour${texteExces(exces)}`
           })
           continue
         }
@@ -280,14 +250,14 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
         })
 
         const postesFrais = await creerInscriptionsFraisPourEleve(req.prisma, eleve.id, ecoleId, classeTrouvee.niveau)
-        await synchroniserPaiementImport(req.prisma, eleve.id, montantsPostes)
+        const { exces } = await synchroniserPaiementsCibles(req.prisma, eleve.id, montantsPostes)
 
         resultats.push({
           ligne: numeroLigne,
           succes: true,
           message: postesFrais.length === 0
             ? `${prenomTrim} ${nomTrim} (${matricule}) créé(e) — aucun barème de frais pour le niveau "${classeTrouvee.niveau}"`
-            : `${prenomTrim} ${nomTrim} (${matricule}) créé(e)`
+            : `${prenomTrim} ${nomTrim} (${matricule}) créé(e)${texteExces(exces)}`
         })
       } catch (err) {
         resultats.push({ ligne: numeroLigne, succes: false, message: err.message })

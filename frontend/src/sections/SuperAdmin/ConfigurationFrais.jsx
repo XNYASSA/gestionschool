@@ -330,6 +330,7 @@ export default function ConfigurationFrais() {
                       </span>
                     ))}
                   </div>
+                  <p className="text-sm text-slate-600">Inscription (avec autres frais hors tranches) : <span className="font-semibold text-slate-900">{formatFCFA(c.montantInscription + (c.fraisAnnexes || []).reduce((sum, f) => sum + f.montant, 0))}</span></p>
                   <p className="text-sm text-slate-600">Total : <span className="font-semibold text-slate-900">{formatFCFA(c.montantFraisTotal)}</span></p>
                 </button>
               ))}

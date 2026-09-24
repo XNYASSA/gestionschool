@@ -8,6 +8,7 @@ import ImporterPaiementsSecretaire from './ImporterPaiementsSecretaire'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
+const estTranche = (tranche) => /^tranche\d+$/.test(tranche)
 const labelPoste = (poste) => poste.libelle || (poste.tranche === 'inscription' ? "Frais d'inscription" : `Tranche ${poste.tranche.replace('tranche', '')}`)
 
 export default function RapportFinancierSecretaire() {
@@ -56,13 +57,17 @@ export default function RapportFinancierSecretaire() {
     setMessage('')
   }
 
-  const ordrePoste = (tranche) => tranche === 'inscription' ? 0 : tranche.startsWith('annexe_') ? 1 : 2
-
+  // L'inscription regroupe les frais d'inscription et tous les frais hors tranches (livret médical, laboratoire, TD...)
   const postesEleve = useMemo(() => {
     if (!eleveSelectionne) return []
-    return frais
-      .filter(f => f.eleveId === eleveSelectionne.id)
-      .sort((a, b) => ordrePoste(a.tranche) - ordrePoste(b.tranche) || a.tranche.localeCompare(b.tranche))
+    const fraisEleve = frais.filter(f => f.eleveId === eleveSelectionne.id)
+    const hors = fraisEleve.filter(f => !estTranche(f.tranche))
+    const tranches = fraisEleve.filter(f => estTranche(f.tranche)).sort((a, b) => a.tranche.localeCompare(b.tranche))
+    if (hors.length === 0) return tranches
+    const du = hors.reduce((sum, f) => sum + f.montantDu, 0)
+    const paye = hors.reduce((sum, f) => sum + f.montantPaye, 0)
+    const detail = hors.length > 1 ? hors.map(f => `${labelPoste(f)} ${formatFCFA(f.montantDu)}`).join(' + ') : ''
+    return [{ id: 'inscription', tranche: 'inscription', libelle: 'Inscription', detail, montantDu: du, montantPaye: paye, statut: paye >= du ? 'SOLDE' : 'IMPAYE' }, ...tranches]
   }, [frais, eleveSelectionne])
 
   const handleSubmit = async (e) => {
@@ -103,10 +108,9 @@ export default function RapportFinancierSecretaire() {
     () => paiements.filter(p => isInPeriod(p.date, period, referenceDate)),
     [paiements, period, selectedDate]
   )
-  const inscriptions = paiementsPeriode.filter(p => p.tranche === 'inscription').reduce((sum, p) => sum + p.montant, 0)
-  const fraisAnnexes = paiementsPeriode.filter(p => p.tranche.startsWith('annexe_')).reduce((sum, p) => sum + p.montant, 0)
-  const pensions = paiementsPeriode.filter(p => p.tranche !== 'inscription' && !p.tranche.startsWith('annexe_')).reduce((sum, p) => sum + p.montant, 0)
-  const total = inscriptions + fraisAnnexes + pensions
+  const inscriptions = paiementsPeriode.filter(p => !estTranche(p.tranche)).reduce((sum, p) => sum + p.montant, 0)
+  const pensions = paiementsPeriode.filter(p => estTranche(p.tranche)).reduce((sum, p) => sum + p.montant, 0)
+  const total = inscriptions + pensions
   const dateLabel = referenceDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
   // Regroupement par élève : montant versé par poste pendant la période
@@ -116,7 +120,8 @@ export default function RapportFinancierSecretaire() {
       if (!p.eleve) return
       const existant = map.get(p.eleveId) || { eleve: p.eleve, total: 0, postes: { inscription: 0, tranche1: 0, tranche2: 0, tranche3: 0 } }
       existant.total += p.montant
-      if (existant.postes[p.tranche] !== undefined) existant.postes[p.tranche] += p.montant
+      const poste = estTranche(p.tranche) ? p.tranche : 'inscription'
+      if (existant.postes[poste] !== undefined) existant.postes[poste] += p.montant
       map.set(p.eleveId, existant)
     })
     return Array.from(map.values()).sort((a, b) => b.total - a.total)
@@ -181,6 +186,7 @@ export default function RapportFinancierSecretaire() {
                   <div key={poste.id}>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       {labelPoste(poste)}
+                      {poste.detail && <span className="block text-xs text-slate-400 font-normal">{poste.detail}</span>}
                       <span className="block text-xs text-slate-400 font-normal">
                         Dû : {formatFCFA(poste.montantDu)} — Payé : {formatFCFA(poste.montantPaye)} — Reste : {formatFCFA(poste.montantDu - poste.montantPaye)}
                       </span>
@@ -236,14 +242,10 @@ export default function RapportFinancierSecretaire() {
           Total des opérations pour <strong>{PERIOD_LABELS[period]?.toLowerCase()}</strong> — ancré sur le <strong>{dateLabel}</strong>
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div className="p-4 bg-slate-50 rounded-lg">
-            <p className="text-sm text-slate-600">Frais d'inscription</p>
+            <p className="text-sm text-slate-600">Inscription (et autres frais hors tranches)</p>
             <p className="text-xl font-bold text-slate-900">{formatFCFA(inscriptions)}</p>
-          </div>
-          <div className="p-4 bg-slate-50 rounded-lg">
-            <p className="text-sm text-slate-600">Frais annexes</p>
-            <p className="text-xl font-bold text-slate-900">{formatFCFA(fraisAnnexes)}</p>
           </div>
           <div className="p-4 bg-slate-50 rounded-lg">
             <p className="text-sm text-slate-600">Tranches de pension</p>
