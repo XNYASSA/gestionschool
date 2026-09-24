@@ -8,6 +8,11 @@ export function getStatutPaiement(eleve) {
   return 'PARTIEL'
 }
 
+// Reste d'argent dû par l'élève sur l'ensemble de ses postes (inscription, frais hors tranches, tranches).
+export function getResteAPayer(eleve) {
+  return (eleve?.inscriptionsFrais || []).reduce((sum, f) => sum + Math.max(0, f.montantDu - f.montantPaye), 0)
+}
+
 export const STATUT_PAIEMENT_STYLE = {
   SOLDE: { label: '✓ Payé', className: 'bg-green-100 text-green-700' },
   PARTIEL: { label: '⚠ Partiel', className: 'bg-yellow-100 text-yellow-700' },

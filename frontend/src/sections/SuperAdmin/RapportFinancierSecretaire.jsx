@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Wallet, TrendingUp, Loader, Calendar, Check, Users, Upload } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { isInPeriod, PERIOD_LABELS } from '../../utils/periodFilter'
-import { getStatutPaiement, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
+import { getStatutPaiement, getResteAPayer, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 import RechercheEleve from '../../components/RechercheEleve'
 import ImporterPaiementsSecretaire from './ImporterPaiementsSecretaire'
 
@@ -280,6 +280,7 @@ export default function RapportFinancierSecretaire() {
                   <th className="px-6 py-3 text-center font-semibold text-slate-700">Tranche 2</th>
                   <th className="px-6 py-3 text-center font-semibold text-slate-700">Tranche 3</th>
                   <th className="px-6 py-3 text-center font-semibold text-slate-700">Statut global</th>
+                  <th className="px-6 py-3 text-center font-semibold text-slate-700">Reste à payer</th>
                 </tr>
               </thead>
               <tbody>
@@ -296,6 +297,9 @@ export default function RapportFinancierSecretaire() {
                       <td className="px-6 py-3 text-center font-mono">{postes.tranche3 > 0 ? formatFCFA(postes.tranche3) : <span className="text-slate-300">—</span>}</td>
                       <td className="px-6 py-3 text-center">
                         <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statut.className}`}>{statut.label}</span>
+                      </td>
+                      <td className="px-6 py-3 text-center font-mono">
+                        <span className={getResteAPayer(eleveComplet) > 0 ? 'font-semibold text-red-600' : 'text-green-600'}>{getResteAPayer(eleveComplet).toLocaleString('fr-FR')} FCFA</span>
                       </td>
                     </tr>
                   )

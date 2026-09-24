@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useContext } from 'react'
 import { Plus, Edit2, Trash2, X, Loader, School, Users, Layers, ArrowLeft } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { AuthContext } from '../../context/AuthContext'
-import { getStatutPaiement, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
+import { getStatutPaiement, getResteAPayer, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 
 const NIVEAUX_ECOLE = [
   { value: 'SECONDAIRE', label: 'Secondaire (collège)' },
@@ -514,6 +514,7 @@ function GestionClasses({ ecoles, classes, eleves, onChange, initialEcoleId, onB
                     <th className="px-6 py-3 text-left font-semibold text-slate-700">Prénom</th>
                     <th className="px-6 py-3 text-left font-semibold text-slate-700">Parent</th>
                     <th className="px-6 py-3 text-center font-semibold text-slate-700">Paiement</th>
+                    <th className="px-6 py-3 text-center font-semibold text-slate-700">Reste à payer</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -531,6 +532,9 @@ function GestionClasses({ ecoles, classes, eleves, onChange, initialEcoleId, onB
                         <td className="px-6 py-3 text-center">
                           <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statut.className}`}>{statut.label}</span>
                         </td>
+                        <td className="px-6 py-3 text-center font-mono">
+                        <span className={getResteAPayer(eleve) > 0 ? 'font-semibold text-red-600' : 'text-green-600'}>{getResteAPayer(eleve).toLocaleString('fr-FR')} FCFA</span>
+                      </td>
                       </tr>
                     )
                   })}

@@ -372,6 +372,7 @@ function EleveGroupTable({ title, icon, eleves, getStatusBadge }) {
                 <th className="px-6 py-3 text-center font-semibold text-slate-700">Tranche 2</th>
                 <th className="px-6 py-3 text-center font-semibold text-slate-700">Tranche 3</th>
                 <th className="px-6 py-3 text-center font-semibold text-slate-700">Statut</th>
+                <th className="px-6 py-3 text-center font-semibold text-slate-700">Reste à payer</th>
               </tr>
             </thead>
             <tbody>
@@ -387,6 +388,9 @@ function EleveGroupTable({ title, icon, eleves, getStatusBadge }) {
                     </td>
                   ))}
                   <td className="px-6 py-3 text-center">{getStatusBadge(eleve.statut)}</td>
+                  <td className="px-6 py-3 text-center font-mono">
+                    <span className={eleve.restant > 0 ? 'font-semibold text-red-600' : 'text-green-600'}>{formatFCFA(Math.max(0, eleve.restant))}</span>
+                  </td>
                 </tr>
               ))}
             </tbody>

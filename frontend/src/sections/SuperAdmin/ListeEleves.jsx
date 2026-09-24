@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Search, Plus, Eye, Edit2, Trash2, X, Loader } from 'lucide-react'
 import { apiClient } from '../../api/client'
-import { getStatutPaiement, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
+import { getStatutPaiement, getResteAPayer, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 
 const emptyForm = {
   nom: '',
@@ -202,6 +202,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">École</th>
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">Parent</th>
                   {showStatutPaiement && <th className="px-6 py-3 text-center font-semibold text-slate-700">Paiement</th>}
+                  {showStatutPaiement && <th className="px-6 py-3 text-center font-semibold text-slate-700">Reste à payer</th>}
                   <th className="px-6 py-3 text-center font-semibold text-slate-700">Actions</th>
                 </tr>
               </thead>
@@ -222,6 +223,11 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                           const statut = STATUT_PAIEMENT_STYLE[getStatutPaiement(eleve)]
                           return <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statut.className}`}>{statut.label}</span>
                         })()}
+                      </td>
+                    )}
+                    {showStatutPaiement && (
+                      <td className="px-6 py-3 text-center font-mono">
+                        <span className={getResteAPayer(eleve) > 0 ? 'font-semibold text-red-600' : 'text-green-600'}>{getResteAPayer(eleve).toLocaleString('fr-FR')} FCFA</span>
                       </td>
                     )}
                     <td className="px-6 py-3 text-center flex gap-2 justify-center">
