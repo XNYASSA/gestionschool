@@ -463,6 +463,13 @@ class APIClient {
     })
   }
 
+  async importerPersonnel(ecoleId, lignes) {
+    return this.request('/utilisateurs/import', {
+      method: 'POST',
+      body: JSON.stringify({ ecoleId, lignes })
+    })
+  }
+
   async toggleUtilisateurStatut(id) {
     return this.request(`/utilisateurs/${id}/toggle-statut`, {
       method: 'PUT'

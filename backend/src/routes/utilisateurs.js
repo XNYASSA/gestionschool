@@ -28,6 +28,34 @@ async function verifierReauthentificationAdmin(prisma, req) {
 // Rôles qu'un Principal/Directrice (non Super Admin) peut créer/assigner — pas de gestion des comptes admin
 const ROLES_ASSIGNABLES_NON_ADMIN = ['SECRETAIRE', 'ENSEIGNANT', 'ECONOMAT', 'SURVEILLANT_GENERAL', 'PERSONNEL']
 
+// Un membre du personnel peut être enregistré sans email ni mot de passe (aucun champ
+// n'est obligatoire). Il reçoit alors un email technique et un mot de passe aléatoire
+// jamais communiqué : le compte existe (affectations, salaire, listes) mais personne
+// ne peut s'y connecter tant qu'un vrai email et un mot de passe n'ont pas été saisis.
+const DOMAINE_SANS_CONNEXION = '@personnel.local'
+const estSansConnexion = (email) => String(email || '').toLowerCase().endsWith(DOMAINE_SANS_CONNEXION)
+const emailSansConnexion = () => `sans-connexion-${crypto.randomBytes(6).toString('hex')}${DOMAINE_SANS_CONNEXION}`
+const motDePasseInutilisable = () => bcryptjs.hash(crypto.randomBytes(24).toString('hex'), 4)
+const texte = (valeur) => (valeur === undefined || valeur === null ? '' : String(valeur).trim())
+
+const normaliserTexte = (valeur) => texte(valeur)
+  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+// Clé de comparaison de deux noms : sans accents ni casse ni ponctuation, et sans
+// tenir compte de l'ordre des mots ("Nom Prénom" ou "Prénom Nom").
+const cleNom = (nom) => normaliserTexte(nom).split(' ').filter(Boolean).sort().join(' ')
+
+// Libellés de rôle acceptés dans un fichier d'import (comparés sans accents ni casse)
+const ROLES_IMPORT = {
+  enseignant: 'ENSEIGNANT', enseignante: 'ENSEIGNANT', 'enseignant e': 'ENSEIGNANT', professeur: 'ENSEIGNANT', prof: 'ENSEIGNANT',
+  secretaire: 'SECRETAIRE',
+  economat: 'ECONOMAT', econome: 'ECONOMAT', economie: 'ECONOMAT',
+  'surveillant general': 'SURVEILLANT_GENERAL', 'surveillante generale': 'SURVEILLANT_GENERAL', sg: 'SURVEILLANT_GENERAL',
+  personnel: 'PERSONNEL', 'autre personnel administratif': 'PERSONNEL', 'personnel administratif': 'PERSONNEL', autre: 'PERSONNEL',
+  principal: 'PRINCIPAL', principale: 'PRINCIPAL', directrice: 'DIRECTRICE', directeur: 'DIRECTRICE'
+}
+
 const publicSelect = {
   id: true,
   nom: true,
@@ -248,21 +276,26 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
   try {
     const { nom, email, motDePasse, role, fonction, telephone, salaireMensuel, ecoleId } = req.body
 
-    if (!nom || !email || !motDePasse || !role) {
-      return res.status(400).json({
-        error: 'Champs obligatoires: nom, email, motDePasse, role'
-      })
+    // Aucun champ n'est obligatoire, mais on refuse une fiche entièrement vide (clic accidentel)
+    if (![nom, email, motDePasse, fonction, telephone, salaireMensuel].some(v => texte(v))) {
+      return res.status(400).json({ error: 'Renseignez au moins une information (nom, email, téléphone, fonction…)' })
     }
 
-    const roleFinal = role.toUpperCase()
+    const roleFinal = (texte(role) || 'ENSEIGNANT').toUpperCase()
 
     if (req.user.role !== 'SUPER_ADMIN' && !ROLES_ASSIGNABLES_NON_ADMIN.includes(roleFinal)) {
       return res.status(403).json({ error: 'Vous ne pouvez pas attribuer ce rôle' })
     }
 
-    const existingUser = await req.prisma.utilisateur.findUnique({ where: { email } })
-    if (existingUser) {
-      return res.status(400).json({ error: 'Cet email est déjà utilisé' })
+    const emailSaisi = texte(email)
+    if (estSansConnexion(emailSaisi)) {
+      return res.status(400).json({ error: 'Adresse email non valide' })
+    }
+    if (emailSaisi) {
+      const existingUser = await req.prisma.utilisateur.findUnique({ where: { email: emailSaisi } })
+      if (existingUser) {
+        return res.status(400).json({ error: 'Cet email est déjà utilisé' })
+      }
     }
 
     if (ecoleId) {
@@ -277,12 +310,12 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
       }
     }
 
-    const hashedPassword = await bcryptjs.hash(motDePasse, 10)
+    const hashedPassword = texte(motDePasse) ? await bcryptjs.hash(motDePasse, 10) : await motDePasseInutilisable()
 
     const utilisateur = await req.prisma.utilisateur.create({
       data: {
-        nom,
-        email,
+        nom: texte(nom) || 'Sans nom',
+        email: emailSaisi || emailSansConnexion(),
         motDePasse: hashedPassword,
         role: roleFinal,
         fonction: fonction || null,
@@ -307,29 +340,122 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
   }
 })
 
+// POST /import - Importer une liste du personnel (nom, prénom, rôle) dans UNE école.
+// Chaque ligne est traitée indépendamment. Les comptes créés n'ont pas de connexion
+// (voir DOMAINE_SANS_CONNEXION). Une personne déjà présente dans l'école (même nom,
+// quel que soit l'ordre prénom/nom) est ignorée : on peut réimporter un fichier qui grossit.
+router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
+  try {
+    const { ecoleId, lignes } = req.body
+    if (!ecoleId || !Array.isArray(lignes) || lignes.length === 0) {
+      return res.status(400).json({ error: 'ecoleId et lignes (tableau non vide) requis' })
+    }
+
+    const ecole = await req.prisma.ecole.findUnique({ where: { id: ecoleId } })
+    if (!ecole) return res.status(400).json({ error: 'École non trouvée' })
+
+    const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+    if (ecoleIds && !ecoleIds.includes(ecoleId)) {
+      return res.status(403).json({ error: 'Cette école ne vous est pas affectée' })
+    }
+
+    const dejaPresents = await req.prisma.utilisateurEcole.findMany({
+      where: { ecoleId, actif: true },
+      include: { utilisateur: { select: { nom: true } } }
+    })
+    const clesPresentes = new Set(dejaPresents.map(ue => cleNom(ue.utilisateur.nom)))
+
+    const resultats = []
+    for (let i = 0; i < lignes.length; i++) {
+      const numeroLigne = i + 1
+      const ligne = lignes[i] || {}
+      try {
+        const nom = texte(ligne.nom)
+        const prenom = texte(ligne.prenom)
+        if (!nom && !prenom) throw new Error('Nom et prénom manquants')
+        const nomComplet = `${nom} ${prenom}`.trim()
+
+        // Rôle vide = enseignant (la liste importée est celle des enseignants)
+        const libelleRole = texte(ligne.role)
+        const roleFinal = libelleRole ? ROLES_IMPORT[normaliserTexte(libelleRole)] : 'ENSEIGNANT'
+        if (!roleFinal) throw new Error(`Rôle non reconnu : « ${libelleRole} »`)
+        if (req.user.role !== 'SUPER_ADMIN' && !ROLES_ASSIGNABLES_NON_ADMIN.includes(roleFinal)) {
+          throw new Error(`Vous ne pouvez pas attribuer le rôle « ${libelleRole} »`)
+        }
+
+        const cle = cleNom(nomComplet)
+        if (clesPresentes.has(cle)) {
+          resultats.push({ ligne: numeroLigne, statut: 'ignore', message: `${nomComplet} — déjà présent(e) dans cette école, ignoré(e)` })
+          continue
+        }
+
+        await req.prisma.utilisateur.create({
+          data: {
+            nom: nomComplet,
+            email: emailSansConnexion(),
+            motDePasse: await motDePasseInutilisable(),
+            role: roleFinal,
+            actif: true,
+            utilisateurEcoles: { create: { ecoleId, role: roleFinal } },
+            ...(roleFinal === 'ENSEIGNANT' && { enseignant: { create: { telephone: '' } } })
+          }
+        })
+        clesPresentes.add(cle)
+        resultats.push({ ligne: numeroLigne, statut: 'cree', message: `${nomComplet} — ajouté(e) (${roleFinal})` })
+      } catch (err) {
+        const personne = `${texte(ligne.nom)} ${texte(ligne.prenom)}`.trim()
+        resultats.push({ ligne: numeroLigne, statut: 'erreur', message: personne ? `${personne} — ${err.message}` : err.message })
+      }
+    }
+
+    const compter = (statut) => resultats.filter(r => r.statut === statut).length
+    res.json({ total: lignes.length, crees: compter('cree'), ignores: compter('ignore'), erreurs: compter('erreur'), resultats })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // PUT - Modifier un utilisateur / membre du personnel (Super Admin, ou Principal/Directrice/Secrétaire sur le personnel de leur école, sans gestion des comptes admin)
 router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
-    const { nom, motDePasse, role, fonction, telephone, salaireMensuel } = req.body
+    const { nom, email, motDePasse, role, fonction, telephone, salaireMensuel } = req.body
+
+    const cible = await req.prisma.utilisateur.findUnique({
+      where: { id: req.params.id },
+      include: { utilisateurEcoles: { where: { actif: true } } }
+    })
+    if (!cible) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' })
+    }
+    // Un compte sans connexion (créé sans email ni mot de passe) peut recevoir ses
+    // identifiants de connexion, y compris d'un Principal : ce n'est pas un compte existant.
+    const sansConnexion = estSansConnexion(cible.email)
 
     if (req.user.role !== 'SUPER_ADMIN') {
       const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
-      const cible = await req.prisma.utilisateur.findUnique({
-        where: { id: req.params.id },
-        include: { utilisateurEcoles: { where: { actif: true } } }
-      })
-      if (!cible || !cible.utilisateurEcoles.some(ue => ecoleIds.includes(ue.ecoleId))) {
+      if (!cible.utilisateurEcoles.some(ue => ecoleIds.includes(ue.ecoleId))) {
         return res.status(403).json({ error: 'Accès refusé à ce membre du personnel' })
       }
       if (role && !ROLES_ASSIGNABLES_NON_ADMIN.includes(role.toUpperCase())) {
         return res.status(403).json({ error: 'Vous ne pouvez pas attribuer ce rôle' })
       }
-      if (motDePasse) {
+      if (motDePasse && !sansConnexion) {
         return res.status(403).json({ error: 'Seul un administrateur peut modifier le mot de passe d\'un compte' })
       }
     }
 
     const dataToUpdate = {}
+    if (sansConnexion && texte(email)) {
+      const emailSaisi = texte(email)
+      if (estSansConnexion(emailSaisi)) {
+        return res.status(400).json({ error: 'Adresse email non valide' })
+      }
+      const dejaPris = await req.prisma.utilisateur.findUnique({ where: { email: emailSaisi } })
+      if (dejaPris && dejaPris.id !== cible.id) {
+        return res.status(400).json({ error: 'Cet email est déjà utilisé' })
+      }
+      dataToUpdate.email = emailSaisi
+    }
     if (nom) dataToUpdate.nom = nom
     if (role) dataToUpdate.role = role.toUpperCase()
     if (fonction !== undefined) dataToUpdate.fonction = fonction || null

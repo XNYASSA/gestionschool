@@ -14,6 +14,11 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email et mot de passe requis' })
     }
 
+    // Comptes du personnel enregistrés sans connexion : jamais de session possible
+    if (String(email).toLowerCase().endsWith('@personnel.local')) {
+      return res.status(401).json({ error: 'Identifiants invalides' })
+    }
+
     const utilisateur = await req.prisma.utilisateur.findUnique({
       where: { email }
     })

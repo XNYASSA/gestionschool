@@ -1,7 +1,10 @@
 import { useState, useEffect, useContext } from 'react'
-import { Plus, Edit2, Trash2, X, Loader, Power, Phone, Wallet } from 'lucide-react'
+import { Plus, Edit2, Trash2, X, Loader, Power, Phone, Wallet, Upload } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { AuthContext } from '../../context/AuthContext'
+import ImporterPersonnel from './ImporterPersonnel'
+
+const estSansConnexion = (email) => String(email || '').toLowerCase().endsWith('@personnel.local')
 
 const ROLES = [
   { value: 'PRINCIPAL', label: 'Principal' },
@@ -41,8 +44,11 @@ export default function PersonnelManagement({ section, canGererComptes = true })
   const [error, setError] = useState('')
 
   const [showModal, setShowModal] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState(emptyForm)
+
+  const editingSansConnexion = !!editingId && estSansConnexion(personnel.find(p => p.id === editingId)?.email)
 
   useEffect(() => {
     loadData()
@@ -82,7 +88,7 @@ export default function PersonnelManagement({ section, canGererComptes = true })
   const openEditModal = (p) => {
     setFormData({
       nom: p.nom,
-      email: p.email,
+      email: estSansConnexion(p.email) ? '' : p.email,
       motDePasse: '',
       role: p.role,
       fonction: p.fonction || '',
@@ -105,8 +111,13 @@ export default function PersonnelManagement({ section, canGererComptes = true })
   }
 
   const handleSave = async () => {
-    if (!formData.nom || !formData.role || (!editingId && (!formData.email || !formData.motDePasse))) {
-      alert('Veuillez remplir les champs obligatoires (nom, rôle, email et mot de passe pour une création)')
+    // Aucun champ n'est obligatoire : on refuse seulement une fiche entièrement vide
+    if (!editingId && ![formData.nom, formData.email, formData.motDePasse, formData.fonction, formData.telephone, formData.salaireMensuel].some(v => String(v || '').trim())) {
+      alert('Renseignez au moins une information (nom, email, téléphone, fonction…).')
+      return
+    }
+    if (!editingId && formData.ecoleIds.length === 0 &&
+        !confirm("Aucune école n'est cochée : cette personne n'apparaîtra dans la liste d'aucune école tant qu'elle n'y est pas affectée. Enregistrer quand même ?")) {
       return
     }
 
@@ -116,6 +127,8 @@ export default function PersonnelManagement({ section, canGererComptes = true })
       if (editingId) {
         const { email, ecoleIds, tarifHoraire, ...updateData } = formData
         if (!updateData.motDePasse) delete updateData.motDePasse
+        // L'email ne se modifie que pour un compte enregistré sans connexion (pour lui en donner une)
+        if (editingSansConnexion && email.trim()) updateData.email = email.trim()
         await apiClient.updateUtilisateur(editingId, updateData)
       } else {
         const { ecoleIds, tarifHoraire, ...createData } = formData
@@ -178,13 +191,30 @@ export default function PersonnelManagement({ section, canGererComptes = true })
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900">👔 Gestion du personnel</h2>
-        <button
-          onClick={openCreateModal}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" /> Ajouter un membre
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowImport(!showImport)}
+            className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" /> Importer (Excel)
+          </button>
+          <button
+            onClick={openCreateModal}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Ajouter un membre
+          </button>
+        </div>
       </div>
+
+      {showImport && ecoles.length > 0 && (
+        <ImporterPersonnel
+          ecoles={ecoles}
+          peutCreerAdmin={canGererComptes}
+          onFermer={() => setShowImport(false)}
+          onTermine={loadData}
+        />
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">⚠️ {error}</div>
@@ -226,7 +256,9 @@ export default function PersonnelManagement({ section, canGererComptes = true })
                       {p.utilisateurEcoles?.map(ue => ue.ecole.nomCourt).join(', ') || '-'}
                     </td>
                     <td className="px-6 py-3 text-slate-600 text-xs">
-                      <div>{p.email}</div>
+                      {estSansConnexion(p.email)
+                        ? <div className="italic text-slate-400">Sans accès à l'application</div>
+                        : <div>{p.email}</div>}
                       {p.telephone && (
                         <div className="flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{p.telephone}</div>
                       )}
@@ -304,7 +336,7 @@ export default function PersonnelManagement({ section, canGererComptes = true })
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nom complet *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nom complet</label>
                   <input
                     type="text"
                     value={formData.nom}
@@ -329,20 +361,26 @@ export default function PersonnelManagement({ section, canGererComptes = true })
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email {!editingId && '*'}</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  disabled={!!editingId}
+                  disabled={!!editingId && !editingSansConnexion}
+                  placeholder={editingSansConnexion ? 'Saisir un email pour donner un accès' : ''}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:bg-slate-100"
                 />
+                {(!editingId || editingSansConnexion) && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Facultatif. Sans email et mot de passe, la personne est enregistrée sans accès à l'application.
+                  </p>
+                )}
               </div>
 
-              {(canGererComptes || !editingId) && (
+              {(canGererComptes || !editingId || editingSansConnexion) && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Mot de passe {!editingId ? '*' : '(laisser vide pour ne pas changer)'}
+                    Mot de passe {editingId && !editingSansConnexion ? '(laisser vide pour ne pas changer)' : ''}
                   </label>
                   <input
                     type="password"
@@ -354,7 +392,7 @@ export default function PersonnelManagement({ section, canGererComptes = true })
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Rôle / poste confié *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Rôle / poste confié</label>
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
