@@ -7,6 +7,12 @@ import ProgrammeClasse from './ProgrammeClasse'
 
 const TRIMESTRES = [1, 2, 3]
 
+// L'année scolaire commence en septembre : de septembre à décembre on est dans
+// "année-année+1", de janvier à août dans "année-1-année".
+const debutAnneeCourante = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1
+const ANNEE_SCOLAIRE_COURANTE = `${debutAnneeCourante}-${debutAnneeCourante + 1}`
+const ANNEES_SCOLAIRES = Array.from({ length: 8 }, (_, i) => `${debutAnneeCourante - 3 + i}-${debutAnneeCourante - 2 + i}`)
+
 export default function Bulletins({ onNavigate }) {
   const { user } = useContext(AuthContext)
   const peutModifierProgramme = ['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE'].includes(user?.roleAPI)
@@ -22,7 +28,7 @@ export default function Bulletins({ onNavigate }) {
   const [mode, setMode] = useState('classe') // 'classe' = toute la classe, 'eleves' = sélection
   const [eleveIdsChoisis, setEleveIdsChoisis] = useState([])
   const [trimestre, setTrimestre] = useState(1)
-  const [anneeScolaire, setAnneeScolaire] = useState('2024-2025')
+  const [anneeScolaire, setAnneeScolaire] = useState(ANNEE_SCOLAIRE_COURANTE)
 
   const [generation, setGeneration] = useState(false)
   const [resultats, setResultats] = useState(null)
@@ -47,10 +53,7 @@ export default function Bulletins({ onNavigate }) {
       setEcoles(ecolesData)
       setClasses(classesData)
       setEleves(elevesData)
-      if (ecolesData.length > 0) {
-        setEcoleId(ecolesData[0].id)
-        setAnneeScolaire(ecolesData[0].anneeScolaireEnCours || anneeScolaire)
-      }
+      if (ecolesData.length > 0) setEcoleId(ecolesData[0].id)
     } catch (err) {
       setError(err.message || 'Erreur lors du chargement des données')
     } finally {
@@ -60,8 +63,6 @@ export default function Bulletins({ onNavigate }) {
 
   useEffect(() => {
     if (ecoleId) {
-      const ecole = ecoles.find(e => e.id === ecoleId)
-      if (ecole) setAnneeScolaire(ecole.anneeScolaireEnCours || anneeScolaire)
       setClasseId('')
       setEleveIdsChoisis([])
       setResultats(null)
@@ -162,7 +163,9 @@ export default function Bulletins({ onNavigate }) {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Année scolaire</label>
-            <input type="text" value={anneeScolaire} onChange={(e) => setAnneeScolaire(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
+            <select value={anneeScolaire} onChange={(e) => setAnneeScolaire(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
+              {ANNEES_SCOLAIRES.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
           </div>
         </div>
 
