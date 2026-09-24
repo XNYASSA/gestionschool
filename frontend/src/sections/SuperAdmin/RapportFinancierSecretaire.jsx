@@ -78,11 +78,19 @@ export default function RapportFinancierSecretaire() {
     setError('')
     setMessage('')
     try {
-      await apiClient.enregistrerPaiement(eleveSelectionne.id, montantsRenseignes)
-      setMessage('Paiement enregistré avec succès.')
-      setEleveSelectionne(null)
-      setMontants({})
-      await loadDonnees()
+      const { resultats } = await apiClient.enregistrerPaiement(eleveSelectionne.id, montantsRenseignes)
+      const echoues = resultats.filter(r => !r.succes)
+      const reussis = resultats.filter(r => r.succes)
+
+      if (echoues.length > 0) {
+        setError(echoues.map(r => r.message).join(' | '))
+      }
+      if (reussis.length > 0) {
+        setMessage(`${reussis.length} poste(s) enregistré(s) avec succès.`)
+        setEleveSelectionne(null)
+        setMontants({})
+        await loadDonnees()
+      }
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement du paiement")
     } finally {

@@ -43,6 +43,12 @@ router.post('/enregistrer-paiement', verifyToken, checkRole(['SECRETAIRE']), asy
         continue
       }
 
+      const restant = frais.montantDu - frais.montantPaye
+      if (montant > restant) {
+        resultats.push({ tranche, succes: false, message: `Montant supérieur au solde restant pour ce poste (${restant.toLocaleString('fr-FR')} FCFA)` })
+        continue
+      }
+
       const nouveauMontantPaye = frais.montantPaye + montant
       const nouveauStatut = calculerStatut(frais.montantDu, nouveauMontantPaye)
 
@@ -124,12 +130,19 @@ router.post('/importer-paiements', verifyToken, checkRole(['SECRETAIRE']), async
         }
 
         const postesEnregistres = []
+        const postesEchoues = []
         for (const [tranche, montantBrut] of Object.entries(montants)) {
           const montant = parseInt(montantBrut)
           if (!montant || montant <= 0) continue
 
           const frais = await req.prisma.inscriptionFrais.findFirst({ where: { eleveId: eleve.id, tranche } })
           if (!frais) continue
+
+          const restant = frais.montantDu - frais.montantPaye
+          if (montant > restant) {
+            postesEchoues.push(`${tranche}: dépasse le solde restant (${restant.toLocaleString('fr-FR')} FCFA)`)
+            continue
+          }
 
           const nouveauMontantPaye = frais.montantPaye + montant
           const nouveauStatut = calculerStatut(frais.montantDu, nouveauMontantPaye)
@@ -146,11 +159,12 @@ router.post('/importer-paiements', verifyToken, checkRole(['SECRETAIRE']), async
           postesEnregistres.push(`${tranche}: ${montant.toLocaleString('fr-FR')} FCFA`)
         }
 
-        if (postesEnregistres.length === 0) {
+        if (postesEnregistres.length === 0 && postesEchoues.length === 0) {
           throw new Error('Aucun montant valide à enregistrer pour cet élève')
         }
 
-        resultats.push({ ligne: numeroLigne, succes: true, message: `${eleve.prenom} ${eleve.nom} — ${postesEnregistres.join(', ')}` })
+        const messageEchoues = postesEchoues.length > 0 ? ` | Rejeté(s) — ${postesEchoues.join(', ')}` : ''
+        resultats.push({ ligne: numeroLigne, succes: postesEnregistres.length > 0, message: `${eleve.prenom} ${eleve.nom} — ${postesEnregistres.join(', ') || 'aucun poste enregistré'}${messageEchoues}` })
       } catch (err) {
         resultats.push({ ligne: numeroLigne, succes: false, message: err.message })
       }
