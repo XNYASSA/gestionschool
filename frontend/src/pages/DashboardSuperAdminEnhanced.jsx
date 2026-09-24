@@ -282,8 +282,8 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
   }
 
   const fraisPeriode = frais.filter(f => f.montantPaye > 0 && isInPeriod(f.datePayement || f.createdAt, period))
-  const inscriptions = fraisPeriode.filter(f => f.tranche === 'inscription').reduce((sum, f) => sum + f.montantPaye, 0)
-  const pensions = fraisPeriode.filter(f => f.tranche !== 'inscription').reduce((sum, f) => sum + f.montantPaye, 0)
+  const inscriptions = fraisPeriode.filter(f => !/^tranche\d+$/.test(f.tranche)).reduce((sum, f) => sum + f.montantPaye, 0)
+  const pensions = fraisPeriode.filter(f => /^tranche\d+$/.test(f.tranche)).reduce((sum, f) => sum + f.montantPaye, 0)
   const totalEntrees = inscriptions + pensions
 
   // Salaires : montant mensuel actuel du personnel actif, indépendant de la période

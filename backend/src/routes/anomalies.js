@@ -175,11 +175,11 @@ router.get('/rapport', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE']), asyn
     }
 
     const detailSysteme = {
-      inscriptions: paiements.filter(p => categoriserPoste(p.tranche) === 'INSCRIPTION').reduce((s, p) => s + p.montantPaye, 0),
-      pensions: paiements.filter(p => categoriserPoste(p.tranche) === 'TRANCHE').reduce((s, p) => s + p.montantPaye, 0),
-      fraisAnnexes: paiements.filter(p => categoriserPoste(p.tranche) === 'FRAIS_ANNEXE').reduce((s, p) => s + p.montantPaye, 0)
+      // L'inscription regroupe les frais d'inscription et tous les frais hors tranches
+      inscriptions: paiements.filter(p => categoriserPoste(p.tranche) !== 'TRANCHE').reduce((s, p) => s + p.montantPaye, 0),
+      pensions: paiements.filter(p => categoriserPoste(p.tranche) === 'TRANCHE').reduce((s, p) => s + p.montantPaye, 0)
     }
-    detailSysteme.total = detailSysteme.inscriptions + detailSysteme.pensions + detailSysteme.fraisAnnexes
+    detailSysteme.total = detailSysteme.inscriptions + detailSysteme.pensions
 
     // Comparaisons deux-à-deux entre les 3 déclarations, et chacune vs le total système réel
     const sources = [

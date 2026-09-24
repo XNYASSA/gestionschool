@@ -69,12 +69,15 @@ export default function ViewAnalytics({ onNavigate }) {
   const totalEntrees = fraisFiltres.reduce((sum, f) => sum + f.montantPaye, 0)
 
   const entreesParTranche = useMemo(() => {
-    const map = {}
+    // "Inscription" regroupe les frais d'inscription et tous les frais hors tranches (livret médical, laboratoire, TD...)
+    const map = { inscription: { libelle: 'Inscription', montant: 0 } }
     fraisFiltres.forEach(f => {
-      const existant = map[f.tranche] || { libelle: f.libelle || f.tranche, montant: 0 }
+      const cle = /^tranche\d+$/.test(f.tranche) ? f.tranche : 'inscription'
+      const existant = map[cle] || { libelle: f.libelle || f.tranche, montant: 0 }
       existant.montant += f.montantPaye
-      map[f.tranche] = existant
+      map[cle] = existant
     })
+    if (map.inscription.montant === 0) delete map.inscription
     return map
   }, [fraisFiltres])
 
