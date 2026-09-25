@@ -3,6 +3,10 @@ import { verifyToken, checkRole } from '../middleware/auth.js'
 import { getEcoleIdsScope } from '../utils/ecoleScope.js'
 import { creerInscriptionsFraisPourEleve, synchroniserPaiementsCibles } from '../utils/inscriptionsFrais.js'
 
+// Valeur enregistrée quand un fichier importé ne fournit pas le parent ou son téléphone : l'élève
+// est créé quand même et l'écran le signale en rouge jusqu'à ce que l'information soit ajoutée.
+const NON_RENSEIGNE = 'Non renseigné'
+
 const LIBELLES_POSTES = { inscription: 'Inscription', tranche1: 'Tranche 1', tranche2: 'Tranche 2', tranche3: 'Tranche 3' }
 const texteExces = (exces) => exces.length === 0
   ? ''
@@ -153,9 +157,12 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
         const { matricule: matriculeFourni, nom, prenom, sexe, dateNaissance, classe, nomParent, lieuParente, telephoneParent, emailParent, adresseParent, inscription, tranche1, tranche2, tranche3 } = ligne
         const montantsPostes = { inscription, tranche1, tranche2, tranche3 }
 
-        if (!nom || !prenom || !classe || !nomParent || !telephoneParent) {
-          throw new Error('Champs obligatoires manquants (nom, prénom, classe, nom du parent, téléphone du parent)')
+        if (!nom || !classe) {
+          throw new Error('Nom et classe requis pour créer un élève')
         }
+        const parentFourni = String(nomParent ?? '').trim()
+        const telephoneFourni = String(telephoneParent ?? '').trim()
+        const infosManquantes = [!String(prenom ?? '').trim() && 'prénom', !parentFourni && 'nom du parent', !telephoneFourni && 'téléphone du parent'].filter(Boolean)
 
         let sexeNormalise = null
         if (sexe) {
@@ -179,7 +186,7 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
         }
 
         const nomTrim = String(nom).trim()
-        const prenomTrim = String(prenom).trim()
+        const prenomTrim = String(prenom ?? '').trim()
         const matriculeFourniTrim = matriculeFourni ? String(matriculeFourni).trim() : ''
 
         // Reconnaît un élève déjà importé (même nom + prénom + classe) pour le
@@ -189,25 +196,35 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
           where: { classeId: classeTrouvee.id, nom: nomTrim, prenom: prenomTrim }
         })
 
-        if (matriculeFourniTrim && matriculeFourniTrim !== eleveExistant?.matricule && matriculesExistants.has(matriculeFourniTrim)) {
-          throw new Error(`Matricule "${matriculeFourniTrim}" déjà utilisé`)
+        // Un matricule déjà porté par un autre élève (les numéros des fichiers ne sont pas uniques
+        // entre sections) reçoit un suffixe plutôt que de bloquer l'import de l'élève.
+        let matriculeRetenu = matriculeFourniTrim
+        let noteMatricule = ''
+        if (matriculeRetenu && eleveExistant && matriculeRetenu !== eleveExistant.matricule && matriculesExistants.has(matriculeRetenu)) {
+          matriculeRetenu = '' // l'élève garde son matricule actuel
+        } else if (matriculeRetenu && !eleveExistant && matriculesExistants.has(matriculeRetenu)) {
+          let suffixe = 2
+          while (matriculesExistants.has(`${matriculeFourniTrim}-${suffixe}`)) suffixe++
+          matriculeRetenu = `${matriculeFourniTrim}-${suffixe}`
+          noteMatricule = ` — matricule « ${matriculeFourniTrim} » déjà pris, enregistré « ${matriculeRetenu} »`
         }
+        const texteManquants = infosManquantes.length ? ` — à compléter : ${infosManquantes.join(', ')}` : ''
 
         if (eleveExistant) {
           const eleve = await req.prisma.eleve.update({
             where: { id: eleveExistant.id },
             data: {
-              ...(matriculeFourniTrim && { matricule: matriculeFourniTrim }),
+              ...(matriculeRetenu && { matricule: matriculeRetenu }),
               ...(sexeNormalise && { sexe: sexeNormalise }),
               ...(dateNaissanceParsed && { dateNaissance: dateNaissanceParsed }),
-              nomParent,
+              ...(parentFourni && { nomParent: parentFourni }),
               ...(lieuParente && { lieuParente }),
-              telephoneParent,
+              ...(telephoneFourni && { telephoneParent: telephoneFourni }),
               ...(emailParent && { emailParent }),
               ...(adresseParent && { adresseParent })
             }
           })
-          if (matriculeFourniTrim) {
+          if (matriculeRetenu) {
             matriculesExistants.delete(eleveExistant.matricule)
             matriculesExistants.add(eleve.matricule)
           }
@@ -217,14 +234,15 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
           resultats.push({
             ligne: numeroLigne,
             succes: true,
-            message: `${prenomTrim} ${nomTrim} (${eleve.matricule}) mis à jour${texteExces(exces)}`
+            infosManquantes: infosManquantes.length > 0 && (!parentFourni && eleveExistant.nomParent === NON_RENSEIGNE || !telephoneFourni && eleveExistant.telephoneParent === NON_RENSEIGNE || !prenomTrim),
+            message: `${prenomTrim} ${nomTrim} (${eleve.matricule}) mis à jour${noteMatricule}${texteExces(exces)}`
           })
           continue
         }
 
         let matricule
-        if (matriculeFourniTrim) {
-          matricule = matriculeFourniTrim
+        if (matriculeRetenu) {
+          matricule = matriculeRetenu
         } else {
           do {
             matricule = `MAT${String(prochainNumero).padStart(3, '0')}`
@@ -241,9 +259,9 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
             sexe: sexeNormalise,
             dateNaissance: dateNaissanceParsed,
             classeId: classeTrouvee.id,
-            nomParent,
+            nomParent: parentFourni || NON_RENSEIGNE,
             lieuParente: lieuParente || null,
-            telephoneParent,
+            telephoneParent: telephoneFourni || NON_RENSEIGNE,
             emailParent: emailParent || null,
             adresseParent: adresseParent || null
           }
@@ -255,9 +273,11 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
         resultats.push({
           ligne: numeroLigne,
           succes: true,
+          infosManquantes: infosManquantes.length > 0,
+          sansBareme: postesFrais.length === 0,
           message: postesFrais.length === 0
-            ? `${prenomTrim} ${nomTrim} (${matricule}) créé(e) — aucun barème de frais pour le niveau "${classeTrouvee.niveau}"`
-            : `${prenomTrim} ${nomTrim} (${matricule}) créé(e)${texteExces(exces)}`
+            ? `${prenomTrim} ${nomTrim} (${matricule}) créé(e) — aucun barème de frais pour le niveau "${classeTrouvee.niveau}"${texteManquants}`
+            : `${prenomTrim} ${nomTrim} (${matricule}) créé(e)${noteMatricule}${texteExces(exces)}${texteManquants}`
         })
       } catch (err) {
         resultats.push({ ligne: numeroLigne, succes: false, message: err.message })

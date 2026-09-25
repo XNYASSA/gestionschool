@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Search, Plus, Eye, Edit2, Trash2, X, Loader } from 'lucide-react'
+import { Search, Plus, Eye, Edit2, Trash2, X, Loader, AlertTriangle } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import BoutonsExport from '../../components/BoutonsExport'
 import { exportListeEleves } from '../../utils/exportListes'
+import { estManquant, informationsManquantes, valeurOuVide } from '../../utils/infosEleve'
 import { getStatutPaiement, getResteAPayer, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 
 const emptyForm = {
@@ -18,13 +19,14 @@ const emptyForm = {
   adresseParent: ''
 }
 
-export default function ListeEleves({ showStatutPaiement = true, initialSearch = '' }) {
+export default function ListeEleves({ showStatutPaiement = true, initialSearch = '', initialIncomplets = false }) {
   const [eleves, setEleves] = useState([])
   const [classes, setClasses] = useState([])
   const [ecoles, setEcoles] = useState([])
   const [searchTerm, setSearchTerm] = useState(initialSearch)
   const [filterEcole, setFilterEcole] = useState('')
   const [filterClasse, setFilterClasse] = useState('')
+  const [seulementIncomplets, setSeulementIncomplets] = useState(initialIncomplets)
 
   const [showModal, setShowModal] = useState(false)
   const [modalMode, setModalMode] = useState('view') // view, create, edit
@@ -72,9 +74,17 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
       }
       if (filterEcole && e.classe?.ecoleId !== filterEcole) return false
       if (filterClasse && e.classeId !== filterClasse) return false
+      if (seulementIncomplets && informationsManquantes(e).length === 0) return false
       return true
     })
-  }, [eleves, searchTerm, filterEcole, filterClasse])
+  }, [eleves, searchTerm, filterEcole, filterClasse, seulementIncomplets])
+
+  // Élèves de la sélection (école / classe choisies) auxquels il manque une information obligatoire
+  const nombreIncomplets = useMemo(() => eleves.filter(e => {
+    if (filterEcole && e.classe?.ecoleId !== filterEcole) return false
+    if (filterClasse && e.classeId !== filterClasse) return false
+    return informationsManquantes(e).length > 0
+  }).length, [eleves, filterEcole, filterClasse])
 
   const openCreateModal = () => {
     setFormData(emptyForm)
@@ -84,14 +94,14 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
 
   const openViewModal = (eleve) => {
     setSelectedEleve(eleve)
-    setFormData({ ...eleve, dateNaissance: eleve.dateNaissance?.split('T')[0] || '' })
+    setFormData({ ...eleve, nomParent: valeurOuVide(eleve.nomParent), telephoneParent: valeurOuVide(eleve.telephoneParent), dateNaissance: eleve.dateNaissance?.split('T')[0] || '' })
     setModalMode('view')
     setShowModal(true)
   }
 
   const openEditModal = (eleve) => {
     setSelectedEleve(eleve)
-    setFormData({ ...eleve, dateNaissance: eleve.dateNaissance?.split('T')[0] || '' })
+    setFormData({ ...eleve, nomParent: valeurOuVide(eleve.nomParent), telephoneParent: valeurOuVide(eleve.telephoneParent), dateNaissance: eleve.dateNaissance?.split('T')[0] || '' })
     setModalMode('edit')
     setShowModal(true)
   }
@@ -109,7 +119,11 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
   }
 
   const handleSave = async () => {
-    if (!formData.nom || !formData.prenom || !formData.classeId || !formData.nomParent || !formData.telephoneParent) {
+    // À la création, tout est obligatoire ; en modification, un élève importé peut rester incomplet (rappel affiché en rouge)
+    const champsRequis = modalMode === 'create'
+      ? formData.nom && formData.prenom && formData.classeId && formData.nomParent && formData.telephoneParent
+      : formData.nom && formData.classeId
+    if (!champsRequis) {
       alert('Veuillez remplir tous les champs obligatoires')
       return
     }
@@ -182,6 +196,24 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
         </div>
       </div>
 
+      {nombreIncomplets > 0 && (
+        <div className="bg-red-50 border border-red-300 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-start gap-2 text-red-800 text-sm">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+            <span>
+              <strong>{nombreIncomplets} élève{nombreIncomplets > 1 ? 's' : ''}</strong> {nombreIncomplets > 1 ? 'ont' : 'a'} des informations obligatoires manquantes
+              (nom du parent, téléphone du parent…), surlignées en rouge. Pensez à les ajouter avec le crayon ✏️ de chaque ligne.
+            </span>
+          </div>
+          <button
+            onClick={() => setSeulementIncomplets(!seulementIncomplets)}
+            className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium"
+          >
+            {seulementIncomplets ? 'Afficher tous les élèves' : 'Afficher uniquement ces élèves'}
+          </button>
+        </div>
+      )}
+
       {/* Tableau */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="bg-slate-50 border-b border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
@@ -219,12 +251,18 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                 {filteredEleves.map(eleve => (
                   <tr key={eleve.id} className="border-b border-slate-200 hover:bg-slate-50">
                     <td className="px-6 py-3 font-mono text-xs text-slate-600">{eleve.matricule || '-'}</td>
-                    <td className="px-6 py-3 text-slate-900">{eleve.nom} {eleve.prenom}</td>
+                    <td className="px-6 py-3 text-slate-900">
+                      {eleve.nom} {estManquant(eleve.prenom) ? <span className="text-red-600 font-semibold text-xs">⚠ prénom à renseigner</span> : eleve.prenom}
+                    </td>
                     <td className="px-6 py-3 text-slate-600">{eleve.classe?.nom || '-'}</td>
                     <td className="px-6 py-3 text-slate-600">{eleve.classe?.ecole?.nomCourt || '-'}</td>
-                    <td className="px-6 py-3 text-slate-600 text-xs">
-                      <div>{eleve.nomParent}</div>
-                      {eleve.telephoneParent && <div className="text-slate-400">{eleve.telephoneParent}</div>}
+                    <td className={`px-6 py-3 text-xs ${informationsManquantes(eleve).length > 0 ? 'bg-red-50' : 'text-slate-600'}`}>
+                      {estManquant(eleve.nomParent)
+                        ? <div className="text-red-600 font-semibold">⚠ Nom du parent à renseigner</div>
+                        : <div className="text-slate-600">{eleve.nomParent}</div>}
+                      {estManquant(eleve.telephoneParent)
+                        ? <div className="text-red-600 font-semibold">⚠ Téléphone à renseigner</div>
+                        : <div className="text-slate-400">{eleve.telephoneParent}</div>}
                     </td>
                     {showStatutPaiement && (
                       <td className="px-6 py-3 text-center">
@@ -284,6 +322,12 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
             </div>
 
             <div className="p-6 space-y-4">
+              {modalMode !== 'create' && informationsManquantes(formData).length > 0 && (
+                <div className="bg-red-50 border border-red-300 rounded-lg p-3 text-red-800 text-sm flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>Informations à ajouter : <strong>{informationsManquantes(formData).map(i => i.libelle).join(', ')}</strong>.</span>
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nom *</label>
@@ -302,8 +346,9 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                     value={formData.prenom}
                     onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
                     disabled={modalMode === 'view'}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:bg-slate-100"
+                    className={`w-full px-3 py-2 border rounded-lg disabled:bg-slate-100 ${modalMode !== 'create' && estManquant(formData.prenom) ? 'border-red-500 bg-red-50' : 'border-slate-300'}`}
                   />
+                  {modalMode !== 'create' && estManquant(formData.prenom) && <p className="text-xs text-red-600 mt-1">⚠ Prénom à renseigner</p>}
                 </div>
 
                 <div>
@@ -356,8 +401,9 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                     value={formData.nomParent}
                     onChange={(e) => setFormData({ ...formData, nomParent: e.target.value })}
                     disabled={modalMode === 'view'}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:bg-slate-100"
+                    className={`w-full px-3 py-2 border rounded-lg disabled:bg-slate-100 ${modalMode !== 'create' && estManquant(formData.nomParent) ? 'border-red-500 bg-red-50' : 'border-slate-300'}`}
                   />
+                  {modalMode !== 'create' && estManquant(formData.nomParent) && <p className="text-xs text-red-600 mt-1">⚠ Nom du parent à renseigner</p>}
                 </div>
 
                 <div>
@@ -383,8 +429,9 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                     value={formData.telephoneParent}
                     onChange={(e) => setFormData({ ...formData, telephoneParent: e.target.value })}
                     disabled={modalMode === 'view'}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:bg-slate-100"
+                    className={`w-full px-3 py-2 border rounded-lg disabled:bg-slate-100 ${modalMode !== 'create' && estManquant(formData.telephoneParent) ? 'border-red-500 bg-red-50' : 'border-slate-300'}`}
                   />
+                  {modalMode !== 'create' && estManquant(formData.telephoneParent) && <p className="text-xs text-red-600 mt-1">⚠ Téléphone du parent à renseigner</p>}
                 </div>
 
                 <div>

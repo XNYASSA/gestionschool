@@ -21,6 +21,7 @@ import AffectationsEnseignants from '../sections/SuperAdmin/AffectationsEnseigna
 import CahierTextes from '../sections/SuperAdmin/CahierTextes'
 import EmploiTemps from '../sections/SuperAdmin/EmploiTemps'
 import Bulletins from '../sections/SuperAdmin/Bulletins'
+import { informationsManquantes } from '../utils/infosEleve'
 import BordereauNotes from '../sections/SuperAdmin/BordereauNotes'
 import BaremeNotation from '../sections/SuperAdmin/BaremeNotation'
 import Parametres from '../sections/SuperAdmin/Parametres'
@@ -60,6 +61,7 @@ export default function DashboardSuperAdminEnhanced() {
   const [stats, setStats] = useState({
     totalEcoles: 0,
     totalEleves: 0,
+    elevesIncomplets: 0,
     personnels: 0,
     anomalies: 0
   })
@@ -69,6 +71,7 @@ export default function DashboardSuperAdminEnhanced() {
   const [period, setPeriod] = useState('mois') // jour, semaine, mois
   const [eleveSearchQuery, setEleveSearchQuery] = useState('')
   const [cameFromDashboard, setCameFromDashboard] = useState(false)
+  const [filtreIncomplets, setFiltreIncomplets] = useState(false)
 
   useEffect(() => {
     loadStats()
@@ -91,6 +94,7 @@ export default function DashboardSuperAdminEnhanced() {
   const navigateToSection = (section, fromDashboard = false) => {
     setCurrentSection(section)
     setCameFromDashboard(fromDashboard)
+    setFiltreIncomplets(false)
     window.history.pushState({ section, fromDashboard }, '')
   }
 
@@ -112,6 +116,7 @@ export default function DashboardSuperAdminEnhanced() {
       setStats({
         totalEcoles: ecoles.length,
         totalEleves: eleves.length,
+        elevesIncomplets: eleves.filter(e => informationsManquantes(e).length > 0).length,
         // Même source que Personnel → Liste du personnel (comptes Utilisateur, hors Super Admin)
         personnels: utilisateurs.filter(u => u.role !== 'SUPER_ADMIN').length,
         anomalies: anomalies.filter(a => !a.resolue).length
@@ -124,18 +129,18 @@ export default function DashboardSuperAdminEnhanced() {
   const renderSection = () => {
     switch (currentSection) {
       case 'dashboard':
-        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} onNavigate={navigateToSection} onRechercherEleve={(terme) => { setEleveSearchQuery(terme); navigateToSection('list-eleves', true) }} />
+        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} onNavigate={navigateToSection} onVoirIncomplets={() => { navigateToSection('list-eleves', true); setFiltreIncomplets(true) }} onRechercherEleve={(terme) => { setEleveSearchQuery(terme); navigateToSection('list-eleves', true) }} />
       case 'revenus':
         return <ViewAnalytics onNavigate={navigateToSection} />
       case 'paiements':
       case 'paiement-status':
         return <SuiviPaiements />
       case 'list-eleves':
-        return <ListeEleves ecoleIds={ecoleIds} showStatutPaiement={user?.roleAPI !== 'ENSEIGNANT'} initialSearch={eleveSearchQuery} />
+        return <ListeEleves ecoleIds={ecoleIds} showStatutPaiement={user?.roleAPI !== 'ENSEIGNANT'} initialSearch={eleveSearchQuery} initialIncomplets={filtreIncomplets} />
       case 'frais-par-ecole':
         return <FraisParEcole />
       case 'import-eleves':
-        return <ImporterEleves />
+        return <ImporterEleves onNavigate={navigateToSection} />
       case 'list-personnel':
         return <PersonnelManagement section="list" ecoleIds={ecoleIds} canGererComptes={isSuperAdmin} />
       case 'create-personnel':
@@ -197,7 +202,7 @@ export default function DashboardSuperAdminEnhanced() {
       case 'comptes':
         return <UsersManagement />
       default:
-        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} onNavigate={navigateToSection} onRechercherEleve={(terme) => { setEleveSearchQuery(terme); navigateToSection('list-eleves', true) }} />
+        return <DashboardOverview stats={stats} frais={frais} depenses={depenses} personnelActif={personnelActif} period={period} setPeriod={setPeriod} showAnomalies={isSuperAdmin} showFinances={user?.roleAPI !== 'ENSEIGNANT'} onNavigate={navigateToSection} onVoirIncomplets={() => { navigateToSection('list-eleves', true); setFiltreIncomplets(true) }} onRechercherEleve={(terme) => { setEleveSearchQuery(terme); navigateToSection('list-eleves', true) }} />
     }
   }
 
@@ -278,7 +283,7 @@ export default function DashboardSuperAdminEnhanced() {
 }
 
 // Section Overview du Dashboard
-function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = [], period, setPeriod, showAnomalies = true, showFinances = true, onNavigate, onRechercherEleve }) {
+function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = [], period, setPeriod, showAnomalies = true, showFinances = true, onNavigate, onRechercherEleve, onVoirIncomplets }) {
   const [rechercheEleve, setRechercheEleve] = useState('')
   const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
 
@@ -342,6 +347,15 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
             Rechercher
           </button>
         </form>
+      )}
+
+      {showFinances && stats.elevesIncomplets > 0 && onVoirIncomplets && (
+        <button
+          onClick={onVoirIncomplets}
+          className="w-full text-left bg-red-50 border border-red-300 rounded-lg p-4 text-red-800 text-sm hover:bg-red-100 transition"
+        >
+          ⚠ <strong>{stats.elevesIncomplets} élève{stats.elevesIncomplets > 1 ? 's' : ''}</strong> {stats.elevesIncomplets > 1 ? 'ont' : 'a'} des informations obligatoires manquantes (nom du parent, téléphone…). Cliquez pour les voir et les compléter.
+        </button>
       )}
 
       {/* Stats Cards */}

@@ -4,6 +4,7 @@ import { apiClient } from '../../api/client'
 import { AuthContext } from '../../context/AuthContext'
 import BoutonsExport from '../../components/BoutonsExport'
 import { exportListeEleves } from '../../utils/exportListes'
+import { estManquant } from '../../utils/infosEleve'
 import { getStatutPaiement, getResteAPayer, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 
 const NIVEAUX_ECOLE = [
@@ -529,8 +530,12 @@ function GestionClasses({ ecoles, classes, eleves, onChange, initialEcoleId, onB
                         <td className="px-6 py-3 text-slate-900">{eleve.nom}</td>
                         <td className="px-6 py-3 text-slate-900">{eleve.prenom}</td>
                         <td className="px-6 py-3 text-slate-600 text-xs">
-                          <div>{eleve.nomParent}</div>
-                          {eleve.telephoneParent && <div className="text-slate-400">{eleve.telephoneParent}</div>}
+                          {estManquant(eleve.nomParent)
+                            ? <div className="text-red-600 font-semibold">⚠ Nom du parent à renseigner</div>
+                            : <div>{eleve.nomParent}</div>}
+                          {estManquant(eleve.telephoneParent)
+                            ? <div className="text-red-600 font-semibold">⚠ Téléphone à renseigner</div>
+                            : <div className="text-slate-400">{eleve.telephoneParent}</div>}
                         </td>
                         <td className="px-6 py-3 text-center">
                           <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statut.className}`}>{statut.label}</span>

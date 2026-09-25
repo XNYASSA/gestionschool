@@ -1,4 +1,5 @@
 import { nomFichierSur } from './exportTableau'
+import { valeurOuVide } from './infosEleve'
 
 const aujourdhui = () => new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -37,7 +38,7 @@ export function exportListeEleves(eleves, { critere = '' } = {}) {
     lignes: [...liste].sort(parNomPrenom).map((e, i) => [
       i + 1, e.matricule || '', e.nom, e.prenom,
       e.sexe === 'MASCULIN' ? 'M' : e.sexe === 'FEMININ' ? 'F' : '',
-      e.nomParent || '', e.telephoneParent || ''
+      valeurOuVide(e.nomParent), valeurOuVide(e.telephoneParent)
     ])
   }))
 
