@@ -21,7 +21,7 @@ import AffectationsEnseignants from '../sections/SuperAdmin/AffectationsEnseigna
 import CahierTextes from '../sections/SuperAdmin/CahierTextes'
 import EmploiTemps from '../sections/SuperAdmin/EmploiTemps'
 import Bulletins from '../sections/SuperAdmin/Bulletins'
-import { informationsManquantes } from '../utils/infosEleve'
+import { calculerSignalements } from '../utils/signalements'
 import BordereauNotes from '../sections/SuperAdmin/BordereauNotes'
 import BaremeNotation from '../sections/SuperAdmin/BaremeNotation'
 import Parametres from '../sections/SuperAdmin/Parametres'
@@ -116,7 +116,7 @@ export default function DashboardSuperAdminEnhanced() {
       setStats({
         totalEcoles: ecoles.length,
         totalEleves: eleves.length,
-        elevesIncomplets: eleves.filter(e => informationsManquantes(e).length > 0).length,
+        elevesIncomplets: calculerSignalements(eleves).size,
         // Même source que Personnel → Liste du personnel (comptes Utilisateur, hors Super Admin)
         personnels: utilisateurs.filter(u => u.role !== 'SUPER_ADMIN').length,
         anomalies: anomalies.filter(a => !a.resolue).length
@@ -354,7 +354,7 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
           onClick={onVoirIncomplets}
           className="w-full text-left bg-red-50 border border-red-300 rounded-lg p-4 text-red-800 text-sm hover:bg-red-100 transition"
         >
-          ⚠ <strong>{stats.elevesIncomplets} élève{stats.elevesIncomplets > 1 ? 's' : ''}</strong> {stats.elevesIncomplets > 1 ? 'ont' : 'a'} des informations obligatoires manquantes (nom du parent, téléphone…). Cliquez pour les voir et les compléter.
+          ⚠ <strong>{stats.elevesIncomplets} élève{stats.elevesIncomplets > 1 ? 's' : ''}</strong> {stats.elevesIncomplets > 1 ? 'ont' : 'a'} des signalements (informations manquantes ou incohérences : parent, téléphone, doublon, trop-perçu…). Cliquez pour voir le problème et ce qu'il faut faire.
         </button>
       )}
 

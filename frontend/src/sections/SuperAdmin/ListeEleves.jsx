@@ -5,6 +5,7 @@ import BoutonsExport from '../../components/BoutonsExport'
 import { exportListeEleves } from '../../utils/exportListes'
 import { estManquant, informationsManquantes, valeurOuVide } from '../../utils/infosEleve'
 import { filieresPourClasse, typeTechnique } from '../../utils/filieres'
+import { calculerSignalements, niveauMax, STYLE_SIGNALEMENT } from '../../utils/signalements'
 import { getStatutPaiement, getResteAPayer, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 
 const emptyForm = {
@@ -65,6 +66,9 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
     return classes.filter(c => c.ecoleId === filterEcole)
   }, [classes, filterEcole])
 
+  // Signalements (informations manquantes et incohérences) de tous les élèves
+  const signalements = useMemo(() => calculerSignalements(eleves), [eleves])
+
   const filteredEleves = useMemo(() => {
     return eleves.filter(e => {
       if (searchTerm) {
@@ -75,17 +79,17 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
       }
       if (filterEcole && e.classe?.ecoleId !== filterEcole) return false
       if (filterClasse && e.classeId !== filterClasse) return false
-      if (seulementIncomplets && informationsManquantes(e).length === 0) return false
+      if (seulementIncomplets && !signalements.has(e.id)) return false
       return true
     })
-  }, [eleves, searchTerm, filterEcole, filterClasse, seulementIncomplets])
+  }, [eleves, searchTerm, filterEcole, filterClasse, seulementIncomplets, signalements])
 
   // Élèves de la sélection (école / classe choisies) auxquels il manque une information obligatoire
   const nombreIncomplets = useMemo(() => eleves.filter(e => {
     if (filterEcole && e.classe?.ecoleId !== filterEcole) return false
     if (filterClasse && e.classeId !== filterClasse) return false
-    return informationsManquantes(e).length > 0
-  }).length, [eleves, filterEcole, filterClasse])
+    return signalements.has(e.id)
+  }).length, [eleves, filterEcole, filterClasse, signalements])
 
   // Classe choisie dans le formulaire (pour la filière des classes techniques)
   const classeFormulaire = classes.find(c => c.id === formData.classeId)
@@ -206,8 +210,9 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
           <div className="flex items-start gap-2 text-red-800 text-sm">
             <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
             <span>
-              <strong>{nombreIncomplets} élève{nombreIncomplets > 1 ? 's' : ''}</strong> {nombreIncomplets > 1 ? 'ont' : 'a'} des informations obligatoires manquantes
-              (nom du parent, téléphone du parent…), surlignées en rouge. Pensez à les ajouter avec le crayon ✏️ de chaque ligne.
+              <strong>{nombreIncomplets} élève{nombreIncomplets > 1 ? 's' : ''}</strong> {nombreIncomplets > 1 ? 'ont' : 'a'} des signalements : informations manquantes
+              (nom du parent, téléphone, filière…) ou incohérences (doublon, trop-perçu, matricule…). 🔴 rouge = à corriger, 🟠 orange = à vérifier ;
+              chaque signalement indique quoi faire. Corrigez-les avec le crayon ✏️ de la ligne.
             </span>
           </div>
           <button
@@ -247,6 +252,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">Classe</th>
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">École</th>
                   <th className="px-6 py-3 text-left font-semibold text-slate-700">Parent</th>
+                  <th className="px-6 py-3 text-left font-semibold text-slate-700">Signalements</th>
                   {showStatutPaiement && <th className="px-6 py-3 text-center font-semibold text-slate-700">Paiement</th>}
                   {showStatutPaiement && <th className="px-6 py-3 text-center font-semibold text-slate-700">Reste à payer</th>}
                   <th className="px-6 py-3 text-center font-semibold text-slate-700">Actions</th>
@@ -254,7 +260,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
               </thead>
               <tbody>
                 {filteredEleves.map(eleve => (
-                  <tr key={eleve.id} className="border-b border-slate-200 hover:bg-slate-50">
+                  <tr key={eleve.id} className={`border-b border-slate-200 hover:bg-slate-50 ${niveauMax(signalements.get(eleve.id)) === 'rouge' ? 'bg-red-50/40' : niveauMax(signalements.get(eleve.id)) === 'orange' ? 'bg-orange-50/40' : ''}`}>
                     <td className="px-6 py-3 font-mono text-xs text-slate-600">{eleve.matricule || '-'}</td>
                     <td className="px-6 py-3 text-slate-900">
                       {eleve.nom} {estManquant(eleve.prenom) ? <span className="text-red-600 font-semibold text-xs">⚠ prénom à renseigner</span> : eleve.prenom}
@@ -275,6 +281,14 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                       {estManquant(eleve.telephoneParent)
                         ? <div className="text-red-600 font-semibold">⚠ Téléphone à renseigner</div>
                         : <div className="text-slate-400">{eleve.telephoneParent}</div>}
+                    </td>
+                    <td className="px-6 py-3 text-xs min-w-[240px]">
+                      {(signalements.get(eleve.id) || []).filter(x => !x.manque).map((x, i) => (
+                        <div key={i} className={`mb-1 rounded border px-2 py-1 ${STYLE_SIGNALEMENT[x.niveau].fond} ${STYLE_SIGNALEMENT[x.niveau].bordure} ${STYLE_SIGNALEMENT[x.niveau].texte}`}>
+                          <div className="font-semibold">{STYLE_SIGNALEMENT[x.niveau].puce} {x.message}</div>
+                          <div className="opacity-80">➜ {x.aFaire}</div>
+                        </div>
+                      ))}
                     </td>
                     {showStatutPaiement && (
                       <td className="px-6 py-3 text-center">
@@ -340,6 +354,12 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                   <span>Informations à ajouter : <strong>{informationsManquantes(elevePourControle).map(i => i.libelle).join(', ')}</strong>.</span>
                 </div>
               )}
+              {modalMode !== 'create' && selectedEleve && (signalements.get(selectedEleve.id) || []).filter(x => !x.manque).map((x, i) => (
+                <div key={i} className={`rounded-lg border p-3 text-sm ${STYLE_SIGNALEMENT[x.niveau].fond} ${STYLE_SIGNALEMENT[x.niveau].bordure} ${STYLE_SIGNALEMENT[x.niveau].texte}`}>
+                  <div className="font-semibold">{STYLE_SIGNALEMENT[x.niveau].puce} {x.message}</div>
+                  <div className="text-xs opacity-80">➜ {x.aFaire}</div>
+                </div>
+              ))}
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Nom *</label>
