@@ -5,6 +5,8 @@ import { construireGroupes } from '../../frontend/src/utils/grouperScolarite.js'
 
 const prisma = new PrismaClient()
 const DRY_RUN = process.argv.includes('--dry-run')
+// Importe aussi les groupes minoritaires dont la colonne « Classe » désigne clairement une classe reconnue
+const AVEC_SUGGESTIONS = process.argv.includes('--avec-suggestions')
 const chemin = process.argv.find(a => a.endsWith('.json'))
 
 // Importe les élèves et les montants déjà payés des fichiers de scolarité des secrétaires (une feuille par
@@ -32,8 +34,9 @@ async function main() {
     if (!ecole) { console.log('  École absente : fichier ignoré'); continue }
 
     const groupes = construireGroupes(feuilles, classes.filter(c => c.ecoleId === ecole.id), ecole.id, totaux)
-    const retenus = groupes.filter(g => g.suggestion && !g.aVerifier)
-    const ignores = groupes.filter(g => !(g.suggestion && !g.aVerifier))
+    const importable = (g) => g.suggestion && (!g.aVerifier || AVEC_SUGGESTIONS)
+    const retenus = groupes.filter(importable)
+    const ignores = groupes.filter(g => !importable(g))
 
     retenus.forEach(g => console.log(`  ✓ feuille « ${g.feuille.trim()} » [${g.classeTexte || '-'}] → ${g.suggestion.nom} : ${g.eleves.length} élève(s), ${fcfa(g.paye)}`))
     ignores.forEach(g => console.log(`  ✗ NON IMPORTÉ feuille « ${g.feuille.trim()} » [${g.classeTexte || '-'}] : ${g.eleves.length} élève(s), ${fcfa(g.paye)} — ${g.motif || (g.aVerifier ? 'groupe minoritaire à confirmer' : 'classe non reconnue')}${g.suggestion ? ` (suggestion : ${g.suggestion.nom})` : ''} : ${g.eleves.map(e => `${e.nomComplet} (ligne ${e.ligneExcel})`).join(', ')}`))
