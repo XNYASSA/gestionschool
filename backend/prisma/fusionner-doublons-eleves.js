@@ -3,6 +3,8 @@ import { calculerStatut } from '../src/utils/inscriptionsFrais.js'
 
 const prisma = new PrismaClient()
 const DRY_RUN = process.argv.includes('--dry-run')
+// Fusions explicites : --fusion=MATRICULE_GARDE<=MATRICULE_SUPPRIME (répétable) pour une même personne écrite différemment
+const FUSIONS = process.argv.filter(a => a.startsWith('--fusion=')).map(a => a.slice('--fusion='.length).split('<=').map(x => x.trim()))
 const CLASSE_PREFEREE = (process.argv.find(a => a.startsWith('--preferer-classe=')) || '').slice('--preferer-classe='.length).trim()
 
 // Fusionne les élèves enregistrés plusieurs fois (même nom et prénom, dans la même classe) : les imports
@@ -85,6 +87,17 @@ const libelleGroupe = (g) => `${g[0].nom} ${g[0].prenom} [${g[0].classe.ecole.no
 
 async function main() {
   console.log(DRY_RUN ? '### SIMULATION — aucune modification ###' : '### FUSION RÉELLE ###')
+
+  // 0) Fusions explicites
+  for (const [matGarde, matSupprime] of FUSIONS) {
+    const [garde, supprime] = await Promise.all([matGarde, matSupprime].map(m => prisma.eleve.findUnique({
+      where: { matricule: m },
+      include: { classe: { include: { ecole: true } }, inscriptionsFrais: true, _count: { select: { paiements: true, notes: true, presences: true, bulletins: true, verificationsPaiement: true, notesEvaluations: true, anomaliesDetectees: true } } }
+    })))
+    if (!garde || !supprime) { nonFusionnes.push(`Fusion ${matGarde}<=${matSupprime} : matricule introuvable`); continue }
+    if (aDesLiens(supprime)) { nonFusionnes.push(`Fusion ${matGarde}<=${matSupprime} : ${supprime.matricule} a des reçus/notes/présences — à fusionner à la main`); continue }
+    await fusionner([garde, supprime], garde, `${garde.nom} ${garde.prenom} = ${supprime.nom} ${supprime.prenom}`)
+  }
 
   // 1) Même nom dans la même classe
   for (const groupe of regrouper(await charger(), e => `${e.classeId}|${cle(e)}`)) {

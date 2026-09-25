@@ -7,6 +7,9 @@ const prisma = new PrismaClient()
 const DRY_RUN = process.argv.includes('--dry-run')
 // Importe aussi les groupes minoritaires dont la colonne « Classe » désigne clairement une classe reconnue
 const AVEC_SUGGESTIONS = process.argv.includes('--avec-suggestions')
+// Restreint l'import à certaines feuilles : --feuille=NOM (répétable)
+const FEUILLES = process.argv.filter(a => a.startsWith('--feuille=')).map(a => a.slice('--feuille='.length).trim())
+
 // Affectations imposées : --affecter="FEUILLE|Classe écrite dans le fichier=Classe de l'application" (répétable)
 const AFFECTATIONS = process.argv.filter(a => a.startsWith('--affecter=')).map(a => {
   const [source, classe] = a.slice('--affecter='.length).split('=')
@@ -39,7 +42,8 @@ async function main() {
     console.log(`\n=== ${fichier} → ${ecoleNom} ===`)
     if (!ecole) { console.log('  École absente : fichier ignoré'); continue }
 
-    const groupes = construireGroupes(feuilles, classes.filter(c => c.ecoleId === ecole.id), ecole.id, totaux)
+    const feuillesRetenues = FEUILLES.length ? feuilles.filter(f => FEUILLES.includes(f.nom.trim())) : feuilles
+    const groupes = construireGroupes(feuillesRetenues, classes.filter(c => c.ecoleId === ecole.id), ecole.id, totaux)
     groupes.forEach(g => {
       const imposee = AFFECTATIONS.find(x => x.feuille === g.feuille.trim() && x.classeTexte === (g.classeTexte || '').trim())
       if (!imposee) return
