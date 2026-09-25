@@ -1,6 +1,9 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 const DUREE_CACHE_MS = 30 * 1000
 
+// Copie profonde des données JSON (compatible avec les navigateurs anciens, contrairement à structuredClone)
+const copie = (donnees) => (donnees === undefined ? donnees : JSON.parse(JSON.stringify(donnees)))
+
 class APIClient {
   constructor() {
     this.token = localStorage.getItem('token')
@@ -29,13 +32,13 @@ class APIClient {
     const clef = `${this.token || ''}|${endpoint}`
     const enCache = this.cache.get(clef)
     if (enCache && Date.now() - enCache.date < DUREE_CACHE_MS) {
-      return enCache.promesse.then(donnees => structuredClone(donnees))
+      return enCache.promesse.then(donnees => copie(donnees))
     }
 
     const promesse = this.requestReseau(endpoint, options)
     this.cache.set(clef, { date: Date.now(), promesse })
     promesse.catch(() => this.cache.delete(clef))
-    return promesse.then(donnees => structuredClone(donnees))
+    return promesse.then(donnees => copie(donnees))
   }
 
   async requestReseau(endpoint, options = {}) {
