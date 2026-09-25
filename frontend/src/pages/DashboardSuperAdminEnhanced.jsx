@@ -22,6 +22,7 @@ const CahierTextes = lazy(() => import('../sections/SuperAdmin/CahierTextes'))
 const EmploiTemps = lazy(() => import('../sections/SuperAdmin/EmploiTemps'))
 const Bulletins = lazy(() => import('../sections/SuperAdmin/Bulletins'))
 import { calculerSignalements } from '../utils/signalements'
+const ValidationNotes = lazy(() => import('../sections/SuperAdmin/ValidationNotes'))
 const BordereauNotes = lazy(() => import('../sections/SuperAdmin/BordereauNotes'))
 const BaremeNotation = lazy(() => import('../sections/SuperAdmin/BaremeNotation'))
 const Parametres = lazy(() => import('../sections/SuperAdmin/Parametres'))
@@ -34,6 +35,7 @@ const MesClasses = lazy(() => import('../sections/SuperAdmin/MesClasses'))
 const CahierTexteEnseignant = lazy(() => import('../sections/SuperAdmin/CahierTexteEnseignant'))
 const SaisieNotesEnseignant = lazy(() => import('../sections/SuperAdmin/SaisieNotesEnseignant'))
 const AppelPresence = lazy(() => import('../sections/SuperAdmin/AppelPresence'))
+const GestionPresences = lazy(() => import('../sections/SuperAdmin/GestionPresences'))
 const ConsultationPresences = lazy(() => import('../sections/SuperAdmin/ConsultationPresences'))
 const ImporterEleves = lazy(() => import('../sections/SuperAdmin/ImporterEleves'))
 const FraisParEcole = lazy(() => import('../sections/SuperAdmin/FraisParEcole'))
@@ -171,6 +173,8 @@ export default function DashboardSuperAdminEnhanced() {
         return <Bulletins ecoleIds={ecoleIds} onNavigate={navigateToSection} />
       case 'bordereau-notes':
         return <BordereauNotes onNavigate={navigateToSection} />
+      case 'validation-notes':
+        return <ValidationNotes />
       case 'bareme-notation':
         return <BaremeNotation />
       case 'matieres':
@@ -193,6 +197,8 @@ export default function DashboardSuperAdminEnhanced() {
         return <SaisieNotesEnseignant />
       case 'appel-presence':
         return <AppelPresence />
+      case 'gestion-presences':
+        return <GestionPresences />
       case 'presences-eleves':
         return <ConsultationPresences />
       case 'anomalies':

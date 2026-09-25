@@ -7,6 +7,7 @@ const todayISO = () => new Date().toISOString().split('T')[0]
 const STATUT_LABEL = {
   PRESENT: { label: '✓ Présent', className: 'bg-green-100 text-green-700' },
   ABSENT: { label: '✗ Absent', className: 'bg-red-100 text-red-700' },
+  RETARD: { label: '⏰ Retard', className: 'bg-amber-100 text-amber-700' },
   JUSTIFIE: { label: '📄 Justifié', className: 'bg-yellow-100 text-yellow-700' }
 }
 

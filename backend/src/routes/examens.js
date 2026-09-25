@@ -140,6 +140,7 @@ router.get('/bordereau', verifyToken, checkRole(ROLES_LECTURE), async (req, res)
       if (!notesParEleve.has(n.eleveId)) notesParEleve.set(n.eleveId, {})
       notesParEleve.get(n.eleveId)[n.matiereId] = n.valeur
     })
+    const validation = { total: notes.length, valides: notes.filter(n => n.statutValidation === 'VALIDE').length }
     const enseignantParMatiere = new Map()
     affectations.forEach(a => { if (!enseignantParMatiere.has(a.matiereId)) enseignantParMatiere.set(a.matiereId, a.enseignant.utilisateur.nom) })
 
@@ -158,6 +159,7 @@ router.get('/bordereau', verifyToken, checkRole(ROLES_LECTURE), async (req, res)
       anneeScolaire, trimestre, evaluation,
       matieres,
       eleves: eleves.map(e => ({ ...e, notes: notesParEleve.get(e.id) || {} })),
+      validation,
       bareme
     })
   } catch (error) {
@@ -201,12 +203,45 @@ router.put('/bordereau', verifyToken, checkRole(ROLES_LECTURE), async (req, res)
       operations.push(req.prisma.noteEvaluation.upsert({
         where: { eleveId_matiereId_anneeScolaire_trimestre_evaluation: cle },
         create: { ...cle, valeur: arrondie, saisiePar: req.user.id },
-        update: { valeur: arrondie, saisiePar: req.user.id }
+        // Une note modifiée doit être revalidée
+        update: { valeur: arrondie, saisiePar: req.user.id, statutValidation: 'BROUILLON', dateValidation: null, validePar: null }
       }))
     })
 
     await req.prisma.$transaction(operations)
     res.json({ enregistrees, effacees })
+  } catch (error) {
+    reponseErreur(res, error)
+  }
+})
+
+// POST /bordereau/valider — valide toutes les notes saisies du bordereau (classe, année, trimestre, évaluation)
+router.post('/bordereau/valider', verifyToken, checkRole(ROLES_LECTURE), async (req, res) => {
+  try {
+    const classe = await chargerClasseAutorisee(req, req.body.classeId)
+    const { anneeScolaire, trimestre, evaluation } = lireParametres(req.body)
+    const eleves = await req.prisma.eleve.findMany({ where: { classeId: classe.id }, select: { id: true } })
+    const resultat = await req.prisma.noteEvaluation.updateMany({
+      where: { eleveId: { in: eleves.map(e => e.id) }, anneeScolaire, trimestre, evaluation, statutValidation: { not: 'VALIDE' } },
+      data: { statutValidation: 'VALIDE', dateValidation: new Date(), validePar: req.user.id }
+    })
+    res.json({ validees: resultat.count })
+  } catch (error) {
+    reponseErreur(res, error)
+  }
+})
+
+// POST /bordereau/rouvrir — remet les notes en « à valider » (correction après validation) : responsables uniquement
+router.post('/bordereau/rouvrir', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
+  try {
+    const classe = await chargerClasseAutorisee(req, req.body.classeId)
+    const { anneeScolaire, trimestre, evaluation } = lireParametres(req.body)
+    const eleves = await req.prisma.eleve.findMany({ where: { classeId: classe.id }, select: { id: true } })
+    const resultat = await req.prisma.noteEvaluation.updateMany({
+      where: { eleveId: { in: eleves.map(e => e.id) }, anneeScolaire, trimestre, evaluation },
+      data: { statutValidation: 'BROUILLON', dateValidation: null, validePar: null }
+    })
+    res.json({ rouvertes: resultat.count })
   } catch (error) {
     reponseErreur(res, error)
   }

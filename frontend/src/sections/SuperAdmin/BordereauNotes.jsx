@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
-import { ClipboardList, Loader, Save, Printer, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useMemo, useContext } from 'react'
+import { ClipboardList, Loader, Save, Printer, AlertTriangle, ShieldCheck } from 'lucide-react'
 import { apiClient } from '../../api/client'
+import { AuthContext } from '../../context/AuthContext'
 import { ANNEE_SCOLAIRE_COURANTE, ANNEES_SCOLAIRES } from '../../utils/anneeScolaire'
 import { mentionPourNote } from '../../utils/baremeNotation'
 import { moyenneEleve, sectionBordereau, sectionFiche, libelleEvaluation } from '../../utils/impressionExamens'
@@ -19,6 +20,9 @@ const noteInvalide = (t) => {
 const formatMoyenne = (n) => Number(n).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export default function BordereauNotes({ onNavigate }) {
+  const { user } = useContext(AuthContext)
+  const peutRouvrir = ['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE'].includes(user?.roleAPI)
+  const [validating, setValidating] = useState(false)
   const [ecoles, setEcoles] = useState([])
   const [classes, setClasses] = useState([])
   const [ecoleId, setEcoleId] = useState('')
@@ -112,6 +116,47 @@ export default function BordereauNotes({ onNavigate }) {
     if (delta === 0) return
     e.preventDefault()
     document.querySelector(`[data-ligne="${ligne + delta}"][data-colonne="${colonne}"]`)?.focus()
+  }
+
+  const parametres = () => ({ classeId, anneeScolaire, trimestre, evaluation })
+
+  const rechargerDonnees = async () => {
+    const data = await apiClient.getBordereau(parametres())
+    setDonnees(data)
+    setSaisies(notesInitiales(data))
+  }
+
+  // Valide les notes du bordereau : elles sont alors considérées comme contrôlées et utilisables pour les bulletins
+  const validerNotes = async () => {
+    if (!confirm(`Valider les ${donnees.validation.total - donnees.validation.valides} note(s) saisies de ${donnees.classe.nom} (${libelleEvaluation(trimestre, evaluation)}) ? Vérifiez d'abord qu'elles correspondent aux fiches remplies par les enseignants.`)) return
+    setValidating(true)
+    setError('')
+    setMessage('')
+    try {
+      const res = await apiClient.validerBordereau(parametres())
+      await rechargerDonnees()
+      setMessage(`${res.validees} note(s) validée(s).`)
+    } catch (err) {
+      setError(err.message || 'Erreur lors de la validation')
+    } finally {
+      setValidating(false)
+    }
+  }
+
+  const rouvrirNotes = async () => {
+    if (!confirm('Remettre ces notes « à valider » pour pouvoir les corriger ?')) return
+    setValidating(true)
+    setError('')
+    setMessage('')
+    try {
+      const res = await apiClient.rouvrirBordereau(parametres())
+      await rechargerDonnees()
+      setMessage(`${res.rouvertes} note(s) remise(s) à valider.`)
+    } catch (err) {
+      setError(err.message || 'Erreur')
+    } finally {
+      setValidating(false)
+    }
   }
 
   const enregistrer = async () => {
@@ -252,6 +297,24 @@ export default function BordereauNotes({ onNavigate }) {
                 <p className="text-xs text-slate-500">{donnees.eleves.length} élève(s) · notes saisies sur 20 · Entrée ou ↓ pour passer à l'élève suivant</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {donnees.validation.total > 0 && (
+                  donnees.validation.valides === donnees.validation.total
+                    ? <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-800 flex items-center gap-1"><ShieldCheck className="w-4 h-4" /> Notes validées ({donnees.validation.total})</span>
+                    : <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-amber-100 text-amber-800">⚠ {donnees.validation.total - donnees.validation.valides} note(s) à valider sur {donnees.validation.total}</span>
+                )}
+                {donnees.validation.total - donnees.validation.valides > 0 && (
+                  <button
+                    onClick={validerNotes}
+                    disabled={validating || modifications.length > 0}
+                    title={modifications.length > 0 ? "Enregistrez d'abord les notes saisies" : ''}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {validating ? <Loader className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Valider les notes
+                  </button>
+                )}
+                {peutRouvrir && donnees.validation.total > 0 && donnees.validation.valides > 0 && (
+                  <button onClick={rouvrirNotes} disabled={validating} className="px-3 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 text-sm">Rouvrir pour correction</button>
+                )}
                 <BoutonsExport construire={construireBordereau(true)} disabled={donnees.eleves.length === 0} />
                 <button
                   onClick={enregistrer}

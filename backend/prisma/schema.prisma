@@ -525,6 +525,9 @@ model NoteEvaluation {
   saisiePar     String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  statutValidation String   @default("BROUILLON") // BROUILLON (saisie à contrôler) ou VALIDE
+  dateValidation   DateTime?
+  validePar        String?
 
   @@unique([eleveId, matiereId, anneeScolaire, trimestre, evaluation])
   @@index([matiereId, anneeScolaire, trimestre, evaluation])

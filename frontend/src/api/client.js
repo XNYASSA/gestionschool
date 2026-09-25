@@ -268,8 +268,9 @@ class APIClient {
   }
 
   // NOTES
-  async getNotes() {
-    return this.request('/notes')
+  async getNotes(filtres = {}) {
+    const params = new URLSearchParams(Object.fromEntries(Object.entries(filtres).filter(([, v]) => v))).toString()
+    return this.request(`/notes${params ? `?${params}` : ''}`)
   }
 
   async createNote(eleveId, ecmId, trimestre, valeur, observation) {
@@ -285,12 +286,28 @@ class APIClient {
     })
   }
 
+  async rejeterNote(noteId) {
+    return this.request(`/notes/${noteId}/rejeter`, { method: 'PUT' })
+  }
+
+  async validerNotesLot(ids) {
+    return this.request('/notes/valider-lot', { method: 'POST', body: JSON.stringify({ ids }) })
+  }
+
   // PRESENCES
   async getPresences(filtres = {}) {
     const params = new URLSearchParams(
       Object.fromEntries(Object.entries(filtres).filter(([, v]) => v))
     ).toString()
     return this.request(`/presences${params ? `?${params}` : ''}`)
+  }
+
+  // Appel d'une classe entière (surveillant général, secrétaire...) : [{ eleveId, statut, observation }]
+  async enregistrerAppel(classeId, date, presences) {
+    return this.request('/presences/appel', {
+      method: 'POST',
+      body: JSON.stringify({ classeId, date, presences })
+    })
   }
 
   async enregistrerPresence(eleveId, classeId, date, statut) {
@@ -699,6 +716,20 @@ class APIClient {
 
   async getBordereau({ classeId, anneeScolaire, trimestre, evaluation }) {
     return this.request(`/examens/bordereau?classeId=${classeId}&anneeScolaire=${anneeScolaire}&trimestre=${trimestre}&evaluation=${evaluation}`)
+  }
+
+  async validerBordereau({ classeId, anneeScolaire, trimestre, evaluation }) {
+    return this.request('/examens/bordereau/valider', {
+      method: 'POST',
+      body: JSON.stringify({ classeId, anneeScolaire, trimestre, evaluation })
+    })
+  }
+
+  async rouvrirBordereau({ classeId, anneeScolaire, trimestre, evaluation }) {
+    return this.request('/examens/bordereau/rouvrir', {
+      method: 'POST',
+      body: JSON.stringify({ classeId, anneeScolaire, trimestre, evaluation })
+    })
   }
 
   async saveBordereau({ classeId, anneeScolaire, trimestre, evaluation, notes }) {
