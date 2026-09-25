@@ -43,7 +43,7 @@ router.get('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE'
 })
 
 // GET CONFIGURATIONS D'UNE ÉCOLE (une école peut avoir plusieurs barèmes)
-router.get('/ecole/:ecoleId', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
+router.get('/ecole/:ecoleId', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE', 'ECONOMAT']), async (req, res) => {
   try {
     const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
     if (ecoleIds && !ecoleIds.includes(req.params.ecoleId)) {

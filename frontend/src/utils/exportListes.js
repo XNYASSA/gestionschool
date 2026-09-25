@@ -1,5 +1,6 @@
 import { nomFichierSur } from './exportTableau'
 import { valeurOuVide } from './infosEleve'
+import { typeTechnique } from './filieres'
 
 const aujourdhui = () => new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -18,7 +19,9 @@ export function exportListeEleves(eleves, { critere = '' } = {}) {
   const groupes = [...parClasse.values()].sort((a, b) =>
     (a.classe?.ecole?.nomCourt || '').localeCompare(b.classe?.ecole?.nomCourt || '', 'fr') || (a.classe?.nom || '').localeCompare(b.classe?.nom || '', 'fr'))
 
-  const sections = groupes.map(({ classe, eleves: liste }) => ({
+  const sections = groupes.map(({ classe, eleves: liste }) => {
+    const technique = !!typeTechnique(classe)
+    return {
     titre: `LISTE DES ÉLÈVES — ${classe?.nom || 'Sans classe'}`,
     nomFeuille: classe ? `${classe.ecole?.nomCourt || ''} ${classe.nom}`.trim() : 'Sans classe',
     paysage: false,
@@ -32,15 +35,18 @@ export function exportListeEleves(eleves, { critere = '' } = {}) {
       { titre: 'Nom' },
       { titre: 'Prénom' },
       { titre: 'Sexe', centre: true, largeur: 14 },
+      ...(technique ? [{ titre: 'Filière' }] : []),
       { titre: 'Parent' },
       { titre: 'Téléphone parent', largeur: 34 }
     ],
     lignes: [...liste].sort(parNomPrenom).map((e, i) => [
       i + 1, e.matricule || '', e.nom, e.prenom,
       e.sexe === 'MASCULIN' ? 'M' : e.sexe === 'FEMININ' ? 'F' : '',
+      ...(technique ? [e.filiere || ''] : []),
       valeurOuVide(e.nomParent), valeurOuVide(e.telephoneParent)
     ])
-  }))
+    }
+  })
 
   const unique = groupes.length === 1 ? groupes[0].classe : null
   return {

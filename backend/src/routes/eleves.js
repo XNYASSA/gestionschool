@@ -50,7 +50,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 // CREATE ELEVE (Super Admin, Principal/Directrice, Secretaire)
 router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
-    let { matricule, nom, prenom, sexe, dateNaissance, classeId, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
+    let { matricule, nom, prenom, sexe, dateNaissance, classeId, filiere, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
 
     // Valider les champs requis
     if (!nom || !prenom || !classeId || !nomParent || !telephoneParent) {
@@ -101,6 +101,7 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
         sexe: sexe || null,
         dateNaissance: dateNaissance ? new Date(dateNaissance) : null,
         classeId,
+        filiere: String(filiere ?? '').trim() || null,
         nomParent,
         lieuParente,
         telephoneParent,
@@ -154,7 +155,7 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
       const numeroLigne = i + 1
       const ligne = lignes[i] || {}
       try {
-        const { matricule: matriculeFourni, nom, prenom, sexe, dateNaissance, classe, nomParent, lieuParente, telephoneParent, emailParent, adresseParent, inscription, tranche1, tranche2, tranche3 } = ligne
+        const { matricule: matriculeFourni, nom, prenom, sexe, dateNaissance, classe, filiere, nomParent, lieuParente, telephoneParent, emailParent, adresseParent, inscription, tranche1, tranche2, tranche3 } = ligne
         const montantsPostes = { inscription, tranche1, tranche2, tranche3 }
 
         if (!nom || !classe) {
@@ -216,6 +217,7 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
             data: {
               ...(matriculeRetenu && { matricule: matriculeRetenu }),
               ...(sexeNormalise && { sexe: sexeNormalise }),
+              ...(String(filiere ?? '').trim() && { filiere: String(filiere).trim() }),
               ...(dateNaissanceParsed && { dateNaissance: dateNaissanceParsed }),
               ...(parentFourni && { nomParent: parentFourni }),
               ...(lieuParente && { lieuParente }),
@@ -259,6 +261,7 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
             sexe: sexeNormalise,
             dateNaissance: dateNaissanceParsed,
             classeId: classeTrouvee.id,
+            filiere: String(filiere ?? '').trim() || null,
             nomParent: parentFourni || NON_RENSEIGNE,
             lieuParente: lieuParente || null,
             telephoneParent: telephoneFourni || NON_RENSEIGNE,
@@ -294,7 +297,7 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
 // UPDATE ELEVE (Super Admin, Principal/Directrice, Secretaire)
 router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
-    const { nom, prenom, sexe, dateNaissance, classeId, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
+    const { nom, prenom, sexe, dateNaissance, classeId, filiere, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
 
     const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
     if (ecoleIds) {
@@ -318,6 +321,7 @@ router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRI
         ...(sexe && { sexe }),
         ...(dateNaissance && { dateNaissance: new Date(dateNaissance) }),
         ...(classeId && { classeId }),
+        ...(filiere !== undefined && { filiere: String(filiere ?? '').trim() || null }),
         ...(nomParent && { nomParent }),
         ...(lieuParente !== undefined && { lieuParente }),
         ...(telephoneParent && { telephoneParent }),

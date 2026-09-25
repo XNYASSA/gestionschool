@@ -3,6 +3,8 @@ import { Loader, Download, Upload, CheckCircle2, XCircle, AlertTriangle, FileSpr
 import { apiClient } from '../../api/client'
 import { lireClasseurScolarite } from '../../utils/lireScolarite'
 import { proposerClasse, canonClasse } from '../../utils/appariementClasses'
+import { typeTechnique } from '../../utils/filieres'
+import BoutonsExport from '../../components/BoutonsExport'
 
 const COLONNES = [
   { titre: 'Matricule (optionnel)', cle: 'matricule' },
@@ -80,6 +82,7 @@ export default function ImporterEleves({ onNavigate }) {
   const [lignes, setLignes] = useState([]) // mode modèle
   const [feuilles, setFeuilles] = useState([]) // mode scolarité
   const [cibles, setCibles] = useState({}) // clé de groupe -> classeId
+  const [totauxBareme, setTotauxBareme] = useState({}) // 'ecoleId|niveau' -> montant total du barème
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
   const [progression, setProgression] = useState('')
@@ -90,8 +93,15 @@ export default function ImporterEleves({ onNavigate }) {
     Promise.all([apiClient.getEcoles(), apiClient.getClasses()])
       .then(([ecolesData, classesData]) => {
         setEcoles(ecolesData)
-        setClasses(classesData.map(c => ({ id: c.id, nom: c.nom, ecoleId: c.ecoleId || c.ecole?.id, ecoleNom: c.ecole?.nomCourt || '' })))
+        setClasses(classesData.map(c => ({ id: c.id, nom: c.nom, niveau: c.niveau, ecoleId: c.ecoleId || c.ecole?.id, ecoleNom: c.ecole?.nomCourt || '' })))
         if (ecolesData.length > 0) setEcoleId(ecolesData[0].id)
+        // Barèmes de frais : servent à reconnaître la discipline technique d'après la pension et à contrôler les montants
+        Promise.all(ecolesData.map(e => apiClient.getConfigurationsFraisByEcole(e.id).then(cfgs => [e.id, cfgs]).catch(() => [e.id, []])))
+          .then(parEcole => {
+            const totaux = {}
+            parEcole.forEach(([id, cfgs]) => (cfgs || []).forEach(cfg => (cfg.niveaux || []).forEach(n => { totaux[`${id}|${n.niveau}`] = cfg.montantFraisTotal })))
+            setTotauxBareme(totaux)
+          })
       })
       .catch(err => setErreurLecture(err.message || 'Erreur lors du chargement'))
       .finally(() => setLoading(false))
@@ -102,6 +112,38 @@ export default function ImporterEleves({ onNavigate }) {
     const liste = []
     feuilles.forEach((feuille, indexFeuille) => {
       if (feuille.eleves.length === 0) return
+
+      // Enseignement technique : A1 à A4 = 1ère à 4ème année (francophone), Y1 à Y4 = Year 1 à 4 (anglophone).
+      // La discipline (industriel / commercial) se déduit de la pension écrite dans le fichier.
+      const tech = /^\s*([ay])\s*([1-4])\s*$/i.exec(feuille.nom)
+      if (tech) {
+        const langue = tech[1].toLowerCase() === 'a' ? 'fr' : 'en'
+        const annee = tech[2]
+        const candidates = classes.filter(c => typeTechnique(c)?.langue === langue && new RegExp(`(^|\\D)${annee}(\\D|$)`).test(c.niveau))
+        const parCible = new Map()
+        feuille.eleves.forEach(e => {
+          const trouvees = candidates.filter(c => totauxBareme[`${c.ecoleId}|${c.niveau}`] === e.pensionTotal)
+          const classe = trouvees.length === 1 ? trouvees[0] : null
+          const cle = classe ? classe.id : `inconnu-${e.pensionTotal}`
+          if (!parCible.has(cle)) parCible.set(cle, { classe, pension: e.pensionTotal, eleves: [] })
+          parCible.get(cle).eleves.push(e)
+        })
+        parCible.forEach((g, cle) => liste.push({
+          cle: `${indexFeuille}|tech|${cle}`,
+          feuille: feuille.nom,
+          classeTexte: `Pension ${formatFCFA(g.pension)}`,
+          eleves: g.eleves,
+          paye: g.eleves.reduce((sum, e) => sum + e.inscription + e.tranche1 + e.tranche2 + e.tranche3, 0),
+          suggestion: g.classe,
+          ecart: null,
+          aVerifier: false,
+          motif: g.classe ? '' : candidates.length === 0
+            ? `Aucune classe technique de ${langue === 'fr' ? '1ère à 4ème année' : 'Year 1 à 4'} : créez-les d'abord.`
+            : `La pension de ${formatFCFA(g.pension)} indiquée dans le fichier ne correspond à aucun barème technique (industriel ou commercial) : choisissez la classe et vérifiez le montant.`
+        }))
+        return
+      }
+
       const parClasse = new Map()
       feuille.eleves.forEach(e => {
         const cle = canonClasse(e.classeTexte)
@@ -121,12 +163,13 @@ export default function ImporterEleves({ onNavigate }) {
           paye: g.eleves.reduce((s, e) => s + e.inscription + e.tranche1 + e.tranche2 + e.tranche3, 0),
           suggestion: proposition.classe,
           ecart: proposition.ecart,
-          aVerifier
+          aVerifier,
+          motif: ''
         })
       })
     })
     return liste
-  }, [feuilles, classes, ecoleId])
+  }, [feuilles, classes, ecoleId, totauxBareme])
 
   // Classe retenue par défaut pour chaque groupe (modifiable) ; les groupes à vérifier restent à choisir
   useEffect(() => {
@@ -192,7 +235,67 @@ export default function ImporterEleves({ onNavigate }) {
   const elevesImportes = groupesImportes.reduce((s, g) => s + g.eleves.length, 0)
   const montantImporte = groupesImportes.reduce((s, g) => s + g.paye, 0)
   const feuillesIgnorees = feuilles.filter(f => f.eleves.length === 0)
-  const anomalies = feuilles.flatMap(f => f.anomalies.map(a => `Feuille « ${f.nom.trim()} » — ${a}`))
+
+  // Anomalies du fichier : chacune indique le problème et l'information à corriger ou à ajouter
+  const anomalies = useMemo(() => {
+    const liste = []
+    const ajouter = (feuille, e, categorie, probleme, aFaire) => liste.push({ categorie, feuille: String(feuille).trim(), ligne: e?.ligneExcel || '', eleve: e?.nomComplet || '', probleme, aFaire })
+    const classeParId = new Map(classes.map(c => [c.id, c]))
+    const cle = (v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+
+    const parMatricule = new Map()
+    const parNom = new Map()
+    feuilles.forEach(f => f.eleves.forEach(e => {
+      if (e.matricule) { if (!parMatricule.has(e.matricule)) parMatricule.set(e.matricule, []); parMatricule.get(e.matricule).push({ f, e }) }
+      const k = cle(`${e.nom} ${e.prenom}`)
+      if (!parNom.has(k)) parNom.set(k, [])
+      parNom.get(k).push({ f, e })
+    }))
+
+    feuilles.forEach(f => {
+      f.anomalies.forEach(a => ajouter(f.nom, null, 'Montants sans nom d\'élève', a, 'Ajouter le nom de l\'élève dans le fichier (ou supprimer la ligne) avant de réimporter'))
+      f.eleves.forEach(e => {
+        if (!e.prenom) ajouter(f.nom, e, 'Prénom manquant', 'Le nom ne comporte qu\'un seul mot : prénom introuvable', 'Ajouter le prénom (fichier ou fiche élève)')
+        if (/[,;:.()/\d]/.test(e.nomComplet)) ajouter(f.nom, e, 'Nom à corriger', `Le nom contient un caractère inhabituel : « ${e.nomComplet} »`, 'Corriger l\'orthographe du nom')
+        if (!e.matricule) ajouter(f.nom, e, 'Matricule absent', 'Aucun matricule (colonne « Mle » vide)', 'Un matricule automatique sera attribué ; ajouter le matricule si nécessaire')
+        const total = e.inscription + e.tranche1 + e.tranche2 + e.tranche3
+        if (e.pensionTotal > 0 && total > e.pensionTotal) ajouter(f.nom, e, 'Montant payé supérieur à la pension', `Payé ${formatFCFA(total)} pour une pension de ${formatFCFA(e.pensionTotal)}`, 'Vérifier les montants payés ou la pension')
+      })
+    })
+    parMatricule.forEach((occ, matricule) => {
+      if (occ.length > 1) occ.forEach(({ f, e }) => ajouter(f.nom, e, 'Matricule en double', `Le matricule « ${matricule} » est utilisé ${occ.length} fois (${occ.map(o => o.f.nom.trim()).join(', ')})`, 'Un suffixe « -2 » sera ajouté au second ; corriger le matricule si nécessaire'))
+    })
+    parNom.forEach(occ => {
+      if (occ.length > 1) occ.forEach(({ f, e }) => ajouter(f.nom, e, 'Élève présent plusieurs fois', `« ${e.nomComplet} » apparaît ${occ.length} fois (${occ.map(o => `${o.f.nom.trim()} ligne ${o.e.ligneExcel}`).join(', ')})`, 'Supprimer le doublon du fichier'))
+    })
+
+    groupes.forEach(g => {
+      const classe = classeParId.get(cibles[g.cle])
+      if (!classe) {
+        g.eleves.forEach(e => ajouter(g.feuille, e, 'Classe de destination non choisie', g.motif || `Classe « ${g.classeTexte || g.feuille.trim()} » non reconnue : l'élève ne sera pas importé`, 'Choisir la classe dans le tableau ci-dessus (ou la créer dans « Classes »)'))
+        return
+      }
+      const totalBareme = totauxBareme[`${classe.ecoleId}|${classe.niveau}`]
+      g.eleves.forEach(e => {
+        const paye = e.inscription + e.tranche1 + e.tranche2 + e.tranche3
+        if (totalBareme === undefined) {
+          if (paye > 0) ajouter(g.feuille, e, 'Classe sans barème de frais', `La classe « ${classe.nom} » n'a pas de barème : ${formatFCFA(paye)} payés ne pourront pas être enregistrés`, 'Configurer le barème de cette classe (Configuration frais) puis réimporter')
+        } else if (e.pensionTotal > 0 && e.pensionTotal !== totalBareme) {
+          ajouter(g.feuille, e, 'Pension différente du barème', `Pension du fichier ${formatFCFA(e.pensionTotal)} ≠ barème ${formatFCFA(totalBareme)} de la classe « ${classe.nom} »`, 'Vérifier la classe, une réduction / bourse, ou corriger le montant dans le fichier')
+        }
+        if (g.ecart) ajouter(g.feuille, e, 'Classe différente de la feuille', `La colonne « Classe » indique « ${g.ecart.nom} » alors que la feuille correspond à « ${classe.nom} »`, 'Vérifier dans quelle classe se trouve réellement l\'élève')
+      })
+    })
+    return liste
+  }, [feuilles, groupes, cibles, classes, totauxBareme])
+
+  const anomaliesParCategorie = useMemo(() => {
+    const parCat = new Map()
+    anomalies.forEach(a => { if (!parCat.has(a.categorie)) parCat.set(a.categorie, []); parCat.get(a.categorie).push(a) })
+    return [...parCat.entries()].sort((a, b) => b[1].length - a[1].length)
+  }, [anomalies])
+
+  const elevesTechniques = groupesImportes.reduce((s, g) => s + (typeTechnique(classes.find(c => c.id === cibles[g.cle])) ? g.eleves.length : 0), 0)
 
   const envoyerParLots = async (parEcole) => {
     const resultats = []
@@ -347,7 +450,7 @@ export default function ImporterEleves({ onNavigate }) {
                             ))}
                           </select>
                           {!choisie && g.aVerifier && g.suggestion && <p className="text-xs text-red-600 mt-1">⚠ Groupe minoritaire de la feuille : la colonne Classe indique « {g.suggestion.nom} » ({g.suggestion.ecoleNom}). À confirmer.</p>}
-                          {!choisie && !g.aVerifier && <p className="text-xs text-red-600 mt-1">⚠ Classe non reconnue : choisissez-la (ou créez-la d'abord dans « Classes »).</p>}
+                          {!choisie && !g.aVerifier && <p className="text-xs text-red-600 mt-1">⚠ {g.motif || "Classe non reconnue : choisissez-la (ou créez-la d'abord dans « Classes »)."}</p>}
                           {choisie && g.ecart && <p className="text-xs text-amber-700 mt-1">Attention : la colonne Classe de certaines lignes indique « {g.ecart.nom} » ; la classe de la feuille est retenue.</p>}
                         </td>
                       </tr>
@@ -357,18 +460,53 @@ export default function ImporterEleves({ onNavigate }) {
               </table>
             </div>
 
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-800 text-sm space-y-1">
+              <p className="font-semibold flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Informations à ajouter après l'import</p>
+              <p>Le fichier ne contient ni le <strong>nom du parent</strong> ni son <strong>téléphone</strong> : les {elevesImportes} élève(s) importé(s) seront signalés en rouge dans la liste des élèves jusqu'à ce que ces informations soient ajoutées.</p>
+              {elevesTechniques > 0 && <p>La <strong>filière</strong> (mécanique auto, comptabilité…) n'est pas dans le fichier : elle est à renseigner pour les {elevesTechniques} élève(s) de l'enseignement technique.</p>}
+            </div>
+
+            {anomalies.length > 0 && (
+              <div className="border-2 border-red-300 rounded-lg bg-red-50 p-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-red-800 flex items-center gap-1">
+                    <AlertTriangle className="w-4 h-4" /> {anomalies.length} anomalie(s) dans le fichier — à corriger ou à compléter (l'import n'est pas bloqué)
+                  </p>
+                  <BoutonsExport
+                    construire={() => ({
+                      sections: [{
+                        titre: 'ANOMALIES DU FICHIER DE SCOLARITÉ',
+                        nomFeuille: 'Anomalies',
+                        paysage: true,
+                        entete: [`Fichier : ${fichier?.name || ''}`, `${anomalies.length} anomalie(s)`],
+                        colonnes: [{ titre: 'Anomalie' }, { titre: 'Feuille' }, { titre: 'Ligne', centre: true, largeur: 14 }, { titre: 'Élève' }, { titre: 'Problème' }, { titre: 'À corriger / ajouter' }],
+                        lignes: anomalies.map(a => [a.categorie, a.feuille, a.ligne, a.eleve, a.probleme, a.aFaire])
+                      }],
+                      nomFichier: 'anomalies-fichier-scolarite'
+                    })}
+                  />
+                </div>
+                {anomaliesParCategorie.map(([categorie, items]) => (
+                  <details key={categorie} className="bg-white border border-red-200 rounded">
+                    <summary className="cursor-pointer px-3 py-2 text-red-700 font-medium">{categorie} — {items.length}</summary>
+                    <ul className="divide-y divide-red-100 max-h-72 overflow-y-auto">
+                      {items.map((a, i) => (
+                        <li key={i} className="px-3 py-1.5 text-sm text-red-700">
+                          <strong>{a.feuille}{a.ligne ? ` · ligne ${a.ligne}` : ''}{a.eleve ? ` · ${a.eleve}` : ''}</strong> — {a.probleme}.
+                          <span className="block text-xs text-red-500">➜ {a.aFaire}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ))}
+              </div>
+            )}
+
             {feuillesIgnorees.length > 0 && (
               <p className="text-xs text-slate-500">
                 Feuilles sans élève ignorées : {feuillesIgnorees.map(f => `« ${f.nom.trim()} »`).join(', ')}.
               </p>
             )}
-            {anomalies.length > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm space-y-1">
-                <p className="font-semibold flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Lignes du fichier non importables</p>
-                {anomalies.map((a, i) => <p key={i}>{a}</p>)}
-              </div>
-            )}
-
             <div className="flex flex-wrap items-center gap-4">
               <button
                 onClick={lancerImport}
@@ -418,7 +556,7 @@ export default function ImporterEleves({ onNavigate }) {
 
             <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-96 overflow-y-auto">
               {[...resultat.resultats].sort((a, b) => Number(a.succes) - Number(b.succes)).map((r, i) => (
-                <div key={i} className="flex items-start gap-2 px-3 py-2 text-sm">
+                <div key={i} className={`flex items-start gap-2 px-3 py-2 text-sm ${!r.succes || r.infosManquantes || /attention|aucun barème/.test(r.message) ? 'text-red-700 bg-red-50' : ''}`}>
                   {r.succes
                     ? (r.infosManquantes ? <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" /> : <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />)
                     : <XCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />}

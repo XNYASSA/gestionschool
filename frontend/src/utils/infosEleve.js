@@ -1,5 +1,7 @@
 // Informations obligatoires d'un élève qui peuvent manquer après l'import d'un fichier de scolarité
 // (le parent et son téléphone sont alors enregistrés « Non renseigné »).
+import { typeTechnique } from './filieres'
+
 export const NON_RENSEIGNE = 'Non renseigné'
 
 export const estManquant = (valeur) => {
@@ -13,6 +15,7 @@ export function informationsManquantes(eleve) {
   if (estManquant(eleve?.prenom)) manquantes.push({ champ: 'prenom', libelle: 'Prénom' })
   if (estManquant(eleve?.nomParent)) manquantes.push({ champ: 'nomParent', libelle: 'Nom du parent' })
   if (estManquant(eleve?.telephoneParent)) manquantes.push({ champ: 'telephoneParent', libelle: 'Téléphone du parent' })
+  if (typeTechnique(eleve?.classe) && estManquant(eleve?.filiere)) manquantes.push({ champ: 'filiere', libelle: 'Filière' })
   return manquantes
 }
 

@@ -4,6 +4,7 @@ import { apiClient } from '../../api/client'
 import BoutonsExport from '../../components/BoutonsExport'
 import { exportListeEleves } from '../../utils/exportListes'
 import { estManquant, informationsManquantes, valeurOuVide } from '../../utils/infosEleve'
+import { filieresPourClasse, typeTechnique } from '../../utils/filieres'
 import { getStatutPaiement, getResteAPayer, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 
 const emptyForm = {
@@ -85,6 +86,10 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
     if (filterClasse && e.classeId !== filterClasse) return false
     return informationsManquantes(e).length > 0
   }).length, [eleves, filterEcole, filterClasse])
+
+  // Classe choisie dans le formulaire (pour la filière des classes techniques)
+  const classeFormulaire = classes.find(c => c.id === formData.classeId)
+  const elevePourControle = { ...formData, classe: classeFormulaire }
 
   const openCreateModal = () => {
     setFormData(emptyForm)
@@ -254,7 +259,14 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                     <td className="px-6 py-3 text-slate-900">
                       {eleve.nom} {estManquant(eleve.prenom) ? <span className="text-red-600 font-semibold text-xs">⚠ prénom à renseigner</span> : eleve.prenom}
                     </td>
-                    <td className="px-6 py-3 text-slate-600">{eleve.classe?.nom || '-'}</td>
+                    <td className="px-6 py-3 text-slate-600">
+                      {eleve.classe?.nom || '-'}
+                      {typeTechnique(eleve.classe) && (
+                        estManquant(eleve.filiere)
+                          ? <div className="text-red-600 font-semibold text-xs">⚠ Filière à renseigner</div>
+                          : <div className="text-xs text-slate-400">{eleve.filiere}</div>
+                      )}
+                    </td>
                     <td className="px-6 py-3 text-slate-600">{eleve.classe?.ecole?.nomCourt || '-'}</td>
                     <td className={`px-6 py-3 text-xs ${informationsManquantes(eleve).length > 0 ? 'bg-red-50' : 'text-slate-600'}`}>
                       {estManquant(eleve.nomParent)
@@ -322,10 +334,10 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
             </div>
 
             <div className="p-6 space-y-4">
-              {modalMode !== 'create' && informationsManquantes(formData).length > 0 && (
+              {modalMode !== 'create' && informationsManquantes(elevePourControle).length > 0 && (
                 <div className="bg-red-50 border border-red-300 rounded-lg p-3 text-red-800 text-sm flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>Informations à ajouter : <strong>{informationsManquantes(formData).map(i => i.libelle).join(', ')}</strong>.</span>
+                  <span>Informations à ajouter : <strong>{informationsManquantes(elevePourControle).map(i => i.libelle).join(', ')}</strong>.</span>
                 </div>
               )}
               <div className="grid grid-cols-1 gap-4">
@@ -389,6 +401,22 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                     ))}
                   </select>
                 </div>
+
+                {typeTechnique(classeFormulaire) && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Filière</label>
+                    <select
+                      value={formData.filiere || ''}
+                      onChange={(e) => setFormData({ ...formData, filiere: e.target.value })}
+                      disabled={modalMode === 'view'}
+                      className={`w-full px-3 py-2 border rounded-lg disabled:bg-slate-100 ${modalMode !== 'create' && estManquant(formData.filiere) ? 'border-red-500 bg-red-50' : 'border-slate-300'}`}
+                    >
+                      <option value="">— Sélectionner la filière —</option>
+                      {filieresPourClasse(classeFormulaire).map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                    {modalMode !== 'create' && estManquant(formData.filiere) && <p className="text-xs text-red-600 mt-1">⚠ Filière à renseigner</p>}
+                  </div>
+                )}
 
                 <div>
                   <label className="text-sm font-semibold text-slate-900 block mb-3">Informations parent/tuteur</label>

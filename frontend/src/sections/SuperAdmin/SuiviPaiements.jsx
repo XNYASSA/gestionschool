@@ -341,6 +341,15 @@ function PosteCell({ poste }) {
     : poste.paye > 0
       ? 'text-orange-600'
       : 'text-slate-400'
+  if (poste.paye > poste.du) {
+    return (
+      <span className="font-semibold text-red-600" title="Le montant payé dépasse le montant dû : à vérifier">
+        {formatFCFA(poste.paye)}
+        <span className="text-red-400 font-normal"> / {formatFCFA(poste.du)}</span>
+        <span className="block text-xs">⚠ Trop-perçu de {formatFCFA(poste.paye - poste.du)} à vérifier</span>
+      </span>
+    )
+  }
   return (
     <span className={`font-semibold ${couleur}`}>
       {formatFCFA(poste.paye)}

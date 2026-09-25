@@ -108,6 +108,7 @@ model Eleve {
   dateNaissance   DateTime?
   classe          Classe   @relation(fields: [classeId], references: [id], onDelete: Cascade)
   classeId        String
+  filiere         String?  // filière (enseignement technique : mécanique auto, comptabilité...)
 
   // Parent/Tuteur
   nomParent       String

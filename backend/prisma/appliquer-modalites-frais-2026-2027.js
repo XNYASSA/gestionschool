@@ -39,13 +39,17 @@ const SPECS = [
   { ecole: 'CRP_FRANCOPHONE', lignes: [13], attendu: '1ère - Tle', libelle: '1ère - Tle', niveaux: ['1ère Littéraire', 'Tle Littéraire', 'première', 'Terminale'] },
   // 1ère/Tle Scientifique : absentes du fichier, leur barème actuel (avec laboratoire) est conservé tel quel
 
-  // ===== CRP Technique — industriel et commercial (2è à 4è année au même tarif) =====
-  { ecole: 'CRP_TECHNIQUE', lignes: [14], attendu: '1ère Année', libelle: 'Industriel 1ère Année', niveaux: ['Industriel 1ère Année'] },
-  { ecole: 'CRP_TECHNIQUE', lignes: [15, 16, 17], attendu: 'Année', libelle: 'Industriel 2è-4è Année', niveaux: ['Industriel 2è-4è Année'] },
-  { ecole: 'CRP_TECHNIQUE', lignes: [18], attendu: '1ère Année', libelle: 'Commercial Francophone 1ère Année', niveaux: ['Commercial Francophone 1ère Année'] },
-  { ecole: 'CRP_TECHNIQUE', lignes: [19, 20, 21], attendu: 'Année', libelle: 'Commercial Francophone 2è-4è Année', niveaux: ['Commercial Francophone 2è-4è Année'] },
-  { ecole: 'CRP_TECHNIQUE', lignes: [31], attendu: 'Year 1', libelle: 'Commercial Anglophone 1ère Année', niveaux: ['Commercial Anglophone 1ère Année'] },
-  { ecole: 'CRP_TECHNIQUE', lignes: [32, 33, 34], attendu: 'Year', libelle: 'Commercial Anglophone 2è-4è Année', niveaux: ['Commercial Anglophone 2è-4è Année'] },
+  // ===== CRP Technique Francophone — industriel et commercial (2è à 4è année au même tarif) =====
+  { ecole: 'CRP_TECHNIQUE FRANCOPHONE', lignes: [14], attendu: '1ère Année', libelle: 'Industriel 1ère Année', niveaux: ['Industriel 1ère Année'] },
+  { ecole: 'CRP_TECHNIQUE FRANCOPHONE', lignes: [15, 16, 17], attendu: 'Année', libelle: 'Industriel 2è-4è Année', niveaux: ['Industriel 2ème Année', 'Industriel 3ème Année', 'Industriel 4ème Année'] },
+  { ecole: 'CRP_TECHNIQUE FRANCOPHONE', lignes: [18], attendu: '1ère Année', libelle: 'Commercial 1ère Année', niveaux: ['Commercial 1ère Année'] },
+  { ecole: 'CRP_TECHNIQUE FRANCOPHONE', lignes: [19, 20, 21], attendu: 'Année', libelle: 'Commercial 2è-4è Année', niveaux: ['Commercial 2ème Année', 'Commercial 3ème Année', 'Commercial 4ème Année'] },
+
+  // ===== CRP Anglophone Technical =====
+  { ecole: 'CRP_ANGLOPHONE TECHNICAL', lignes: [27], attendu: 'Year 1', libelle: 'Industrial Year 1', niveaux: ['Industrial Year 1'] },
+  { ecole: 'CRP_ANGLOPHONE TECHNICAL', lignes: [28, 29, 30], attendu: 'Year', libelle: 'Industrial Year 2-4', niveaux: ['Industrial Year 2', 'Industrial Year 3', 'Industrial Year 4'] },
+  { ecole: 'CRP_ANGLOPHONE TECHNICAL', lignes: [31], attendu: 'Year 1', libelle: 'Commercial Year 1', niveaux: ['Commercial Year 1'] },
+  { ecole: 'CRP_ANGLOPHONE TECHNICAL', lignes: [32, 33, 34], attendu: 'Year', libelle: 'Commercial Year 2-4', niveaux: ['Commercial Year 2', 'Commercial Year 3', 'Commercial Year 4'] },
 
   // ===== CRP Anglophone Général (Rosa Parks College) =====
   { ecole: 'CRP_ANGLOPHONE GENERAL', lignes: [22], attendu: 'Form 1 2 3 4', libelle: 'Form 1 2 3 4', niveaux: ['FORM ONE', 'FORM TWO', 'FORM THREE', 'FORM FOUR ART', 'FORM FOUR SCIENCE'] },
