@@ -1,4 +1,4 @@
-import { useContext, useState, useEffect } from 'react'
+import { useContext, useState, useEffect, lazy, Suspense } from 'react'
 import { AuthContext } from '../context/AuthContext'
 import { LogOut, TrendingUp, AlertCircle, Menu, Search, ArrowLeft } from 'lucide-react'
 import { apiClient } from '../api/client'
@@ -6,38 +6,38 @@ import { isInPeriod, PERIOD_LABELS } from '../utils/periodFilter'
 import SidebarSuperAdmin, { MENU_PAR_ROLE } from '../components/SidebarSuperAdmin'
 
 // Sections du dashboard
-import ViewAnalytics from '../sections/SuperAdmin/ViewAnalytics'
-import SuiviPaiements from '../sections/SuperAdmin/SuiviPaiements'
-import ListeEleves from '../sections/SuperAdmin/ListeEleves'
-import PersonnelManagement from '../sections/SuperAdmin/PersonnelManagement'
-import EcolesManagement from '../sections/SuperAdmin/EcolesManagement'
-import ModuleDepenses from '../sections/SuperAdmin/ModuleDepenses'
-import RapportsFinanciers from '../sections/SuperAdmin/RapportsFinanciers'
-import RapportFinancierForm from '../sections/SuperAdmin/RapportFinancierForm'
-import RapportFinancierSecretaire from '../sections/SuperAdmin/RapportFinancierSecretaire'
-import ConfigurationFrais from '../sections/SuperAdmin/ConfigurationFrais'
-import AnomaliesDetailed from '../sections/SuperAdmin/AnomaliesDetailed'
-import AffectationsEnseignants from '../sections/SuperAdmin/AffectationsEnseignants'
-import CahierTextes from '../sections/SuperAdmin/CahierTextes'
-import EmploiTemps from '../sections/SuperAdmin/EmploiTemps'
-import Bulletins from '../sections/SuperAdmin/Bulletins'
+const ViewAnalytics = lazy(() => import('../sections/SuperAdmin/ViewAnalytics'))
+const SuiviPaiements = lazy(() => import('../sections/SuperAdmin/SuiviPaiements'))
+const ListeEleves = lazy(() => import('../sections/SuperAdmin/ListeEleves'))
+const PersonnelManagement = lazy(() => import('../sections/SuperAdmin/PersonnelManagement'))
+const EcolesManagement = lazy(() => import('../sections/SuperAdmin/EcolesManagement'))
+const ModuleDepenses = lazy(() => import('../sections/SuperAdmin/ModuleDepenses'))
+const RapportsFinanciers = lazy(() => import('../sections/SuperAdmin/RapportsFinanciers'))
+const RapportFinancierForm = lazy(() => import('../sections/SuperAdmin/RapportFinancierForm'))
+const RapportFinancierSecretaire = lazy(() => import('../sections/SuperAdmin/RapportFinancierSecretaire'))
+const ConfigurationFrais = lazy(() => import('../sections/SuperAdmin/ConfigurationFrais'))
+const AnomaliesDetailed = lazy(() => import('../sections/SuperAdmin/AnomaliesDetailed'))
+const AffectationsEnseignants = lazy(() => import('../sections/SuperAdmin/AffectationsEnseignants'))
+const CahierTextes = lazy(() => import('../sections/SuperAdmin/CahierTextes'))
+const EmploiTemps = lazy(() => import('../sections/SuperAdmin/EmploiTemps'))
+const Bulletins = lazy(() => import('../sections/SuperAdmin/Bulletins'))
 import { calculerSignalements } from '../utils/signalements'
-import BordereauNotes from '../sections/SuperAdmin/BordereauNotes'
-import BaremeNotation from '../sections/SuperAdmin/BaremeNotation'
-import Parametres from '../sections/SuperAdmin/Parametres'
-import UsersManagement from './UsersManagement'
-import PersonnelRH from '../components/PersonnelRH'
-import SaisieFraisSecretaire from '../sections/SuperAdmin/SaisieFraisSecretaire'
-import ReceptionsEtablies from '../sections/SuperAdmin/ReceptionsEtablies'
-import VerificationFinanciere from '../sections/SuperAdmin/VerificationFinanciere'
-import MesClasses from '../sections/SuperAdmin/MesClasses'
-import CahierTexteEnseignant from '../sections/SuperAdmin/CahierTexteEnseignant'
-import SaisieNotesEnseignant from '../sections/SuperAdmin/SaisieNotesEnseignant'
-import AppelPresence from '../sections/SuperAdmin/AppelPresence'
-import ConsultationPresences from '../sections/SuperAdmin/ConsultationPresences'
-import ImporterEleves from '../sections/SuperAdmin/ImporterEleves'
-import FraisParEcole from '../sections/SuperAdmin/FraisParEcole'
-import Matieres from '../sections/SuperAdmin/Matieres'
+const BordereauNotes = lazy(() => import('../sections/SuperAdmin/BordereauNotes'))
+const BaremeNotation = lazy(() => import('../sections/SuperAdmin/BaremeNotation'))
+const Parametres = lazy(() => import('../sections/SuperAdmin/Parametres'))
+const UsersManagement = lazy(() => import('./UsersManagement'))
+const PersonnelRH = lazy(() => import('../components/PersonnelRH'))
+const SaisieFraisSecretaire = lazy(() => import('../sections/SuperAdmin/SaisieFraisSecretaire'))
+const ReceptionsEtablies = lazy(() => import('../sections/SuperAdmin/ReceptionsEtablies'))
+const VerificationFinanciere = lazy(() => import('../sections/SuperAdmin/VerificationFinanciere'))
+const MesClasses = lazy(() => import('../sections/SuperAdmin/MesClasses'))
+const CahierTexteEnseignant = lazy(() => import('../sections/SuperAdmin/CahierTexteEnseignant'))
+const SaisieNotesEnseignant = lazy(() => import('../sections/SuperAdmin/SaisieNotesEnseignant'))
+const AppelPresence = lazy(() => import('../sections/SuperAdmin/AppelPresence'))
+const ConsultationPresences = lazy(() => import('../sections/SuperAdmin/ConsultationPresences'))
+const ImporterEleves = lazy(() => import('../sections/SuperAdmin/ImporterEleves'))
+const FraisParEcole = lazy(() => import('../sections/SuperAdmin/FraisParEcole'))
+const Matieres = lazy(() => import('../sections/SuperAdmin/Matieres'))
 
 const TITRES_PAR_ROLE = {
   SUPER_ADMIN: { sidebar: '👑 TDB Admin', header: '👑 Super Admin Dashboard' },
@@ -274,7 +274,9 @@ export default function DashboardSuperAdminEnhanced() {
                 <ArrowLeft className="w-4 h-4" /> Retour à l'accueil
               </button>
             )}
-            {renderSection()}
+            <Suspense fallback={<div className="p-8 text-center text-slate-400">Chargement...</div>}>
+              {renderSection()}
+            </Suspense>
           </div>
         </div>
       </div>

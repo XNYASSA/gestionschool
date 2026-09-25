@@ -95,6 +95,7 @@ model Classe {
   enseignantClasseMatieres EnseignantClasseMatiere[]
   presences                Presence[]
   classeMatieres           ClasseMatiere[]
+  @@index([ecoleId])
 }
 
 // ===== STUDENTS =====
@@ -129,6 +130,7 @@ model Eleve {
   paiements           Paiement[]
   verificationsPaiement VerificationPaiement[]
   notesEvaluations    NoteEvaluation[]
+  @@index([classeId])
 }
 
 // ===== PAYMENTS & FEES =====
@@ -150,6 +152,7 @@ model InscriptionFrais {
 
   // Relations
   paiements           Paiement[]
+  @@index([eleveId])
 }
 
 // Journal des opérations d'encaissement (une ligne par versement effectué) —
@@ -168,6 +171,8 @@ model Paiement {
   effectueParId       String?
   date                DateTime @default(now())
   createdAt           DateTime @default(now())
+  @@index([eleveId])
+  @@index([inscriptionFraisId])
 }
 
 // Contrôle de caisse indépendant réalisé par l'Économat : montant perçu pour un
@@ -214,6 +219,7 @@ model Matiere {
   enseignantClasseMatieres EnseignantClasseMatiere[]
   classeMatieres           ClasseMatiere[]
   notesEvaluations         NoteEvaluation[]
+  @@index([ecoleId])
 }
 
 // Programme d'une classe : matières enseignées et coefficient propre à la classe
@@ -245,6 +251,7 @@ model EnseignantClasseMatiere {
   // Relations back-reference
   notes          Note[]
   lecons         Lecon[]
+  @@index([classeId])
 }
 
 // ===== CAHIER DE TEXTES =====
@@ -272,6 +279,8 @@ model Note {
   dateValidation     DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+  @@index([eleveId])
+  @@index([ecmId])
 }
 
 // ===== ATTENDANCE =====

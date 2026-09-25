@@ -12,7 +12,17 @@ router.get('/', verifyToken, checkRole(['SECRETAIRE', 'SUPER_ADMIN', 'PRINCIPAL'
 
     const frais = await req.prisma.inscriptionFrais.findMany({
       where: ecoleIds ? { eleve: { classe: { ecoleId: { in: ecoleIds } } } } : {},
-      include: { eleve: { include: { classe: { include: { ecole: true } } } } },
+      // Champs de l'élève, de sa classe et de son école réellement utilisés par les écrans (réponse 3 à 4 fois plus légère)
+      select: {
+        id: true, eleveId: true, tranche: true, libelle: true, montantDu: true, montantPaye: true, statut: true, datePayement: true, createdAt: true,
+        eleve: {
+          select: {
+            id: true, matricule: true, nom: true, prenom: true, sexe: true, classeId: true, filiere: true,
+            nomParent: true, lieuParente: true, telephoneParent: true,
+            classe: { select: { id: true, nom: true, niveau: true, ecoleId: true, ecole: { select: { id: true, nomCourt: true, nomComplet: true } } } }
+          }
+        }
+      },
       orderBy: [{ eleve: { nom: 'asc' } }, { eleve: { prenom: 'asc' } }]
     })
     res.json(frais)

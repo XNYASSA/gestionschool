@@ -1,20 +1,20 @@
-import { useState, useContext } from 'react'
+import { useState, useContext, lazy, Suspense } from 'react'
 import { AppProvider } from './context/AppContext'
 import { AuthProvider, AuthContext } from './context/AuthContext'
 import Header from './components/Header'
 import Sidebar from './components/Sidebar'
 import LoginProfessional from './pages/LoginProfessional'
-import Dashboard from './pages/Dashboard'
-import Students from './pages/Students'
-import Fees from './pages/Fees'
-import FeesEnhanced from './pages/FeesEnhanced'
-import Grades from './pages/Grades'
-import Attendance from './pages/Attendance'
-import StaffFinance from './pages/StaffFinance'
-import SettingsPage from './pages/Settings'
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Students = lazy(() => import('./pages/Students'))
+const Fees = lazy(() => import('./pages/Fees'))
+const FeesEnhanced = lazy(() => import('./pages/FeesEnhanced'))
+const Grades = lazy(() => import('./pages/Grades'))
+const Attendance = lazy(() => import('./pages/Attendance'))
+const StaffFinance = lazy(() => import('./pages/StaffFinance'))
+const SettingsPage = lazy(() => import('./pages/Settings'))
 
 // Nouveaux dashboards Phase 2
-import DashboardSuperAdminEnhanced from './pages/DashboardSuperAdminEnhanced'
+const DashboardSuperAdminEnhanced = lazy(() => import('./pages/DashboardSuperAdminEnhanced'))
 
 import { Menu, X } from 'lucide-react'
 
@@ -116,7 +116,9 @@ function AppContent() {
         {/* Main Content */}
         <main className="flex-1 overflow-auto">
           <div className="p-4 md:p-8">
-            {renderPage()}
+            <Suspense fallback={<div className="p-8 text-center text-slate-400">Chargement...</div>}>
+              {renderPage()}
+            </Suspense>
           </div>
         </main>
       </div>

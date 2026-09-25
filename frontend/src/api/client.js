@@ -1,4 +1,5 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+const DUREE_CACHE_MS = 30 * 1000
 
 class APIClient {
   constructor() {
@@ -6,6 +7,7 @@ class APIClient {
   }
 
   setToken(token) {
+    this.cache = new Map()
     this.token = token
     if (token) {
       localStorage.setItem('token', token)
@@ -14,7 +16,29 @@ class APIClient {
     }
   }
 
+  // Les lectures (GET) identiques sont partagées pendant quelques secondes : passer d'un écran à un autre
+  // ne recharge plus les mêmes listes (élèves, frais...) ; toute écriture vide ce cache.
   async request(endpoint, options = {}) {
+    const methode = (options.method || 'GET').toUpperCase()
+    if (methode !== 'GET') {
+      this.cache = new Map()
+      return this.requestReseau(endpoint, options)
+    }
+
+    if (!this.cache) this.cache = new Map()
+    const clef = `${this.token || ''}|${endpoint}`
+    const enCache = this.cache.get(clef)
+    if (enCache && Date.now() - enCache.date < DUREE_CACHE_MS) {
+      return enCache.promesse.then(donnees => structuredClone(donnees))
+    }
+
+    const promesse = this.requestReseau(endpoint, options)
+    this.cache.set(clef, { date: Date.now(), promesse })
+    promesse.catch(() => this.cache.delete(clef))
+    return promesse.then(donnees => structuredClone(donnees))
+  }
+
+  async requestReseau(endpoint, options = {}) {
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers
