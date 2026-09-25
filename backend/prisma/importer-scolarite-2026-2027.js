@@ -7,6 +7,12 @@ const prisma = new PrismaClient()
 const DRY_RUN = process.argv.includes('--dry-run')
 // Importe aussi les groupes minoritaires dont la colonne « Classe » désigne clairement une classe reconnue
 const AVEC_SUGGESTIONS = process.argv.includes('--avec-suggestions')
+// Affectations imposées : --affecter="FEUILLE|Classe écrite dans le fichier=Classe de l'application" (répétable)
+const AFFECTATIONS = process.argv.filter(a => a.startsWith('--affecter=')).map(a => {
+  const [source, classe] = a.slice('--affecter='.length).split('=')
+  const [feuille, classeTexte] = source.split('|')
+  return { feuille: feuille.trim(), classeTexte: (classeTexte || '').trim(), classe: classe.trim() }
+})
 const chemin = process.argv.find(a => a.endsWith('.json'))
 
 // Importe les élèves et les montants déjà payés des fichiers de scolarité des secrétaires (une feuille par
@@ -34,6 +40,15 @@ async function main() {
     if (!ecole) { console.log('  École absente : fichier ignoré'); continue }
 
     const groupes = construireGroupes(feuilles, classes.filter(c => c.ecoleId === ecole.id), ecole.id, totaux)
+    groupes.forEach(g => {
+      const imposee = AFFECTATIONS.find(x => x.feuille === g.feuille.trim() && x.classeTexte === (g.classeTexte || '').trim())
+      if (!imposee) return
+      const classe = classes.find(c => c.ecoleId === ecole.id && c.nom === imposee.classe)
+      if (!classe) { console.log(`  ⚠ Affectation ignorée : classe « ${imposee.classe} » introuvable dans ${ecoleNom}`); return }
+      g.suggestion = classe
+      g.aVerifier = false
+      g.motif = ''
+    })
     const importable = (g) => g.suggestion && (!g.aVerifier || AVEC_SUGGESTIONS)
     const retenus = groupes.filter(importable)
     const ignores = groupes.filter(g => !importable(g))

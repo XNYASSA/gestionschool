@@ -52,7 +52,7 @@ const SPECS = [
   { ecole: 'CRP_ANGLOPHONE TECHNICAL', lignes: [32, 33, 34], attendu: 'Year', libelle: 'Commercial Year 2-4', niveaux: ['Commercial Year 2', 'Commercial Year 3', 'Commercial Year 4'] },
 
   // ===== CRP Anglophone Général (Rosa Parks College) =====
-  { ecole: 'CRP_ANGLOPHONE GENERAL', lignes: [22], attendu: 'Form 1 2 3 4', libelle: 'Form 1 2 3 4', niveaux: ['FORM ONE', 'FORM TWO', 'FORM THREE', 'FORM FOUR ART', 'FORM FOUR SCIENCE'] },
+  { ecole: 'CRP_ANGLOPHONE GENERAL', lignes: [22], attendu: 'Form 1 2 3 4', libelle: 'Form 1 2 3 4', niveaux: ['FORM ONE', 'FORM TWO', 'FORM THREE', 'FORM FOUR', 'FORM FOUR ART', 'FORM FOUR SCIENCE'] },
   { ecole: 'CRP_ANGLOPHONE GENERAL', lignes: [23], attendu: 'Form 5', libelle: 'Form 5', niveaux: ['FORM FIVE ART', 'FORM FIVE SCIENCE'] },
   { ecole: 'CRP_ANGLOPHONE GENERAL', lignes: [24], attendu: 'L6 Scs', libelle: 'L6 Scs', niveaux: ['L6SC'] },
   { ecole: 'CRP_ANGLOPHONE GENERAL', lignes: [25], attendu: 'U6 Arts', libelle: 'U6 Arts', niveaux: ['U6A', 'L6A'] },

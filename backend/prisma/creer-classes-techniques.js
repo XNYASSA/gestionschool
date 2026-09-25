@@ -11,6 +11,11 @@ const ORDINAUX = ['1ère', '2ème', '3ème', '4ème']
 
 const ECOLES = [
   {
+    // Form 4 sans distinction Art / Science (élèves de la feuille « FORM4 » du fichier de scolarité)
+    nomCourt: 'CRP_ANGLOPHONE GENERAL',
+    classes: [{ nom: 'F4', niveau: 'FORM FOUR' }]
+  },
+  {
     nomCourt: 'CRP_TECHNIQUE FRANCOPHONE',
     classes: ['Industriel', 'Commercial'].flatMap(disc => ORDINAUX.map(o => ({ nom: `${disc} - ${o} année`, niveau: `${disc} ${o} Année` })))
   },
