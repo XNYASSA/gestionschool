@@ -13,8 +13,11 @@ export default function RapportFinancierForm() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
-  const [inscriptions, setInscriptions] = useState('')
-  const [pensions, setPensions] = useState('')
+  // Un champ par poste réel de l'école : l'inscription (qui couvre aussi les frais hors tranches, comme
+  // le livret médical ou le laboratoire) puis une tranche par échéance existant dans au moins un barème
+  // de l'école (2 ou 3 selon les écoles/classes) — jamais un unique champ générique.
+  const [tranchesEcole, setTranchesEcole] = useState([1, 2, 3])
+  const [montantsEntrees, setMontantsEntrees] = useState({})
 
   const [masseSalariale, setMasseSalariale] = useState({ total: 0, utilisateurs: [] })
   const [enseignants, setEnseignants] = useState([])
@@ -51,22 +54,26 @@ export default function RapportFinancierForm() {
   const loadDonneesEcole = async (id) => {
     setError('')
     try {
-      const [salariale, enseignantsData] = await Promise.all([
+      const [salariale, enseignantsData, configsFrais] = await Promise.all([
         apiClient.getMasseSalariale(id),
-        apiClient.getEnseignantsHoraires(id)
+        apiClient.getEnseignantsHoraires(id),
+        apiClient.getConfigurationsFraisByEcole(id).catch(() => [])
       ])
       setMasseSalariale(salariale)
       setEnseignants(enseignantsData)
       setHeuresParEnseignant({})
       setDepensesVariables([])
-      setInscriptions('')
-      setPensions('')
+      setMontantsEntrees({})
+      // Nombre de tranches réellement configurées pour cette école (peut différer d'une classe à l'autre) :
+      // on affiche l'union, jamais un nombre fixe qui ne correspondrait à aucun barème réel.
+      const maxTranches = Math.max(0, ...configsFrais.map(c => (c.tranches || []).length))
+      setTranchesEcole(Array.from({ length: maxTranches || 3 }, (_, i) => i + 1))
     } catch (err) {
       setError(err.message || "Erreur lors du chargement des données de l'école")
     }
   }
 
-  const totalEntrees = (parseInt(inscriptions) || 0) + (parseInt(pensions) || 0)
+  const totalEntrees = Object.values(montantsEntrees).reduce((sum, v) => sum + (parseInt(v) || 0), 0)
 
   const totalHeuresEnseignants = enseignants.reduce((sum, e) => {
     const heures = parseFloat(heuresParEnseignant[e.utilisateurId]) || 0
@@ -106,8 +113,8 @@ export default function RapportFinancierForm() {
         date,
         type: 'FRAIS_COLLECTES',
         donnees: {
-          inscriptions: parseInt(inscriptions) || 0,
-          pensions: parseInt(pensions) || 0,
+          inscription: parseInt(montantsEntrees.inscription) || 0,
+          ...Object.fromEntries(tranchesEcole.map(n => [`tranche${n}`, parseInt(montantsEntrees[`tranche${n}`]) || 0])),
           montantTotal: totalEntrees
         }
       })
@@ -171,15 +178,20 @@ export default function RapportFinancierForm() {
           <TrendingUp className="w-5 h-5 text-green-600" />
           <h3 className="text-lg font-bold text-slate-900">Entrées d'argent</h3>
         </div>
+        <p className="text-xs text-slate-500 -mt-2 mb-3">
+          Un champ par poste (l'inscription couvre aussi les frais hors tranches : livret médical, laboratoire...) — additionnez ici les montants reçus aujourd'hui pour tous les élèves de l'école, tranche par tranche.
+        </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Frais d'inscription (FCFA)</label>
-            <input type="number" min="0" value={inscriptions} onChange={(e) => setInscriptions(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Ex: 500000" />
+            <input type="number" min="0" value={montantsEntrees.inscription || ''} onChange={(e) => setMontantsEntrees({ ...montantsEntrees, inscription: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Ex: 500000" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Tranche de pension scolaire (FCFA)</label>
-            <input type="number" min="0" value={pensions} onChange={(e) => setPensions(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Ex: 1200000" />
-          </div>
+          {tranchesEcole.map(n => (
+            <div key={n}>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Tranche {n} (FCFA)</label>
+              <input type="number" min="0" value={montantsEntrees[`tranche${n}`] || ''} onChange={(e) => setMontantsEntrees({ ...montantsEntrees, [`tranche${n}`]: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Ex: 1200000" />
+            </div>
+          ))}
         </div>
         <div className="border-t border-slate-200 mt-4 pt-3 text-right font-bold text-lg">
           Total entrées : <span className="text-green-600">{formatFCFA(totalEntrees)}</span>
