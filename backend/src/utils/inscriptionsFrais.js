@@ -51,7 +51,7 @@ export async function synchroniserPaiementsCibles(prisma, eleveId, cibles) {
     const nouveau = poste.montantPaye + ajout
     await prisma.inscriptionFrais.update({
       where: { id: poste.id },
-      data: { montantPaye: nouveau, statut: calculerStatut(poste.montantDu, nouveau) }
+      data: { montantPaye: nouveau, datePayement: new Date(), statut: calculerStatut(poste.montantDu, nouveau) }
     })
     poste.montantPaye = nouveau
     ajouts.push({ tranche: poste.tranche, montant: ajout })

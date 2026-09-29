@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
-import { CheckCircle, XCircle, Loader, Users, ChevronRight, ArrowLeft, School, Layers, Wallet, PiggyBank } from 'lucide-react'
+import { CheckCircle, XCircle, Loader, Users, ChevronRight, ArrowLeft, School, Layers, Wallet, PiggyBank, Phone, Search } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { formatFCFA } from '../../utils/formatters'
+import BoutonsExport from '../../components/BoutonsExport'
+import { nomFichierSur } from '../../utils/exportTableau'
 
 function calculerStatutEleve(fraisEleve) {
   const montantDu = fraisEleve.reduce((sum, f) => sum + f.montantDu, 0)
@@ -33,6 +35,8 @@ export default function SuiviPaiements() {
 
   const [selectedEcole, setSelectedEcole] = useState(null) // { id, nom }
   const [selectedClasse, setSelectedClasse] = useState(null) // { id, nom }
+  const [listeGlobale, setListeGlobale] = useState(null) // 'PAYE' | 'NON_PAYE' | null — toutes écoles confondues
+  const [rechercheGlobale, setRechercheGlobale] = useState('')
 
   useEffect(() => {
     loadFrais()
@@ -63,6 +67,7 @@ export default function SuiviPaiements() {
 
     return Object.values(parEleve).map(({ eleve, frais: fraisEleve }) => {
       const { montantDu, montantPaye, statut } = calculerStatutEleve(fraisEleve)
+      const datesPayees = fraisEleve.filter(f => f.montantPaye > 0 && f.datePayement).map(f => f.datePayement)
       return {
         id: eleve.id,
         nom: eleve.nom,
@@ -80,7 +85,10 @@ export default function SuiviPaiements() {
         montantPaye,
         restant: montantDu - montantPaye,
         postes: extrairePostes(fraisEleve),
-        statut
+        statut,
+        // Le dernier versement n'est daté que s'il a été saisi ou importé après cette fonctionnalité :
+        // un élève payé lors d'un import plus ancien peut ne pas en avoir.
+        dernierPaiement: datesPayees.length ? datesPayees.sort()[datesPayees.length - 1] : null
       }
     })
   }, [frais])
@@ -136,6 +144,44 @@ export default function SuiviPaiements() {
     }
   }, [elevesAvecStatut, selectedClasse])
 
+  // Liste globale (toutes écoles) affichée après clic sur les cartes "Enfants ayant payé" / "n'ayant pas payé"
+  const elevesListeGlobale = useMemo(() => {
+    if (!listeGlobale) return []
+    const base = elevesAvecStatut.filter(e => listeGlobale === 'PAYE' ? e.montantPaye > 0 : e.montantPaye === 0)
+    const terme = rechercheGlobale.trim().toLowerCase()
+    const filtres = terme
+      ? base.filter(e => `${e.nom} ${e.prenom} ${e.matricule} ${e.parent} ${e.tel}`.toLowerCase().includes(terme))
+      : base
+    return filtres.sort((a, b) => a.ecoleNom.localeCompare(b.ecoleNom) || a.classeNom.localeCompare(b.classeNom) || a.nom.localeCompare(b.nom))
+  }, [elevesAvecStatut, listeGlobale, rechercheGlobale])
+
+  const ouvrirListeGlobale = (type) => {
+    setSelectedEcole(null)
+    setSelectedClasse(null)
+    setRechercheGlobale('')
+    setListeGlobale(type)
+  }
+
+  const exportListeGlobale = () => ({
+    sections: [{
+      titre: listeGlobale === 'PAYE' ? 'ENFANTS AYANT PAYÉ' : "ENFANTS N'AYANT PAS PAYÉ",
+      nomFeuille: listeGlobale === 'PAYE' ? 'Ont payé' : "N'ont pas payé",
+      paysage: true,
+      entete: [`Toutes écoles — ${elevesListeGlobale.length} élève(s)`],
+      colonnes: [
+        { titre: 'École' }, { titre: 'Classe' }, { titre: 'Élève' }, { titre: 'Parent' }, { titre: 'Téléphone' },
+        { titre: 'Payé', centre: true, type: 'note' }, { titre: 'Dû', centre: true, type: 'note' }, { titre: 'Reste à payer', centre: true, type: 'note' },
+        { titre: 'Dernier versement' }
+      ],
+      lignes: elevesListeGlobale.map(e => [
+        e.ecoleNom, e.classeNom, `${e.nom} ${e.prenom}`, e.parent || '', e.tel || '',
+        e.montantPaye, e.montantDu, Math.max(0, e.restant),
+        e.dernierPaiement ? new Date(e.dernierPaiement).toLocaleDateString('fr-FR') : ''
+      ])
+    }],
+    nomFichier: `enfants-${nomFichierSur(listeGlobale === 'PAYE' ? 'ayant-paye' : 'non-payes')}`
+  })
+
   const getStatusBadge = (statut) => {
     if (statut === 'SOLDE') return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">✓ Soldé</span>
     if (statut === 'PARTIEL') return <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">⚠ Partiel</span>
@@ -168,29 +214,43 @@ export default function SuiviPaiements() {
           </div>
           <p className="text-xl font-bold text-red-600">{formatFCFA(totauxGlobaux.totalRestant)}</p>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
+        <button
+          onClick={() => ouvrirListeGlobale('PAYE')}
+          className={`bg-white rounded-lg shadow-md p-4 border-l-4 text-left transition hover:shadow-lg hover:ring-2 hover:ring-blue-400 ${listeGlobale === 'PAYE' ? 'ring-2 ring-blue-400 border-blue-500' : 'border-blue-500'}`}
+        >
           <div className="flex items-center gap-2 mb-1">
             <CheckCircle className="w-4 h-4 text-blue-600" />
             <p className="text-xs font-medium text-slate-600">Enfants ayant payé</p>
           </div>
           <p className="text-xl font-bold text-blue-600">{totauxGlobaux.enfantsAyantPaye}</p>
-        </div>
-        <div className="bg-white rounded-lg shadow-md p-4 border-l-4 border-slate-400">
+          <p className="text-[11px] text-blue-500 mt-1">Voir la liste →</p>
+        </button>
+        <button
+          onClick={() => ouvrirListeGlobale('NON_PAYE')}
+          className={`bg-white rounded-lg shadow-md p-4 border-l-4 text-left transition hover:shadow-lg hover:ring-2 hover:ring-slate-400 ${listeGlobale === 'NON_PAYE' ? 'ring-2 ring-slate-400 border-slate-500' : 'border-slate-400'}`}
+        >
           <div className="flex items-center gap-2 mb-1">
             <XCircle className="w-4 h-4 text-slate-600" />
             <p className="text-xs font-medium text-slate-600">Enfants n'ayant pas payé</p>
           </div>
           <p className="text-xl font-bold text-slate-700">{totauxGlobaux.enfantsNonPayes}</p>
-        </div>
+          <p className="text-[11px] text-slate-500 mt-1">Voir la liste →</p>
+        </button>
       </div>
 
       <div className="flex items-center gap-2 text-sm text-slate-500">
         <button
-          onClick={() => { setSelectedEcole(null); setSelectedClasse(null) }}
-          className={`hover:text-blue-600 transition ${!selectedEcole ? 'font-bold text-slate-900' : ''}`}
+          onClick={() => { setSelectedEcole(null); setSelectedClasse(null); setListeGlobale(null) }}
+          className={`hover:text-blue-600 transition ${!selectedEcole && !listeGlobale ? 'font-bold text-slate-900' : ''}`}
         >
           🏫 Écoles
         </button>
+        {listeGlobale && (
+          <>
+            <ChevronRight className="w-4 h-4" />
+            <span className="font-bold text-slate-900">{listeGlobale === 'PAYE' ? 'Enfants ayant payé' : "Enfants n'ayant pas payé"}</span>
+          </>
+        )}
         {selectedEcole && (
           <>
             <ChevronRight className="w-4 h-4" />
@@ -214,8 +274,44 @@ export default function SuiviPaiements() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">⚠️ {error}</div>
       )}
 
+      {/* Liste globale (toutes écoles) : enfants ayant payé / n'ayant pas payé */}
+      {listeGlobale && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setListeGlobale(null)} className="p-2 hover:bg-slate-100 rounded-lg transition">
+              <ArrowLeft className="w-5 h-5 text-slate-600" />
+            </button>
+            <h2 className="text-2xl font-bold text-slate-900">
+              {listeGlobale === 'PAYE' ? '✓ Enfants ayant payé' : "✗ Enfants n'ayant pas payé"} — toutes écoles ({elevesListeGlobale.length})
+            </h2>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="relative flex-1 min-w-[220px]">
+              <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={rechercheGlobale}
+                onChange={(e) => setRechercheGlobale(e.target.value)}
+                placeholder="Rechercher un élève, un parent, un numéro..."
+                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg"
+              />
+            </div>
+            <BoutonsExport construire={exportListeGlobale} disabled={elevesListeGlobale.length === 0} />
+          </div>
+
+          <EleveGroupTable
+            title={listeGlobale === 'PAYE' ? 'Élèves ayant versé au moins un paiement' : "Élèves n'ayant encore rien payé"}
+            icon={listeGlobale === 'PAYE' ? <CheckCircle className="w-5 h-5 text-blue-600" /> : <XCircle className="w-5 h-5 text-slate-600" />}
+            eleves={elevesListeGlobale}
+            getStatusBadge={getStatusBadge}
+            avecEcoleClasse
+          />
+        </div>
+      )}
+
       {/* NIVEAU 1 : Écoles */}
-      {!selectedEcole && (
+      {!listeGlobale && !selectedEcole && (
         <div className="space-y-4">
           <h2 className="text-2xl font-bold text-slate-900">💰 Statuts de paiement par école</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -357,7 +453,20 @@ function PosteCell({ poste }) {
   )
 }
 
-function EleveGroupTable({ title, icon, eleves, getStatusBadge }) {
+// Numéro nettoyé pour un lien tel: (garde le premier numéro si plusieurs sont séparés par / ou ,)
+const lienTel = (tel) => (tel || '').split(/[/,]/)[0].replace(/[^\d+]/g, '')
+
+function TelephoneCell({ tel }) {
+  const numero = lienTel(tel)
+  if (!numero) return <span className="text-slate-300">—</span>
+  return (
+    <a href={`tel:${numero}`} onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:underline inline-flex items-center gap-1">
+      <Phone className="w-3.5 h-3.5" /> {tel}
+    </a>
+  )
+}
+
+function EleveGroupTable({ title, icon, eleves, getStatusBadge, avecEcoleClasse = false }) {
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       <div className="bg-slate-50 border-b border-slate-200 p-4 flex items-center gap-2">
@@ -371,6 +480,8 @@ function EleveGroupTable({ title, icon, eleves, getStatusBadge }) {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
+                {avecEcoleClasse && <th className="px-6 py-3 text-left font-semibold text-slate-700">École</th>}
+                {avecEcoleClasse && <th className="px-6 py-3 text-left font-semibold text-slate-700">Classe</th>}
                 <th className="px-6 py-3 text-left font-semibold text-slate-700">Élève</th>
                 <th className="px-6 py-3 text-center font-semibold text-slate-700">Sexe</th>
                 <th className="px-6 py-3 text-left font-semibold text-slate-700">Parent</th>
@@ -381,15 +492,18 @@ function EleveGroupTable({ title, icon, eleves, getStatusBadge }) {
                 <th className="px-6 py-3 text-center font-semibold text-slate-700">Tranche 3</th>
                 <th className="px-6 py-3 text-center font-semibold text-slate-700">Statut</th>
                 <th className="px-6 py-3 text-center font-semibold text-slate-700">Reste à payer</th>
+                <th className="px-6 py-3 text-left font-semibold text-slate-700">Dernier versement</th>
               </tr>
             </thead>
             <tbody>
               {eleves.map(eleve => (
                 <tr key={eleve.id} className="border-b border-slate-200 hover:bg-slate-50">
+                  {avecEcoleClasse && <td className="px-6 py-3 text-slate-600">{eleve.ecoleNom}</td>}
+                  {avecEcoleClasse && <td className="px-6 py-3 text-slate-600">{eleve.classeNom}</td>}
                   <td className="px-6 py-3 text-slate-900">{eleve.nom} {eleve.prenom}</td>
                   <td className="px-6 py-3 text-center text-slate-600">{eleve.sexe === 'MASCULIN' ? '♂ M' : eleve.sexe === 'FEMININ' ? '♀ F' : '-'}</td>
                   <td className="px-6 py-3 text-slate-600">{eleve.parent}{eleve.lieuParente ? ` (${eleve.lieuParente})` : ''}</td>
-                  <td className="px-6 py-3 text-slate-600">{eleve.tel}</td>
+                  <td className="px-6 py-3"><TelephoneCell tel={eleve.tel} /></td>
                   {POSTES_SUIVIS.map(tranche => (
                     <td key={tranche} className="px-6 py-3 text-center font-mono">
                       <PosteCell poste={eleve.postes[tranche]} />
@@ -398,6 +512,9 @@ function EleveGroupTable({ title, icon, eleves, getStatusBadge }) {
                   <td className="px-6 py-3 text-center">{getStatusBadge(eleve.statut)}</td>
                   <td className="px-6 py-3 text-center font-mono">
                     <span className={eleve.restant > 0 ? 'font-semibold text-red-600' : 'text-green-600'}>{formatFCFA(Math.max(0, eleve.restant))}</span>
+                  </td>
+                  <td className="px-6 py-3 text-slate-600 whitespace-nowrap">
+                    {eleve.dernierPaiement ? new Date(eleve.dernierPaiement).toLocaleDateString('fr-FR') : <span className="text-slate-300">—</span>}
                   </td>
                 </tr>
               ))}
