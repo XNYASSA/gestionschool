@@ -1,7 +1,6 @@
 import { proposerClasse, canonClasse } from './appariementClasses.js'
 import { typeTechnique } from './filieres.js'
-
-const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
+import { formatFCFA } from './formatters.js'
 
 // Groupes d'élèves d'un fichier de scolarité à rapprocher d'une classe : une ligne par feuille et par
 // classe écrite dans la colonne « Classe » (ou, pour les feuilles techniques A1-A4 / Y1-Y4, par

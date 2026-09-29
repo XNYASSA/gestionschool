@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, Trash2, Save, Loader, School, Calendar, ArrowLeft, Tag } from 'lucide-react'
 import { apiClient } from '../../api/client'
-
-const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
+import { formatFCFA } from '../../utils/formatters'
 const toDateInput = (d) => d ? new Date(d).toISOString().split('T')[0] : ''
 
 // Frais annexes courants, proposés en suggestion (nom + montant habituel) —

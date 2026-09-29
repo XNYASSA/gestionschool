@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { DollarSign, Plus, Eye, Loader } from 'lucide-react'
 import { apiClient } from '../../api/client'
+import { formatFCFA } from '../../utils/formatters'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 
@@ -167,7 +168,7 @@ export default function SaisieFraisSecretaire() {
                   <tr key={saisie.id} className="border-b border-slate-200 hover:bg-slate-50">
                     <td className="px-6 py-3 text-sm text-slate-900">{new Date(saisie.createdAt).toLocaleTimeString('fr-FR')}</td>
                     <td className="px-6 py-3 text-sm text-slate-900">{saisie.donnees?.description}</td>
-                    <td className="px-6 py-3 text-sm font-semibold text-right text-slate-900">{saisie.donnees?.montantTotal?.toLocaleString('fr-FR')} FCFA</td>
+                    <td className="px-6 py-3 text-sm font-semibold text-right text-slate-900">{formatFCFA(saisie.donnees?.montantTotal)}</td>
                     <td className="px-6 py-3 text-center">
                       <button className="text-blue-600 hover:text-blue-700">
                         <Eye className="w-4 h-4 mx-auto" />

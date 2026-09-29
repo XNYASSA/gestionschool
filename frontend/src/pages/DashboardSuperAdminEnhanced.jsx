@@ -3,6 +3,7 @@ import { AuthContext } from '../context/AuthContext'
 import { LogOut, TrendingUp, AlertCircle, Menu, Search, ArrowLeft } from 'lucide-react'
 import { apiClient } from '../api/client'
 import { isInPeriod, PERIOD_LABELS } from '../utils/periodFilter'
+import { formatFCFA } from '../utils/formatters'
 import SidebarSuperAdmin, { MENU_PAR_ROLE } from '../components/SidebarSuperAdmin'
 
 // Sections du dashboard
@@ -293,7 +294,6 @@ export default function DashboardSuperAdminEnhanced() {
 // Section Overview du Dashboard
 function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = [], period, setPeriod, showAnomalies = true, showFinances = true, onNavigate, onRechercherEleve, onVoirIncomplets }) {
   const [rechercheEleve, setRechercheEleve] = useState('')
-  const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
 
   const handleRecherche = (e) => {
     e.preventDefault()

@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Loader, School, ArrowLeft, Wallet } from 'lucide-react'
 import { apiClient } from '../../api/client'
-
-const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
+import { formatFCFA } from '../../utils/formatters'
 
 export default function FraisParEcole() {
   const [ecoles, setEcoles] = useState([])

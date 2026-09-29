@@ -6,6 +6,7 @@ import BoutonsExport from '../../components/BoutonsExport'
 import { exportListeEleves } from '../../utils/exportListes'
 import { estManquant } from '../../utils/infosEleve'
 import { getStatutPaiement, getResteAPayer, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
+import { formatFCFA } from '../../utils/formatters'
 
 const NIVEAUX_ECOLE = [
   { value: 'SECONDAIRE', label: 'Secondaire (collège)' },
@@ -541,7 +542,7 @@ function GestionClasses({ ecoles, classes, eleves, onChange, initialEcoleId, onB
                           <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statut.className}`}>{statut.label}</span>
                         </td>
                         <td className="px-6 py-3 text-center font-mono">
-                        <span className={getResteAPayer(eleve) > 0 ? 'font-semibold text-red-600' : 'text-green-600'}>{getResteAPayer(eleve).toLocaleString('fr-FR')} FCFA</span>
+                        <span className={getResteAPayer(eleve) > 0 ? 'font-semibold text-red-600' : 'text-green-600'}>{formatFCFA(getResteAPayer(eleve))}</span>
                       </td>
                       </tr>
                     )

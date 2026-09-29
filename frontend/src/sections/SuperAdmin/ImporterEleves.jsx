@@ -5,6 +5,7 @@ import { lireClasseurScolarite } from '../../utils/lireScolarite'
 import { construireGroupes } from '../../utils/grouperScolarite'
 import { typeTechnique } from '../../utils/filieres'
 import BoutonsExport from '../../components/BoutonsExport'
+import { formatFCFA } from '../../utils/formatters'
 
 const COLONNES = [
   { titre: 'Matricule (optionnel)', cle: 'matricule' },
@@ -27,7 +28,6 @@ const COLONNES = [
 const EXEMPLE = ['', 'Nkomo', 'Jean', 'M', '15/03/2015', '6ème A', 'Marie Nkomo', 'Mère', '677123456', '', '', '21000', '', '', '']
 
 const TAILLE_LOT = 100
-const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
 
 function formatDate(valeur) {
   if (valeur instanceof Date) {

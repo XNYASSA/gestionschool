@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { AlertTriangle, CheckCircle2, Loader, Calendar, User, Wallet } from 'lucide-react'
 import { apiClient } from '../../api/client'
+import { formatFCFA } from '../../utils/formatters'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 
@@ -56,8 +57,6 @@ export default function AnomaliesDetailed() {
       setLoading(false)
     }
   }
-
-  const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
 
   return (
     <div className="space-y-6">
@@ -167,7 +166,7 @@ function DeclarationCard({ icon, titre, montant }) {
         <span className="text-2xl">{icon}</span>
         <h3 className="font-bold text-slate-900">{titre}</h3>
       </div>
-      <p className="text-2xl font-bold text-slate-900">{(montant || 0).toLocaleString('fr-FR')} FCFA</p>
+      <p className="text-2xl font-bold text-slate-900">{formatFCFA(montant)}</p>
       <p className="text-xs text-slate-500 mt-1">Montant déclaré pour la période</p>
     </div>
   )

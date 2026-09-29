@@ -1,10 +1,9 @@
 import { estManquant, informationsManquantes } from './infosEleve'
+import { formatFCFA } from './formatters'
 
 // Signalements d'un élève : informations manquantes et incohérences des données, chacun avec le
 // problème et ce qu'il faut faire pour le résoudre. `niveau` : 'rouge' (à corriger) ou 'orange' (à vérifier).
 // Un signalement : { code, niveau, message, aFaire, manque? } — `manque` = information obligatoire absente.
-
-const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
 const mots = (e) => `${e.nom} ${e.prenom}`.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(' ').filter(Boolean)
 
 const LIBELLES_POSTES = { inscription: 'Inscription', tranche1: 'Tranche 1', tranche2: 'Tranche 2', tranche3: 'Tranche 3' }

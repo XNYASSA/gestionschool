@@ -4,9 +4,9 @@ import { apiClient } from '../../api/client'
 import { isInPeriod, PERIOD_LABELS } from '../../utils/periodFilter'
 import RechercheEleve from '../../components/RechercheEleve'
 import ImporterVerificationsEconomat from './ImporterVerificationsEconomat'
+import { formatFCFA } from '../../utils/formatters'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
-const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
 
 export default function VerificationFinanciere() {
   const [paiements, setPaiements] = useState([])

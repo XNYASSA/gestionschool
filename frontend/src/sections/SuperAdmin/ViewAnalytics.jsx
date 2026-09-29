@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { TrendingUp, TrendingDown, Loader } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { isInPeriod } from '../../utils/periodFilter'
+import { formatFCFA } from '../../utils/formatters'
 
 export default function ViewAnalytics({ onNavigate }) {
   const [frais, setFrais] = useState([])
@@ -103,7 +104,6 @@ export default function ViewAnalytics({ onNavigate }) {
   const totalSorties = totalSalaires + totalFixes + totalVariables
 
   const resultatNet = totalEntrees - totalSorties
-  const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
 
   return (
     <div className="space-y-6">

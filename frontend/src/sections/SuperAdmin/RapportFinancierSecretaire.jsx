@@ -5,9 +5,9 @@ import { isInPeriod, PERIOD_LABELS } from '../../utils/periodFilter'
 import { getStatutPaiement, getResteAPayer, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
 import RechercheEleve from '../../components/RechercheEleve'
 import ImporterPaiementsSecretaire from './ImporterPaiementsSecretaire'
+import { formatFCFA } from '../../utils/formatters'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
-const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
 const estTranche = (tranche) => /^tranche\d+$/.test(tranche)
 const labelPoste = (poste) => poste.libelle || (poste.tranche === 'inscription' ? "Frais d'inscription" : `Tranche ${poste.tranche.replace('tranche', '')}`)
 
@@ -299,7 +299,7 @@ export default function RapportFinancierSecretaire() {
                         <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${statut.className}`}>{statut.label}</span>
                       </td>
                       <td className="px-6 py-3 text-center font-mono">
-                        <span className={getResteAPayer(eleveComplet) > 0 ? 'font-semibold text-red-600' : 'text-green-600'}>{getResteAPayer(eleveComplet).toLocaleString('fr-FR')} FCFA</span>
+                        <span className={getResteAPayer(eleveComplet) > 0 ? 'font-semibold text-red-600' : 'text-green-600'}>{formatFCFA(getResteAPayer(eleveComplet))}</span>
                       </td>
                     </tr>
                   )

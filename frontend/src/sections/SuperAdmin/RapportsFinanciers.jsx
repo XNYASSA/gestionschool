@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { TrendingUp, AlertCircle, Loader, Calendar } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { isInPeriod, PERIOD_LABELS } from '../../utils/periodFilter'
+import { formatFCFA } from '../../utils/formatters'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 
@@ -49,8 +50,6 @@ export default function RapportsFinanciers({ onNavigate }) {
       setLoading(false)
     }
   }
-
-  const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
   const referenceDate = useMemo(() => new Date(selectedDate + 'T12:00:00'), [selectedDate])
 
   const fraisPeriode = frais.filter(f => f.montantPaye > 0 && isInPeriod(f.datePayement || f.createdAt, period, referenceDate))

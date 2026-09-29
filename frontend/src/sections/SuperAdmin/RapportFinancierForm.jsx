@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Wallet, TrendingUp, TrendingDown, Plus, Loader, Check } from 'lucide-react'
 import { apiClient } from '../../api/client'
+import { formatFCFA } from '../../utils/formatters'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
-const formatFCFA = (m) => `${(m || 0).toLocaleString('fr-FR')} FCFA`
 
 export default function RapportFinancierForm() {
   const [ecoles, setEcoles] = useState([])

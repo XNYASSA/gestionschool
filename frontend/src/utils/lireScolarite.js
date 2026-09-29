@@ -7,6 +7,8 @@
 //    "Nom du père", "Nom de la mère", "Téléphone parent", "Adresse", "Inscription",
 //    "Tranche 1/2", "Solde restant", "Remarques"...
 
+import { formatFCFA } from './formatters'
+
 const normaliser = (v) => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
 
 // Valeur d'une cellule ExcelJS : texte enrichi, résultat de formule ou date compris
@@ -124,7 +126,7 @@ function lireFeuille(feuille) {
     const total = paiements.inscription + paiements.tranche1 + paiements.tranche2 + paiements.tranche3
 
     if (!nomComplet) {
-      if (total > 0) anomalies.push(`Ligne ${r} : des montants (${total.toLocaleString('fr-FR')} FCFA) sans nom d'élève`)
+      if (total > 0) anomalies.push(`Ligne ${r} : des montants (${formatFCFA(total)}) sans nom d'élève`)
       continue
     }
     if (MOTS_LIGNE_TOTAL.test(normaliser(nomComplet)) || /^\d+$/.test(nomComplet)) continue

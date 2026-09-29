@@ -7,6 +7,7 @@ import { estManquant, informationsManquantes, valeurOuVide } from '../../utils/i
 import { filieresPourClasse, typeTechnique } from '../../utils/filieres'
 import { calculerSignalements, niveauMax, STYLE_SIGNALEMENT } from '../../utils/signalements'
 import { getStatutPaiement, getResteAPayer, STATUT_PAIEMENT_STYLE } from '../../utils/statutPaiement'
+import { formatFCFA } from '../../utils/formatters'
 
 const emptyForm = {
   nom: '',
@@ -300,7 +301,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                     )}
                     {showStatutPaiement && (
                       <td className="px-6 py-3 text-center font-mono">
-                        <span className={getResteAPayer(eleve) > 0 ? 'font-semibold text-red-600' : 'text-green-600'}>{getResteAPayer(eleve).toLocaleString('fr-FR')} FCFA</span>
+                        <span className={getResteAPayer(eleve) > 0 ? 'font-semibold text-red-600' : 'text-green-600'}>{formatFCFA(getResteAPayer(eleve))}</span>
                       </td>
                     )}
                     <td className="px-6 py-3 text-center flex gap-2 justify-center">

@@ -5,6 +5,7 @@ import { AuthContext } from '../../context/AuthContext'
 import ImporterPersonnel, { FONCTIONS_PERSONNEL } from './ImporterPersonnel'
 import BoutonsExport from '../../components/BoutonsExport'
 import { exportListePersonnel } from '../../utils/exportListes'
+import { formatFCFALong } from '../../utils/formatters'
 
 const estSansConnexion = (email) => String(email || '').toLowerCase().endsWith('@personnel.local')
 
@@ -181,7 +182,7 @@ export default function PersonnelManagement({ section, canGererComptes = true })
     }
   }
 
-  const formatFCFA = (m) => m ? `${m.toLocaleString('fr-FR')} FCFA` : '-'
+  const formatFCFA = (m) => (m ? formatFCFALong(m) : '-')
 
   const personnelAffiche = filtreEcole
     ? personnel.filter(p => p.utilisateurEcoles?.some(ue => ue.ecole.id === filtreEcole))

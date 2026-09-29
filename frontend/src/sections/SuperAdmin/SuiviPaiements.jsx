@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { CheckCircle, XCircle, Loader, Users, ChevronRight, ArrowLeft, School, Layers, Wallet, PiggyBank } from 'lucide-react'
 import { apiClient } from '../../api/client'
+import { formatFCFA } from '../../utils/formatters'
 
 function calculerStatutEleve(fraisEleve) {
   const montantDu = fraisEleve.reduce((sum, f) => sum + f.montantDu, 0)
@@ -24,8 +25,6 @@ function extrairePostes(fraisEleve) {
   }
   return postes
 }
-
-const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
 
 export default function SuiviPaiements() {
   const [frais, setFrais] = useState([])

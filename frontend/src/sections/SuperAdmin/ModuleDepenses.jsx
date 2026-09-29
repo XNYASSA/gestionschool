@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Plus, Edit2, Trash2, X, Loader } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { isInPeriod } from '../../utils/periodFilter'
+import { formatFCFA } from '../../utils/formatters'
 
 const CATEGORIES = ['MATERIEL', 'FOURNITURES', 'MAINTENANCE', 'ENERGIE', 'AUTRE']
 
@@ -120,8 +121,6 @@ export default function ModuleDepenses() {
       alert('Erreur lors de la suppression: ' + err.message)
     }
   }
-
-  const formatFCFA = (m) => `${m.toLocaleString('fr-FR')} FCFA`
 
   return (
     <div className="space-y-6">
