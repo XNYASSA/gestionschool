@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useContext } from 'react'
-import { GraduationCap, Loader, ChevronDown, ChevronUp, Eye, Printer, X } from 'lucide-react'
+import { GraduationCap, Loader, ChevronDown, ChevronUp, Eye, Printer, X, Save, ClipboardList } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { AuthContext } from '../../context/AuthContext'
 import BulletinTemplate from './BulletinTemplate'
@@ -7,6 +7,38 @@ import ProgrammeClasse from './ProgrammeClasse'
 import { ANNEE_SCOLAIRE_COURANTE, ANNEES_SCOLAIRES } from '../../utils/anneeScolaire'
 
 const TRIMESTRES = [1, 2, 3]
+
+const champsDiscipline = (b) => ({
+  exclusionDefinitive: !!b?.exclusionDefinitive,
+  joursExclusion: b?.joursExclusion ?? '',
+  absenteisme: !!b?.absenteisme,
+  conduiteDeplorable: !!b?.conduiteDeplorable,
+  convocation: !!b?.convocation,
+  tableauHonneur: !!b?.tableauHonneur,
+  encouragement: !!b?.encouragement,
+  felicitations: !!b?.felicitations,
+  avertissementTravail: !!b?.avertissementTravail,
+  blameTravail: !!b?.blameTravail,
+  avertissementConduite: !!b?.avertissementConduite,
+  blameConduite: !!b?.blameConduite,
+  observationConseil: b?.observationConseil || ''
+})
+
+const CASES_DISCIPLINE = [
+  { cle: 'exclusionDefinitive', label: 'Exclusion définitive' },
+  { cle: 'absenteisme', label: 'Absentéisme' },
+  { cle: 'conduiteDeplorable', label: 'Conduite déplorable' },
+  { cle: 'convocation', label: 'Convocation' }
+]
+const CASES_CONSEIL = [
+  { cle: 'tableauHonneur', label: 'TH — Tableau d\'honneur' },
+  { cle: 'encouragement', label: 'ENC — Encouragement' },
+  { cle: 'felicitations', label: 'FEL — Félicitations' },
+  { cle: 'avertissementTravail', label: 'AT — Avert. travail' },
+  { cle: 'blameTravail', label: 'BT — Blâme travail' },
+  { cle: 'avertissementConduite', label: 'AC — Avert. conduite' },
+  { cle: 'blameConduite', label: 'BC — Blâme conduite' }
+]
 
 export default function Bulletins({ onNavigate }) {
   const { user } = useContext(AuthContext)
@@ -31,6 +63,9 @@ export default function Bulletins({ onNavigate }) {
 
   const [bulletinAffiche, setBulletinAffiche] = useState(null)
   const [chargementApercu, setChargementApercu] = useState(false)
+  const [formDiscipline, setFormDiscipline] = useState(null)
+  const [enregistrementDiscipline, setEnregistrementDiscipline] = useState(false)
+  const [afficherDiscipline, setAfficherDiscipline] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -100,13 +135,29 @@ export default function Bulletins({ onNavigate }) {
   const ouvrirApercu = async (bulletinId) => {
     setChargementApercu(true)
     setError('')
+    setAfficherDiscipline(false)
     try {
       const data = await apiClient.getBulletinData(bulletinId)
       setBulletinAffiche(data)
+      setFormDiscipline(champsDiscipline(data.bulletin))
     } catch (err) {
       setError(err.message || "Erreur lors du chargement de l'aperçu")
     } finally {
       setChargementApercu(false)
+    }
+  }
+
+  const enregistrerDiscipline = async () => {
+    if (!bulletinAffiche) return
+    setEnregistrementDiscipline(true)
+    setError('')
+    try {
+      await apiClient.mettreAJourDisciplineBulletin(bulletinAffiche.bulletinId, formDiscipline)
+      await ouvrirApercu(bulletinAffiche.bulletinId)
+    } catch (err) {
+      setError(err.message || "Erreur lors de l'enregistrement")
+    } finally {
+      setEnregistrementDiscipline(false)
     }
   }
 
@@ -124,10 +175,11 @@ export default function Bulletins({ onNavigate }) {
         <GraduationCap className="w-6 h-6 text-purple-500" /> Génération des bulletins
       </h2>
 
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-800 text-sm">
-        ℹ️ Le modèle visuel reproduit le bulletin papier fourni par le client. Les groupes de matières, la discipline
-        et le conseil de classe ne sont pas encore alimentés (données à venir) ; les notes, coefficients, moyenne,
-        rang et effectif sont réels.
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-800 text-sm space-y-1">
+        <p>ℹ️ Le modèle reproduit le bulletin papier fourni par le client, avec les notes Eval1/Eval2 du bordereau, les moyennes, le rang, l'effectif,
+        les groupes de matières (selon le « département » de chaque matière) et les absences/retards (d'après l'appel).</p>
+        <p>La discipline et le conseil de classe (exclusion, TH/ENC/FEL..., observation) se saisissent dans l'aperçu du bulletin, bouton « Discipline et conseil de classe ».</p>
+        <p>Le professeur principal se désigne dans « Programme de la classe » ci-dessous ; sans matière groupée par « département », toutes les matières apparaissent dans un seul groupe.</p>
       </div>
 
       {error && (
@@ -243,7 +295,7 @@ export default function Bulletins({ onNavigate }) {
                   <div className="flex items-center gap-4">
                     <span className="text-xs text-slate-500">Rang {r.rang}/{r.effectif}</span>
                     <span className="font-bold text-purple-600">{r.moyenneGenerale}/20</span>
-                    <span className="text-xs text-slate-600">{r.appreciation}</span>
+                    <span className="text-xs text-slate-600">{r.mentionGenerale}</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); ouvrirApercu(r.bulletinId) }}
                       className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-xs font-medium flex items-center gap-1.5"
@@ -255,7 +307,7 @@ export default function Bulletins({ onNavigate }) {
                 </button>
                 {detailOuvert[r.bulletinId] && (
                   <div className="px-4 pb-4">
-                    {r.notes.length === 0 ? (
+                    {!r.programmeDefini ? (
                       <p className="text-sm text-slate-500">Le programme de cette classe n'est pas défini : cochez ses matières dans « Programme de la classe » ci-dessus.</p>
                     ) : (
                       <table className="w-full text-sm">
@@ -264,16 +316,16 @@ export default function Bulletins({ onNavigate }) {
                             <th className="py-1">Matière</th>
                             <th className="py-1 text-center">Note</th>
                             <th className="py-1 text-center">Coefficient</th>
-                            <th className="py-1">Observation</th>
+                            <th className="py-1">Mention</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {r.notes.map((n, i) => (
+                          {r.groupes.flatMap(g => g.lignes).map((n, i) => (
                             <tr key={i} className="border-t border-slate-100">
                               <td className="py-1 text-slate-900">{n.matiere}</td>
                               <td className="py-1 text-center">{n.note === null ? '-' : `${n.note}/20`}</td>
                               <td className="py-1 text-center">{n.coefficient}</td>
-                              <td className="py-1 text-slate-500">{n.observation || '-'}</td>
+                              <td className="py-1 text-slate-500">{n.mention || '-'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -300,6 +352,12 @@ export default function Bulletins({ onNavigate }) {
           <div className="max-w-4xl mx-auto">
             <div className="no-print flex justify-end gap-2 mb-3 px-2">
               <button
+                onClick={() => setAfficherDiscipline(!afficherDiscipline)}
+                className="px-4 py-2 bg-white text-slate-700 rounded-lg hover:bg-slate-100 transition flex items-center gap-2"
+              >
+                <ClipboardList className="w-4 h-4" /> Discipline et conseil de classe
+              </button>
+              <button
                 onClick={() => window.print()}
                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2"
               >
@@ -312,6 +370,61 @@ export default function Bulletins({ onNavigate }) {
                 <X className="w-4 h-4" /> Fermer
               </button>
             </div>
+
+            {afficherDiscipline && formDiscipline && (
+              <div className="no-print bg-white rounded-lg shadow-2xl p-4 mb-3 text-sm space-y-3">
+                <p className="text-xs text-slate-500">
+                  Ces informations ne viennent d'aucune autre donnée de l'application (contrairement aux notes, à la moyenne et aux absences/retards,
+                  calculés automatiquement) : elles sont à saisir ici pour chaque bulletin.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="font-semibold text-slate-900 mb-1">Discipline</p>
+                    <div className="space-y-1">
+                      {CASES_DISCIPLINE.map(c => (
+                        <label key={c.cle} className="flex items-center gap-2">
+                          <input type="checkbox" checked={formDiscipline[c.cle]} onChange={(e) => setFormDiscipline({ ...formDiscipline, [c.cle]: e.target.checked })} />
+                          {c.label}
+                        </label>
+                      ))}
+                      <label className="flex items-center gap-2">
+                        <span>Jours d'exclusion :</span>
+                        <input type="number" min="0" value={formDiscipline.joursExclusion} onChange={(e) => setFormDiscipline({ ...formDiscipline, joursExclusion: e.target.value })} className="w-16 px-2 py-1 border border-slate-300 rounded" />
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900 mb-1">Décisions du conseil de classe</p>
+                    <div className="grid grid-cols-1 gap-1">
+                      {CASES_CONSEIL.map(c => (
+                        <label key={c.cle} className="flex items-center gap-2">
+                          <input type="checkbox" checked={formDiscipline[c.cle]} onChange={(e) => setFormDiscipline({ ...formDiscipline, [c.cle]: e.target.checked })} />
+                          {c.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-900 mb-1">Observation du conseil</label>
+                  <input
+                    type="text"
+                    value={formDiscipline.observationConseil}
+                    onChange={(e) => setFormDiscipline({ ...formDiscipline, observationConseil: e.target.value })}
+                    placeholder="Ex : Passable, doit redoubler d'efforts..."
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <button
+                  onClick={enregistrerDiscipline}
+                  disabled={enregistrementDiscipline}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 flex items-center gap-2"
+                >
+                  {enregistrementDiscipline ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Enregistrer
+                </button>
+              </div>
+            )}
+
             <div id="bulletin-print-area" className="shadow-2xl">
               <BulletinTemplate data={bulletinAffiche} />
             </div>

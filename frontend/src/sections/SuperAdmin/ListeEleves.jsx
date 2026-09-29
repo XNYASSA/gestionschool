@@ -14,6 +14,8 @@ const emptyForm = {
   prenom: '',
   sexe: 'MASCULIN',
   dateNaissance: '',
+  lieuNaissance: '',
+  redouble: false,
   classeId: '',
   nomParent: '',
   lieuParente: 'Père',
@@ -397,15 +399,40 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
                   </select>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Date de naissance</label>
+                    <input
+                      type="date"
+                      value={formData.dateNaissance}
+                      onChange={(e) => setFormData({ ...formData, dateNaissance: e.target.value })}
+                      disabled={modalMode === 'view'}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:bg-slate-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Lieu de naissance</label>
+                    <input
+                      type="text"
+                      value={formData.lieuNaissance || ''}
+                      onChange={(e) => setFormData({ ...formData, lieuNaissance: e.target.value })}
+                      disabled={modalMode === 'view'}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:bg-slate-100"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Date de naissance</label>
-                  <input
-                    type="date"
-                    value={formData.dateNaissance}
-                    onChange={(e) => setFormData({ ...formData, dateNaissance: e.target.value })}
-                    disabled={modalMode === 'view'}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg disabled:bg-slate-100"
-                  />
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={!!formData.redouble}
+                      onChange={(e) => setFormData({ ...formData, redouble: e.target.checked })}
+                      disabled={modalMode === 'view'}
+                      className="w-4 h-4"
+                    />
+                    Redoublant(e) cette année (affiché sur le bulletin)
+                  </label>
                 </div>
 
                 <div>

@@ -141,6 +141,8 @@ export async function construireBulletin(prisma, eleve, trimestre, anneeScolaire
       : null
   ])
 
+  const mentionGenerale = mentionPourNote(bareme.lignes, resultats.moyenneGenerale)
+
   return {
     eleve: {
       nom: eleve.nom, prenom: eleve.prenom, matricule: eleve.matricule, sexe: eleve.sexe,
@@ -158,6 +160,9 @@ export async function construireBulletin(prisma, eleve, trimestre, anneeScolaire
     coefTotal: resultats.coefTotal,
     nxcTotal: resultats.nxcTotal,
     moyenneGenerale: resultats.moyenneGenerale,
+    mentionGenerale: mentionGenerale?.mentionFr || '',
+    apcGenerale: mentionGenerale?.apc || '',
+    bareme: bareme.lignes,
     moyenneEval1: resultats.moyenneEval1,
     moyenneEval2: resultats.moyenneEval2,
     programmeDefini: resultats.programmeDefini,

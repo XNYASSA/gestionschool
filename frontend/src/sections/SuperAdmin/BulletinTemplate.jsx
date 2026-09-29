@@ -1,14 +1,18 @@
-// Reproduction du modèle papier fourni par le client (bulletin bilingue
-// FR/EN, en-tête MINESEC, tableau des notes, bloc "Travail du trimestre").
-// Les blocs Discipline / Conseil de classe restent des cadres vides pour
-// l'instant : aucune donnée n'existe encore pour ces informations
-// (absences, retards, décisions du conseil...).
+// Reproduction fidèle du modèle papier fourni par le client (bulletin APC bilingue FR/EN,
+// en-tête MINESEC/MINEDUB, tableau des notes groupé par matière, bloc discipline / conseil de
+// classe / travail du trimestre, courbe de progression, visas).
+//
+// Données non disponibles dans l'application, signalées ici plutôt que devinées :
+//  - "Compétence..." par matière : aucune compétence réelle n'est saisie nulle part — texte fixe.
+//  - Colonne "NC" : toujours à 0 (son usage exact sur le modèle papier n'est pas connu).
+//  - Photo de l'élève : pas de système de dépôt de photo — silhouette générique.
+//  - Discipline (absences/retards) : calculée depuis l'appel (Présences) sur une période de
+//    trimestre estimée par défaut (voir backend/src/utils/bulletinData.js) — à confirmer par école.
+//  - Exclusion / conseil de classe (TH, EN, FEL...) et observation : saisie manuelle, à renseigner
+//    dans le panneau "Discipline et conseil de classe" avant impression.
+import { useState } from 'react'
 
-// Logos des écoles — à compléter au fur et à mesure qu'ils sont fournis.
-// En attendant, un badge avec les initiales de l'école tient la place.
-const LOGOS_ECOLE = {
-  // CRP_FRANCOPHONE: '/logos/crp.png',
-}
+const LOGO_EXTENSIONS = ['png', 'jpg', 'jpeg']
 
 const TRIMESTRE_LABELS = { 1: 'PREMIER', 2: 'DEUXIÈME', 3: 'TROISIÈME' }
 
@@ -17,13 +21,23 @@ function formatDateFr(iso) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+// Cherche /logos/<nomCourt>.png puis .jpg puis .jpeg ; à défaut, un badge avec les initiales de l'école.
 function LogoEcole({ nomCourt }) {
-  const url = LOGOS_ECOLE[nomCourt]
-  if (url) return <img src={url} alt={nomCourt} className="w-16 h-16 object-contain" />
+  const [tentative, setTentative] = useState(0)
+  if (tentative >= LOGO_EXTENSIONS.length) {
+    return (
+      <div className="w-20 h-16 rounded bg-red-700 text-white flex items-center justify-center font-extrabold text-lg border-2 border-red-900 shrink-0">
+        {nomCourt?.slice(0, 3)}
+      </div>
+    )
+  }
   return (
-    <div className="w-16 h-16 rounded-full bg-red-700 text-white flex items-center justify-center font-extrabold text-lg border-2 border-red-900">
-      {nomCourt?.slice(0, 3)}
-    </div>
+    <img
+      src={`/logos/${nomCourt}.${LOGO_EXTENSIONS[tentative]}`}
+      alt={nomCourt}
+      className="h-16 object-contain shrink-0"
+      onError={() => setTentative(t => t + 1)}
+    />
   )
 }
 
@@ -33,157 +47,243 @@ function ministereParNiveau(niveauEcole) {
     : { fr: 'MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES', en: 'MINISTRY OF SECONDARY EDUCATION' }
 }
 
-function Champ({ label, value }) {
+const rougeSi = (condition) => (condition ? 'text-red-600' : 'text-black')
+const formatNote = (n) => (n === null || n === undefined ? '' : Number(n).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/,00$/, ''))
+
+function Case({ coche, label }) {
   return (
-    <p className="whitespace-nowrap">
-      <span className="text-slate-600">{label} :</span> <span className="font-semibold">{value ?? '-'}</span>
-    </p>
+    <span className="inline-flex items-center gap-1">
+      <span className="inline-block w-3 h-3 border border-black text-center leading-none text-[9px]">{coche ? '✓' : ''}</span>
+      {label}
+    </span>
+  )
+}
+
+// Courbe de progression EVAL1 → EVAL2 (moyenne générale pondérée de chaque évaluation)
+function CourbeProgression({ eval1, eval2 }) {
+  const largeur = 130
+  const hauteur = 70
+  const y = (v) => hauteur - (Math.max(0, Math.min(20, v ?? 0)) / 20) * hauteur
+  const x1 = 20
+  const x2 = largeur - 5
+  return (
+    <svg width={largeur} height={hauteur + 14} className="mx-auto">
+      {[0, 5, 10, 15, 20].map(v => (
+        <g key={v}>
+          <line x1={x1} y1={y(v)} x2={largeur} y2={y(v)} stroke="#ccc" strokeWidth="0.5" />
+          <text x="0" y={y(v) + 3} fontSize="8">{v}</text>
+        </g>
+      ))}
+      {eval1 !== null && eval2 !== null && (
+        <>
+          <line x1={x1} y1={y(eval1)} x2={x2} y2={y(eval2)} stroke="#c00" strokeWidth="1.5" />
+          <circle cx={x1} cy={y(eval1)} r="2.5" fill="#c00" />
+          <circle cx={x2} cy={y(eval2)} r="2.5" fill="#c00" />
+        </>
+      )}
+      <text x={x1 - 8} y={hauteur + 12} fontSize="8">EVAL1</text>
+      <text x={x2 - 10} y={hauteur + 12} fontSize="8">EVAL2</text>
+    </svg>
   )
 }
 
 export default function BulletinTemplate({ data }) {
-  const { eleve, ecole, effectif, rang, notes, totalCoefficients, totalCoefficientsProgramme, programmeDefini, totalPoints, moyenneGenerale, appreciation, trimestre, anneeScolaire } = data
+  const {
+    eleve, ecole, effectif, rang, rangLabel, groupes, coefTotal, nxcTotal, moyenneGenerale, mentionGenerale,
+    moyenneEval1, moyenneEval2, programmeDefini, matieresTotal, classe, discipline, professeurPrincipal,
+    chefEtablissement, bulletin, trimestre, anneeScolaire
+  } = data
   const ministere = ministereParNiveau(ecole.niveau)
+  const bulletinManuel = bulletin || {}
+
+  const totalColonnes = 10
 
   return (
-    <div className="bg-white text-black mx-auto" style={{ width: '210mm', minHeight: '297mm', padding: '10mm', fontFamily: 'Arial, sans-serif' }}>
+    <div className="bg-white text-black mx-auto" style={{ width: '210mm', minHeight: '297mm', padding: '8mm', fontFamily: 'Arial, sans-serif' }}>
       {/* En-tête bilingue */}
-      <div className="grid grid-cols-2 text-[10px] text-center leading-tight">
+      <div className="grid grid-cols-2 text-[9px] text-center leading-tight">
         <div>
           <p className="font-bold">RÉPUBLIQUE DU CAMEROUN</p>
           <p className="italic">Paix - Travail - Patrie</p>
           <p className="font-semibold mt-1">{ministere.fr}</p>
-          <p>DÉLÉGATION RÉGIONALE DU CENTRE</p>
-          <p>DÉLÉGATION DÉPARTEMENTALE DU MFOUNDI</p>
+          <p>DÉLÉGATION RÉGIONALE {ecole.delegationRegionale || 'DU CENTRE'}</p>
+          <p>DÉLÉGATION DÉPARTEMENTALE {ecole.delegationDepartementale || 'DU MFOUNDI'}</p>
         </div>
         <div>
           <p className="font-bold">REPUBLIC OF CAMEROON</p>
           <p className="italic">Peace - Work - Fatherland</p>
           <p className="font-semibold mt-1">{ministere.en}</p>
-          <p>DIVISIONAL DELEGATION OF THE CENTER</p>
-          <p>SUBDIVISIONAL DELEGATION OF MFOUNDI</p>
+          <p>DIVISIONAL DELEGATION {ecole.delegationRegionale ? `OF ${ecole.delegationRegionale}` : 'OF THE CENTER'}</p>
+          <p>SUBDIVISIONAL DELEGATION {ecole.delegationDepartementale ? `OF ${ecole.delegationDepartementale}` : 'OF MFOUNDI'}</p>
         </div>
       </div>
 
       {/* Logo + nom de l'école */}
-      <div className="flex flex-col items-center mt-2 mb-3">
+      <div className="flex flex-col items-center mt-1 mb-1">
         <LogoEcole nomCourt={ecole.nomCourt} />
-        <h1 className="text-2xl font-extrabold text-red-700 tracking-wide text-center mt-1">{ecole.nomComplet?.toUpperCase()}</h1>
-        <p className="text-[10px] text-center">
+        <h1 className="text-2xl font-extrabold text-red-700 tracking-wide text-center mt-1 uppercase">{ecole.nomComplet}</h1>
+        <div className="w-full border-t-2 border-red-700 mt-0.5" />
+        <p className="text-[10px] text-center mt-0.5">
           {ecole.adresse} — Tél : {ecole.telephone} — Email : {ecole.email}
         </p>
       </div>
 
       {/* Titre */}
-      <div className="border-2 border-black text-center font-bold py-1 mb-2 text-sm">
-        BULLETIN DU {TRIMESTRE_LABELS[trimestre] || trimestre}ᵉ TRIMESTRE
+      <div className="text-center font-bold text-lg underline mt-1 mb-2">
+        BULLETIN DU {TRIMESTRE_LABELS[trimestre] || `${trimestre}ᵉ`} TRIMESTRE
       </div>
 
       {/* Infos élève */}
-      <div className="border-2 border-black p-2 mb-2 text-xs flex justify-between gap-3">
-        <div className="space-y-1 flex-1">
-          <Champ label="Nom et prénom" value={`${eleve.nom} ${eleve.prenom}`} />
-          <div className="grid grid-cols-2 gap-4">
-            <Champ label="Date de naissance" value={formatDateFr(eleve.dateNaissance)} />
-            <Champ label="Sexe/Gender" value={eleve.sexe === 'FEMININ' ? 'FÉMININ' : 'MASCULIN'} />
+      <div className="flex justify-between gap-3 text-[11px] mb-2">
+        <div className="space-y-0.5 flex-1">
+          <p><span className="text-slate-700">Nom et prénom :</span> <strong>{eleve.nom} {eleve.prenom}</strong></p>
+          <div className="grid grid-cols-2 gap-x-4">
+            <p><span className="text-slate-700">Date et lieu de nais.</span> {formatDateFr(eleve.dateNaissance)}{eleve.lieuNaissance ? ` à ${eleve.lieuNaissance}` : ''}</p>
+            <p><span className="text-slate-700">Sexe/Gender :</span> {eleve.sexe === 'FEMININ' ? 'FEMININ' : eleve.sexe === 'MASCULIN' ? 'MASCULIN' : ''}</p>
           </div>
-          <div className="grid grid-cols-3 gap-4">
-            <Champ label="Matricule" value={eleve.matricule} />
-            <Champ label="Classe" value={eleve.classe} />
-            <Champ label="Effectif" value={`${effectif} élèves`} />
+          <p><span className="text-slate-700">Matricule :</span> {eleve.matricule}</p>
+          <div className="grid grid-cols-2 gap-x-4">
+            <p><span className="text-slate-700">Classe</span> <strong>{eleve.classe}</strong> <span className="text-slate-500 ml-2">Effectif</span> {effectif} élèves</p>
+            <p className="flex items-center gap-2"><span className="text-slate-700">Redoublant ?</span> <Case coche={eleve.redouble} label="OUI" /> <Case coche={!eleve.redouble} label="NON" /></p>
           </div>
-          <Champ label="Année scolaire" value={anneeScolaire} />
+          <p><span className="text-slate-700">Année scolaire</span> {anneeScolaire}</p>
         </div>
-        <div className="w-16 h-16 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center text-[9px] text-slate-400 shrink-0">
+        <div className="w-16 h-20 rounded bg-slate-100 border border-slate-300 flex items-center justify-center text-[9px] text-slate-400 shrink-0">
           Photo
         </div>
       </div>
 
-      {/* Tableau des notes */}
-      <table className="w-full border-collapse border border-black text-[11px]">
+      {/* Tableau des notes, groupé par matière */}
+      <table className="w-full border-collapse border border-black text-[9.5px]">
         <thead>
-          <tr className="bg-slate-100">
-            <th className="border border-black px-1 py-1 text-left">Matières</th>
-            <th className="border border-black px-1 py-1 w-16">Note</th>
-            <th className="border border-black px-1 py-1 w-12">Coef</th>
-            <th className="border border-black px-1 py-1 w-16">N x C</th>
-            <th className="border border-black px-1 py-1 w-24">Mention</th>
-            <th className="border border-black px-1 py-1 text-left">Observation</th>
+          <tr className="bg-slate-200">
+            <th className="border border-black px-1 py-1 text-left">MATIÈRES</th>
+            <th className="border border-black px-1 py-1 text-left">COMPÉTENCES</th>
+            <th className="border border-black px-1 py-1 w-10">EVAL1</th>
+            <th className="border border-black px-1 py-1 w-10">EVAL2</th>
+            <th className="border border-black px-1 py-1 w-10">Note</th>
+            <th className="border border-black px-1 py-1 w-8">Coef</th>
+            <th className="border border-black px-1 py-1 w-12">NxC</th>
+            <th className="border border-black px-1 py-1 w-7">NC</th>
+            <th className="border border-black px-1 py-1 w-10">APC</th>
+            <th className="border border-black px-1 py-1 w-20">Mention</th>
           </tr>
         </thead>
         <tbody>
-          {notes.length === 0 ? (
+          {!programmeDefini ? (
             <tr>
-              <td colSpan={6} className="border border-black px-2 py-4 text-center text-slate-400">
-                {programmeDefini === false
-                  ? "Le programme de cette classe (matières et coefficients) n'est pas encore défini"
-                  : 'Aucune note validée pour ce trimestre'}
+              <td colSpan={totalColonnes} className="border border-black px-2 py-4 text-center text-slate-400">
+                Le programme de cette classe (matières et coefficients) n'est pas encore défini
               </td>
             </tr>
           ) : (
-            notes.map((n, i) => (
-              <tr key={i}>
-                <td className="border border-black px-1 py-0.5">{n.matiere}</td>
-                <td className={`border border-black px-1 py-0.5 text-center font-semibold ${n.note === null ? '' : n.note < 10 ? 'text-red-600' : 'text-green-700'}`}>{n.note === null ? '' : n.note}</td>
-                <td className="border border-black px-1 py-0.5 text-center">{n.coefficient}</td>
-                <td className="border border-black px-1 py-0.5 text-center">{n.note === null ? '' : (n.note * n.coefficient).toFixed(2)}</td>
-                <td className="border border-black px-1 py-0.5 text-center">{n.mention}</td>
-                <td className="border border-black px-1 py-0.5">{n.observation || ''}</td>
-              </tr>
+            groupes.map(groupe => (
+              <>
+                {groupe.lignes.map(l => (
+                  <tr key={l.matiereId}>
+                    <td className="border border-black px-1 py-0.5">
+                      {l.matiere}
+                      {l.enseignant && <span className="block text-[8px] text-slate-500 font-normal normal-case">{l.enseignant}</span>}
+                    </td>
+                    <td className="border border-black px-1 py-0.5 text-slate-400 italic">Compétence...</td>
+                    <td className={`border border-black px-1 py-0.5 text-center font-semibold ${rougeSi(l.eval1 !== null && l.eval1 < 10)}`}>{formatNote(l.eval1)}</td>
+                    <td className={`border border-black px-1 py-0.5 text-center font-semibold ${rougeSi(l.eval2 !== null && l.eval2 < 10)}`}>{formatNote(l.eval2)}</td>
+                    <td className={`border border-black px-1 py-0.5 text-center font-semibold ${rougeSi(l.note !== null && l.note < 10)}`}>{formatNote(l.note)}</td>
+                    <td className="border border-black px-1 py-0.5 text-center">{l.coefficient}</td>
+                    <td className={`border border-black px-1 py-0.5 text-center ${rougeSi(l.note !== null && l.note < 10)}`}>{formatNote(l.nxc)}</td>
+                    <td className="border border-black px-1 py-0.5 text-center">0</td>
+                    <td className={`border border-black px-1 py-0.5 text-center ${rougeSi(l.note !== null && l.note < 10)}`}>{l.apc}</td>
+                    <td className={`border border-black px-1 py-0.5 ${rougeSi(l.note !== null && l.note < 10)}`}>{l.mention}</td>
+                  </tr>
+                ))}
+                <tr key={`${groupe.nom}-total`} className="bg-slate-100 font-semibold">
+                  <td className="border border-black px-1 py-0.5" colSpan={2}>
+                    GROUPE {groupe.numero} / MOY = <span className={rougeSi(groupe.moyenne !== null && groupe.moyenne < 10)}>{formatNote(groupe.moyenne)}</span>
+                  </td>
+                  <td className="border border-black" colSpan={3}></td>
+                  <td className="border border-black px-1 py-0.5 text-center">{groupe.coefTotal}</td>
+                  <td className="border border-black px-1 py-0.5 text-center">{formatNote(groupe.nxcTotal)}</td>
+                  <td className="border border-black" colSpan={2}></td>
+                  <td className={`border border-black px-1 py-0.5 ${rougeSi(groupe.moyenne !== null && groupe.moyenne < 10)}`}>{groupe.mention}</td>
+                </tr>
+              </>
             ))
           )}
+          {programmeDefini && (
+            <tr className="bg-slate-100 font-semibold">
+              <td className="border border-black px-1 py-1" colSpan={2}>Moyennes des périodes</td>
+              <td className="border border-black px-1 py-1 text-center">{formatNote(moyenneEval1)}</td>
+              <td className="border border-black px-1 py-1 text-center">{formatNote(moyenneEval2)}</td>
+              <td className="border border-black" colSpan={6}></td>
+            </tr>
+          )}
         </tbody>
-        <tfoot>
-          <tr className="font-bold bg-slate-50">
-            <td className="border border-black px-1 py-1 text-right">Total</td>
-            <td className="border border-black px-1 py-1"></td>
-            <td className="border border-black px-1 py-1 text-center">{totalCoefficients}</td>
-            <td className="border border-black px-1 py-1 text-center">{totalPoints.toFixed(2)}</td>
-            <td className="border border-black px-1 py-1 text-center" colSpan={2}>Moyenne : {moyenneGenerale}/20 — {appreciation}</td>
-          </tr>
-        </tfoot>
       </table>
+      <p className="text-[7px] text-slate-500 italic leading-tight mt-0.5">
+        ABS = Absences, CON = Consignes, EXP = Expulsion au cours, T.H. = Tableau d'honneur, ENC = Encouragement, FEL = Félicitation,
+        A.T. = Avertissement Travail, B.T. = Blâme Travail, A.C. = Avertissement Conduite, B.C. = Blâme Conduite, EXC = Exclusion,
+        Nbr jour = Nombre de jour d'exclusion, PN = Première note, DN = Dernière note.
+      </p>
 
       {/* Discipline / Conseil de classe / Travail du trimestre */}
-      <div className="grid grid-cols-3 gap-2 mt-2 text-[10px]">
-        <div className="border border-black p-2">
-          <p className="font-bold text-center border-b border-black pb-1 mb-1">DISCIPLINE TRIMESTRE {trimestre}</p>
-          <div className="space-y-1">
-            <p>☐ Exclusion Définitive</p>
-            <p>☐ Absentéisme</p>
-            <p>☐ Conduite déplorable</p>
-            <p>Nombre de jours d'absence : ____</p>
-            <p>Retards : ____</p>
-            <p>Convocations : ____</p>
+      <div className="grid grid-cols-3 gap-2 mt-2 text-[9px]">
+        <div className="border border-black">
+          <p className="font-bold text-center border-b border-black py-1 bg-slate-100">DISCIPLINE TRIMESTRE {trimestre}</p>
+          <div className="p-1.5 space-y-1">
+            <p><Case coche={bulletinManuel.exclusionDefinitive} label="Exclusion Définitive" /> {bulletinManuel.joursExclusion ? `(${bulletinManuel.joursExclusion} j.)` : ''}</p>
+            <p><Case coche={bulletinManuel.absenteisme} label="Absentéisme" /></p>
+            <p><Case coche={bulletinManuel.conduiteDeplorable} label="Conduite déplorable" /></p>
+            <p><Case coche={bulletinManuel.convocation} label="Convocation" /></p>
+            <p className="pt-1 border-t border-slate-200">Absences : <strong>{discipline.absencesJustifiees}</strong> J / <strong>{discipline.absencesNonJustifiees}</strong> NJ</p>
+            <p>Retards : <strong>{discipline.retards}</strong></p>
+            {!discipline.appelFait && <p className="text-amber-600 italic">Appel non renseigné sur la période</p>}
           </div>
         </div>
-        <div className="border border-black p-2">
-          <p className="font-bold text-center border-b border-black pb-1 mb-1">CONSEIL DE CLASSE TRIMESTRE {trimestre}</p>
-          <div className="space-y-1">
-            <p>☐ TH  ☐ EN  ☐ FEL  ☐ AT  ☐ BT  ☐ BC</p>
-            <p className="mt-1">Observation du conseil :</p>
-            <p className="border-b border-slate-300 h-4"></p>
+        <div className="border border-black">
+          <p className="font-bold text-center border-b border-black py-1 bg-slate-100">CONSEIL DE CLASSE TRIMESTRE {trimestre}</p>
+          <div className="p-1.5 space-y-1">
+            <p className="flex flex-wrap gap-x-2 gap-y-1">
+              <Case coche={bulletinManuel.tableauHonneur} label="TH" />
+              <Case coche={bulletinManuel.encouragement} label="ENC" />
+              <Case coche={bulletinManuel.felicitations} label="FEL" />
+              <Case coche={bulletinManuel.avertissementTravail} label="AT" />
+              <Case coche={bulletinManuel.blameTravail} label="BT" />
+              <Case coche={bulletinManuel.avertissementConduite} label="AC" />
+              <Case coche={bulletinManuel.blameConduite} label="BC" />
+            </p>
+            <p className="pt-1 border-t border-slate-200">Nb Moy≥10 : <strong>{classe.nbAuDessus}</strong> — P.Moy : <strong>{formatNote(classe.plusForteMoyenne)}</strong></p>
+            <p>Nb Moy&lt;10 : <strong>{classe.nbEnDessous}</strong> — D.Moy : <strong>{formatNote(classe.plusFaibleMoyenne)}</strong></p>
           </div>
         </div>
-        <div className="border border-black p-2">
-          <p className="font-bold text-center border-b border-black pb-1 mb-1">TRAVAIL TRIMESTRE {trimestre}</p>
-          <div className="space-y-1">
-            <p>Coefficients total : <span className="font-semibold">{totalCoefficients}{totalCoefficientsProgramme > 0 ? ` / ${totalCoefficientsProgramme}` : ''}</span></p>
-            <p>Total points : <span className="font-semibold">{totalPoints.toFixed(2)}</span></p>
-            <p>Rang : <span className="font-semibold">{rang}ᵉ / {effectif}</span></p>
-            <p>Moyenne générale : <span className="font-semibold">{moyenneGenerale}/20</span></p>
-            <p>Matières notées : <span className="font-semibold">{notes.filter(n => n.note !== null).length} / {notes.length}</span></p>
+        <div className="border border-black">
+          <p className="font-bold text-center border-b border-black py-1 bg-slate-100">TRAVAIL TRIMESTRE {trimestre}</p>
+          <div className="p-1.5 space-y-1">
+            <p>Coef : <strong>{coefTotal}</strong> — Total : <strong>{formatNote(nxcTotal)}</strong></p>
+            <p>Rang : <strong>{rangLabel}</strong> / {effectif} — Moy. : <strong className={rougeSi(moyenneGenerale < 10)}>{formatNote(moyenneGenerale)}</strong></p>
+            <p>Moyenne générale (classe) : <strong>{formatNote(classe.moyenneGenerale)}</strong></p>
+            <p>Nombre de matières : <strong>{matieresTotal}</strong></p>
+            <p>Mention : <strong className={rougeSi(moyenneGenerale < 10)}>{mentionGenerale}</strong></p>
           </div>
         </div>
       </div>
 
-      {/* Visas */}
-      <div className="grid grid-cols-2 gap-2 mt-3 text-[10px]">
-        <div className="border border-black p-2 h-16">
-          <p className="font-semibold">Visa du Professeur Principal</p>
+      {/* Courbe de progression / Visas / Observation */}
+      <div className="grid grid-cols-4 gap-2 mt-2 text-[9px]">
+        <div className="border border-black p-1.5">
+          <p className="font-bold text-center border-b border-black pb-1 mb-1">COURBE PROGRESSION</p>
+          <CourbeProgression eval1={moyenneEval1} eval2={moyenneEval2} />
         </div>
-        <div className="border border-black p-2 h-16">
-          <p className="font-semibold">Visa du Chef d'Établissement</p>
+        <div className="border border-black p-1.5 h-24">
+          <p className="font-bold text-center border-b border-black pb-1 mb-1">VISA PROF. PRINCIPAL</p>
+          <p className="text-center mt-4">{professeurPrincipal || <span className="text-slate-400 italic">Non désigné</span>}</p>
+        </div>
+        <div className="border border-black p-1.5 h-24">
+          <p className="font-bold text-center border-b border-black pb-1 mb-1">OBSERVATION DU CONSEIL</p>
+          <p className="text-center mt-2 font-semibold">{bulletinManuel.observationConseil || ''}</p>
+        </div>
+        <div className="border border-black p-1.5 h-24">
+          <p className="font-bold text-center border-b border-black pb-1 mb-1">VISA CHEF ÉTABLISSEMENT</p>
+          <p className="text-center mt-4">{chefEtablissement || <span className="text-slate-400 italic">Non désigné</span>}</p>
         </div>
       </div>
     </div>

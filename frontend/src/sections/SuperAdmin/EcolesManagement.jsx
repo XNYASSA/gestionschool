@@ -19,7 +19,9 @@ const emptyEcoleForm = {
   niveau: 'SECONDAIRE',
   adresse: 'Yaoundé, Cameroun',
   telephone: '',
-  email: ''
+  email: '',
+  delegationRegionale: '',
+  delegationDepartementale: ''
 }
 
 const emptyClasseForm = { nom: '', niveau: '' }
@@ -119,6 +121,8 @@ function ListeEcoles({ ecoles, classes, eleves, onChange, onSelectEcole }) {
       adresse: ecole.adresse,
       telephone: ecole.telephone,
       email: ecole.email,
+      delegationRegionale: ecole.delegationRegionale || '',
+      delegationDepartementale: ecole.delegationDepartementale || '',
       actif: ecole.actif
     })
     setEditing(ecole.id)
@@ -336,6 +340,28 @@ function EcoleFormFields({ formData, setFormData }) {
           onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
           className="w-full px-3 py-2 border border-slate-300 rounded-lg"
         />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Délégation régionale (en-tête du bulletin)</label>
+          <input
+            type="text"
+            value={formData.delegationRegionale || ''}
+            onChange={(e) => setFormData({ ...formData, delegationRegionale: e.target.value })}
+            placeholder="ex: DU CENTRE"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Délégation départementale (en-tête du bulletin)</label>
+          <input
+            type="text"
+            value={formData.delegationDepartementale || ''}
+            onChange={(e) => setFormData({ ...formData, delegationDepartementale: e.target.value })}
+            placeholder="ex: DU MFOUNDI"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+          />
+        </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>

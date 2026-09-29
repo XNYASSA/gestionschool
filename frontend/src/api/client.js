@@ -683,6 +683,13 @@ class APIClient {
     return this.request(`/bulletins/${bulletinId}/data`)
   }
 
+  async mettreAJourDisciplineBulletin(bulletinId, data) {
+    return this.request(`/bulletins/${bulletinId}/discipline`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
   // AFFECTATIONS ENSEIGNANT / CLASSE / MATIÈRE
   async getAffectations(ecoleId) {
     return this.request(`/affectations?ecoleId=${ecoleId}`)
@@ -747,10 +754,10 @@ class APIClient {
     return this.request(`/programmes-classes/${classeId}`)
   }
 
-  async saveProgrammeClasse(classeId, matieres) {
+  async saveProgrammeClasse(classeId, matieres, professeurPrincipalUtilisateurId) {
     return this.request(`/programmes-classes/${classeId}`, {
       method: 'PUT',
-      body: JSON.stringify({ matieres })
+      body: JSON.stringify({ matieres, professeurPrincipalUtilisateurId })
     })
   }
 

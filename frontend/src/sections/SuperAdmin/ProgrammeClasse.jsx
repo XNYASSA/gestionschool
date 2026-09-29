@@ -13,6 +13,7 @@ function versEtat(matieres) {
 export default function ProgrammeClasse({ classeId, ecoleId, peutModifier, onAjouterEnseignant }) {
   const [programme, setProgramme] = useState(null)
   const [enseignants, setEnseignants] = useState([])
+  const [professeurPrincipalId, setProfesseurPrincipalId] = useState('')
   const [etat, setEtat] = useState({})
   const [recherche, setRecherche] = useState('')
   const [seulementCochees, setSeulementCochees] = useState(false)
@@ -35,6 +36,7 @@ export default function ProgrammeClasse({ classeId, ecoleId, peutModifier, onAjo
         if (annule) return
         setProgramme(prog)
         setEtat(versEtat(prog.matieres))
+        setProfesseurPrincipalId(prog.professeurPrincipal?.utilisateurId || '')
         setEnseignants(employes.filter(e => e.role === 'ENSEIGNANT'))
       } catch (err) {
         if (!annule) setError(err.message || 'Erreur lors du chargement du programme de la classe')
@@ -88,10 +90,12 @@ export default function ProgrammeClasse({ classeId, ecoleId, peutModifier, onAjo
           matiereId: m.matiereId,
           coefficient: parseInt(etat[m.matiereId].coefficient),
           enseignantUtilisateurId: etat[m.matiereId].enseignantUtilisateurId || null
-        }))
+        })),
+        professeurPrincipalId
       )
       setProgramme(donnees)
       setEtat(versEtat(donnees.matieres))
+      setProfesseurPrincipalId(donnees.professeurPrincipal?.utilisateurId || '')
       setMessage(`Programme de la classe « ${donnees.classe.nom} » enregistré : ${donnees.matieres.filter(m => m.inclus).length} matière(s), total des coefficients ${donnees.totalCoefficients}.`)
     } catch (err) {
       setError(err.message || "Erreur lors de l'enregistrement du programme")
@@ -138,6 +142,21 @@ export default function ProgrammeClasse({ classeId, ecoleId, peutModifier, onAjo
               Ajouter un enseignant
             </button>
           )}
+        </div>
+      )}
+
+      {enseignants.length > 0 && (
+        <div className="mx-4 mt-4 flex items-center gap-3 text-sm">
+          <label className="font-medium text-slate-700">Professeur principal (visa du bulletin) :</label>
+          <select
+            value={professeurPrincipalId}
+            disabled={!peutModifier}
+            onChange={(e) => { setProfesseurPrincipalId(e.target.value); setMessage('') }}
+            className="px-2 py-1.5 border border-slate-300 rounded-lg disabled:bg-slate-100"
+          >
+            <option value="">--- Aucun ---</option>
+            {enseignants.map(ens => <option key={ens.utilisateurId} value={ens.utilisateurId}>{ens.nom}</option>)}
+          </select>
         </div>
       )}
 
