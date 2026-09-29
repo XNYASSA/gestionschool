@@ -197,6 +197,7 @@ export default function ImporterEleves({ onNavigate }) {
         if (!e.prenom) ajouter(f.nom, e, 'Prénom manquant', 'Le nom ne comporte qu\'un seul mot : prénom introuvable', 'Ajouter le prénom (fichier ou fiche élève)')
         if (/[,;:.()/\d]/.test(e.nomComplet)) ajouter(f.nom, e, 'Nom à corriger', `Le nom contient un caractère inhabituel : « ${e.nomComplet} »`, 'Corriger l\'orthographe du nom')
         if (!e.matricule) ajouter(f.nom, e, 'Matricule absent', 'Aucun matricule (colonne « Mle » vide)', 'Un matricule automatique sera attribué ; ajouter le matricule si nécessaire')
+        if (e.remarque) ajouter(f.nom, e, 'Remarque de la secrétaire', e.remarque, 'Vérifier cette information avant de considérer les données comme définitives')
         const total = e.inscription + e.tranche1 + e.tranche2 + e.tranche3
         if (e.pensionTotal > 0 && total > e.pensionTotal) ajouter(f.nom, e, 'Montant payé supérieur à la pension', `Payé ${formatFCFA(total)} pour une pension de ${formatFCFA(e.pensionTotal)}`, 'Vérifier les montants payés ou la pension')
       })
@@ -268,6 +269,11 @@ export default function ImporterEleves({ onNavigate }) {
             contexte: `Feuille « ${g.feuille.trim()} » ligne ${e.ligneExcel} — ${e.nomComplet}`,
             donnees: {
               matricule: e.matricule, nom: e.nom, prenom: e.prenom, classe: classe.nom,
+              // Champs présents seulement sur les fichiers détaillés (nom du père/mère, téléphone, date de naissance...)
+              ...(e.nomParent && { nomParent: e.nomParent, lieuParente: e.lieuParente }),
+              ...(e.telephoneParent && { telephoneParent: e.telephoneParent }),
+              ...(e.dateNaissance && { dateNaissance: e.dateNaissance }),
+              ...(e.adresseParent && { adresseParent: e.adresseParent }),
               inscription: String(e.inscription || ''), tranche1: String(e.tranche1 || ''), tranche2: String(e.tranche2 || ''), tranche3: String(e.tranche3 || '')
             }
           }))

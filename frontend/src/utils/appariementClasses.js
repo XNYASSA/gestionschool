@@ -10,6 +10,7 @@ export function canonClasse(nom) {
     .replace(/nde/g, 'nd')
     .replace(/ere/g, 'e')
     .replace(/^form(?=\d)/, 'f')
+    .replace(/^nursery(?=\d)/, 'n')
     .replace(/^tle/, 't')
 }
 

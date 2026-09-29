@@ -62,6 +62,11 @@ async function main() {
 
     const lignes = retenus.flatMap(g => g.eleves.map(e => ({
       matricule: e.matricule, nom: e.nom, prenom: e.prenom, classe: g.suggestion.nom,
+      // Champs présents seulement sur les fichiers détaillés (nom du père/mère, téléphone, date de naissance...)
+      ...(e.nomParent && { nomParent: e.nomParent, lieuParente: e.lieuParente }),
+      ...(e.telephoneParent && { telephoneParent: e.telephoneParent }),
+      ...(e.dateNaissance && { dateNaissance: e.dateNaissance }),
+      ...(e.adresseParent && { adresseParent: e.adresseParent }),
       inscription: String(e.inscription || ''), tranche1: String(e.tranche1 || ''), tranche2: String(e.tranche2 || ''), tranche3: String(e.tranche3 || '')
     })))
     const attendu = retenus.reduce((s, g) => s + g.paye, 0)
