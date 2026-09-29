@@ -93,7 +93,7 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
 // UPDATE ECOLE (Super Admin + Principal/Directrice de cette école)
 router.put('/:ecoleId', verifyToken, checkEcoleAccess, async (req, res) => {
   try {
-    const { nomCourt, nomComplet, niveau, adresse, telephone, email, actif } = req.body
+    const { nomCourt, nomComplet, niveau, adresse, telephone, email, actif, delegationRegionale, delegationDepartementale } = req.body
 
     // Vérifier que seul SUPER_ADMIN ou le gestionnaire de l'école peut modifier
     if (req.user.role !== 'SUPER_ADMIN' && req.ecoleRole !== 'PRINCIPAL' && req.ecoleRole !== 'DIRECTRICE') {
@@ -109,7 +109,9 @@ router.put('/:ecoleId', verifyToken, checkEcoleAccess, async (req, res) => {
         ...(adresse && { adresse }),
         ...(telephone && { telephone }),
         ...(email && { email }),
-        ...(actif !== undefined && { actif })
+        ...(actif !== undefined && { actif }),
+        ...(delegationRegionale !== undefined && { delegationRegionale: delegationRegionale || null }),
+        ...(delegationDepartementale !== undefined && { delegationDepartementale: delegationDepartementale || null })
       }
     })
 

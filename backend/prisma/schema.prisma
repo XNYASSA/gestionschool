@@ -62,6 +62,10 @@ model Ecole {
   email                 String   @default("info@school.cm")
   anneeScolaireEnCours  String   @default("2024-2025")
   actif                 Boolean  @default(true)
+  // En-tête du bulletin : délégations MINESEC/MINEDUB propres à cette école (vide = valeurs par défaut
+  // Centre/Mfoundi) et logo (fichier statique /logos/<nomCourt>.png|jpg côté frontend, sans champ ici)
+  delegationRegionale       String?
+  delegationDepartementale  String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -95,6 +99,8 @@ model Classe {
   enseignantClasseMatieres EnseignantClasseMatiere[]
   presences                Presence[]
   classeMatieres           ClasseMatiere[]
+  professeurPrincipal      Enseignant? @relation(fields: [professeurPrincipalId], references: [id], onDelete: SetNull)
+  professeurPrincipalId    String?
   @@index([ecoleId])
 }
 
@@ -107,9 +113,11 @@ model Eleve {
   prenom          String
   sexe            String?  // MASCULIN, FEMININ
   dateNaissance   DateTime?
+  lieuNaissance   String?  // affiché sur le bulletin ("Date et lieu de naissance")
   classe          Classe   @relation(fields: [classeId], references: [id], onDelete: Cascade)
   classeId        String
   filiere         String?  // filière (enseignement technique : mécanique auto, comptabilité...)
+  redouble        Boolean  @default(false) // redoublant cette année (affiché sur le bulletin)
 
   // Parent/Tuteur
   nomParent       String
@@ -201,6 +209,7 @@ model Enseignant {
 
   // Relations
   classesMatieres EnseignantClasseMatiere[]
+  classesPrincipal Classe[]
 }
 
 model Matiere {
@@ -492,6 +501,22 @@ model Bulletin {
   anneeScolaire   String   // ex: "2024-2025"
   urlPdf          String?  // Chemin ou URL du PDF généré
   dateGeneration  DateTime?
+
+  // Discipline et conseil de classe du trimestre — saisie manuelle (aucune autre source de donnée) :
+  exclusionDefinitive   Boolean @default(false)
+  joursExclusion        Int?
+  absenteisme           Boolean @default(false)
+  conduiteDeplorable    Boolean @default(false)
+  convocation           Boolean @default(false)
+  tableauHonneur        Boolean @default(false) // TH
+  encouragement         Boolean @default(false) // ENC
+  felicitations         Boolean @default(false) // FEL
+  avertissementTravail  Boolean @default(false) // A.T.
+  blameTravail          Boolean @default(false) // B.T.
+  avertissementConduite Boolean @default(false) // A.C.
+  blameConduite         Boolean @default(false) // B.C.
+  observationConseil    String?
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

@@ -32,7 +32,7 @@ router.get('/ecole/:ecoleId', verifyToken, async (req, res) => {
 // CREATE MATIERE (Admin only)
 router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
   try {
-    const { nom, ecoleId, coefficient } = req.body
+    const { nom, ecoleId, coefficient, departement } = req.body
 
     if (!nom || !ecoleId) {
       return res.status(400).json({ error: 'Les champs nom et ecoleId sont obligatoires' })
@@ -42,7 +42,8 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
       data: {
         nom,
         ecoleId,
-        coefficient: coefficient ?? 0
+        coefficient: coefficient ?? 0,
+        departement: departement || null // regroupement affiché sur le bulletin ("GROUPE 1", "GROUPE 2"...)
       },
       include: { ecole: { select: { id: true, nomCourt: true } } }
     })
@@ -56,10 +57,10 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
 // un Enseignant peut aussi ajuster le coefficient d'une matière qu'il enseigne, pas son nom)
 router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'ENSEIGNANT']), async (req, res) => {
   try {
-    const { nom, coefficient } = req.body
+    const { nom, coefficient, departement } = req.body
 
     if (req.user.role === 'ENSEIGNANT') {
-      if (nom !== undefined) {
+      if (nom !== undefined || departement !== undefined) {
         return res.status(403).json({ error: 'Vous ne pouvez modifier que le coefficient' })
       }
       const enseignant = await req.prisma.enseignant.findUnique({ where: { utilisateurId: req.user.id } })
@@ -75,7 +76,8 @@ router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRI
       where: { id: req.params.id },
       data: {
         ...(nom && { nom }),
-        ...(coefficient !== undefined && { coefficient })
+        ...(coefficient !== undefined && { coefficient }),
+        ...(departement !== undefined && { departement: departement || null })
       },
       include: { ecole: { select: { id: true, nomCourt: true } } }
     })

@@ -64,10 +64,20 @@ async function construireProgramme(prisma, classe) {
     }
   })
 
+  let professeurPrincipal = null
+  if (classe.professeurPrincipalId) {
+    const pp = await prisma.enseignant.findUnique({ where: { id: classe.professeurPrincipalId }, include: { utilisateur: { select: { id: true, nom: true } } } })
+    if (pp) professeurPrincipal = { utilisateurId: pp.utilisateur.id, nom: pp.utilisateur.nom }
+  }
+
   return {
     classe: { id: classe.id, nom: classe.nom, niveau: classe.niveau, ecoleId: classe.ecoleId, ecoleNom: classe.ecole.nomCourt },
     matieres: lignes,
-    totalCoefficients: lignes.filter(l => l.inclus).reduce((somme, l) => somme + l.coefficient, 0)
+    totalCoefficients: lignes.filter(l => l.inclus).reduce((somme, l) => somme + l.coefficient, 0),
+    // Utilisé pour le visa "Professeur Principal" du bulletin — un des enseignants déjà affectés à la classe
+    professeurPrincipal,
+    enseignantsDisponibles: [...new Map(affectations.map(a => [a.enseignant.utilisateur.id, a.enseignant.utilisateur.nom])).entries()]
+      .map(([utilisateurId, nom]) => ({ utilisateurId, nom }))
   }
 }
 
@@ -172,9 +182,25 @@ router.put('/:classeId', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE']), as
           await tx.enseignantClasseMatiere.deleteMany({ where: { id: { in: autres.map(a => a.id) } } })
         }
       }
+
+      // Professeur principal de la classe (visa du bulletin) — optionnel, un des enseignants de l'école
+      if (req.body.professeurPrincipalUtilisateurId !== undefined) {
+        const utilisateurId = req.body.professeurPrincipalUtilisateurId || null
+        if (!utilisateurId) {
+          await tx.classe.update({ where: { id: classe.id }, data: { professeurPrincipalId: null } })
+        } else {
+          const utilisateur = await tx.utilisateur.findUnique({ where: { id: utilisateurId }, include: { enseignant: true } })
+          if (!utilisateur || utilisateur.role !== 'ENSEIGNANT') throw new ErreurMetier('Professeur principal invalide')
+          const rattache = await tx.utilisateurEcole.findFirst({ where: { utilisateurId, ecoleId: classe.ecoleId, actif: true } })
+          if (!rattache) throw new ErreurMetier(`${utilisateur.nom} n'est pas rattaché(e) à l'école ${classe.ecole.nomCourt}`)
+          const enseignant = utilisateur.enseignant
+            || await tx.enseignant.create({ data: { utilisateurId, telephone: utilisateur.telephone || '' } })
+          await tx.classe.update({ where: { id: classe.id }, data: { professeurPrincipalId: enseignant.id } })
+        }
+      }
     }, { timeout: 30000, maxWait: 10000 })
 
-    res.json(await construireProgramme(req.prisma, classe))
+    res.json(await construireProgramme(req.prisma, await chargerClasseAutorisee(req, classe.id)))
   } catch (error) {
     res.status(error.statut || 500).json({ error: error.message })
   }

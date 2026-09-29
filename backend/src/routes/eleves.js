@@ -42,7 +42,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 // CREATE ELEVE (Super Admin, Principal/Directrice, Secretaire)
 router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
-    let { matricule, nom, prenom, sexe, dateNaissance, classeId, filiere, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
+    let { matricule, nom, prenom, sexe, dateNaissance, lieuNaissance, redouble, classeId, filiere, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
 
     // Valider les champs requis
     if (!nom || !prenom || !classeId || !nomParent || !telephoneParent) {
@@ -92,6 +92,8 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE
         prenom,
         sexe: sexe || null,
         dateNaissance: dateNaissance ? new Date(dateNaissance) : null,
+        lieuNaissance: lieuNaissance || null,
+        redouble: !!redouble,
         classeId,
         filiere: String(filiere ?? '').trim() || null,
         nomParent,
@@ -142,7 +144,7 @@ router.post('/import', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRE
 // UPDATE ELEVE (Super Admin, Principal/Directrice, Secretaire)
 router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
-    const { nom, prenom, sexe, dateNaissance, classeId, filiere, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
+    const { nom, prenom, sexe, dateNaissance, lieuNaissance, redouble, classeId, filiere, nomParent, lieuParente, telephoneParent, emailParent, adresseParent } = req.body
 
     const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
     if (ecoleIds) {
@@ -165,6 +167,8 @@ router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRI
         ...(prenom && { prenom }),
         ...(sexe && { sexe }),
         ...(dateNaissance && { dateNaissance: new Date(dateNaissance) }),
+        ...(lieuNaissance !== undefined && { lieuNaissance: lieuNaissance || null }),
+        ...(redouble !== undefined && { redouble: !!redouble }),
         ...(classeId && { classeId }),
         ...(filiere !== undefined && { filiere: String(filiere ?? '').trim() || null }),
         ...(nomParent && { nomParent }),

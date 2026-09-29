@@ -1,7 +1,7 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
 import { getEcoleIdsScope } from '../utils/ecoleScope.js'
-import { BAREME_APC_DEFAUT } from '../utils/baremeNotation.js'
+import { baremeEcole } from '../utils/baremeNotation.js'
 
 const router = express.Router()
 
@@ -30,15 +30,6 @@ async function chargerClasseAutorisee(req, classeId) {
   if (!classe) throw new ErreurMetier('Classe non trouvée', 404)
   await verifierEcole(req, classe.ecoleId)
   return classe
-}
-
-async function baremeEcole(prisma, ecoleId) {
-  const lignes = await prisma.baremeNotation.findMany({ where: { ecoleId }, orderBy: { valMin: 'asc' } })
-  if (lignes.length === 0) return { parDefaut: true, lignes: BAREME_APC_DEFAUT }
-  return {
-    parDefaut: false,
-    lignes: lignes.map(l => ({ valMin: l.valMin, valMax: l.valMax, apc: l.apc, gpa: l.gpa, mentionFr: l.mentionFr, mentionEn: l.mentionEn }))
-  }
 }
 
 const nombre = (valeur) => {
