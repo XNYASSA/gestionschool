@@ -37,7 +37,12 @@ function formatDateFr(iso) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-// Cherche /logos/<nomCourt>.png puis .jpg puis .jpeg ; à défaut, un badge avec les initiales de l'école.
+// Les écoles secondaires Rosa Parks (sections francophone, anglophone, technique) partagent le même
+// en-tête : logo /logos/CRP.png et titre "COLLEGE ROSA PARKS". Les coordonnées (BP, tél., email)
+// viennent de la fiche de chaque école, renseignées à l'identique.
+const estRosaParksSecondaire = (ecole) => ecole.niveau === 'SECONDAIRE' && /rosa\s*parks/i.test(ecole.nomComplet || '')
+
+// Cherche /logos/<nom>.png puis .jpg puis .jpeg ; à défaut, un badge avec les initiales de l'école.
 function LogoEcole({ nomCourt }) {
   const [tentative, setTentative] = useState(0)
   if (tentative >= LOGO_EXTENSIONS.length) {
@@ -128,6 +133,7 @@ export default function BulletinTemplate({ data }) {
     bulletin, trimestre, anneeScolaire
   } = data
   const ministere = ministereParNiveau(ecole.niveau)
+  const rosaParks = estRosaParksSecondaire(ecole)
   const bulletinManuel = bulletin || {}
   const cocheParAbreviation = (id) => !!bulletinManuel[id]
 
@@ -144,7 +150,7 @@ export default function BulletinTemplate({ data }) {
           <p>DÉLÉGATION RÉGIONALE {ecole.delegationRegionale || 'DU CENTRE'}</p>
           <p>DÉLÉGATION DÉPARTEMENTALE {ecole.delegationDepartementale || 'DU MFOUNDI'}</p>
         </div>
-        <LogoEcole nomCourt={ecole.nomCourt} />
+        <LogoEcole nomCourt={rosaParks ? 'CRP' : ecole.nomCourt} />
         <div>
           <p className="font-bold">REPUBLIC OF CAMEROON</p>
           <p className="italic">Peace - Work - Fatherland</p>
@@ -156,9 +162,9 @@ export default function BulletinTemplate({ data }) {
 
       {/* Nom de l'école + adresse + filet rouge */}
       <div className="flex flex-col items-center mt-1">
-        <h1 className="text-2xl font-extrabold text-red-700 tracking-wide text-center uppercase">{ecole.nomComplet}</h1>
-        <p className="text-[10px] text-center mt-0.5">
-          {ecole.adresse} — Tél : {ecole.telephone} — Email : {ecole.email}
+        <h1 className="text-2xl font-extrabold text-red-700 tracking-wide text-center uppercase">{rosaParks ? 'COLLEGE ROSA PARKS' : ecole.nomComplet}</h1>
+        <p className="text-[10px] text-center mt-0.5 italic font-semibold">
+          {ecole.adresse} - Tel : {ecole.telephone} - Email : {ecole.email}
         </p>
         <div className="w-full border-t-4 border-red-700 mt-1" />
       </div>
