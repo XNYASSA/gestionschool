@@ -37,10 +37,30 @@ function formatDateFr(iso) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+// Identité visuelle de l'en-tête, reprise des en-têtes papier fournis par chaque établissement.
 // Les écoles secondaires Rosa Parks (sections francophone, anglophone, technique) partagent le même
-// en-tête : logo /logos/CRP.png et titre "COLLEGE ROSA PARKS". Les coordonnées (BP, tél., email)
-// viennent de la fiche de chaque école, renseignées à l'identique.
-const estRosaParksSecondaire = (ecole) => ecole.niveau === 'SECONDAIRE' && /rosa\s*parks/i.test(ecole.nomComplet || '')
+// en-tête. Les coordonnées (BP, tél., email) viennent de la fiche de chaque école.
+const DELEGATIONS_EN_DEFAUT = ['DIVISIONAL DELEGATION OF THE CENTER', 'SUBDIVISIONAL DELEGATION OF MFOUNDI']
+
+function enteteEcole(ecole) {
+  if (ecole.niveau === 'SECONDAIRE' && /rosa\s*parks/i.test(ecole.nomComplet || '')) {
+    return { logo: 'CRP', titre: 'COLLEGE ROSA PARKS', couleurTitre: '#b91c1c', couleurFilet: '#b91c1c', titreItalique: false, delegationsEn: DELEGATIONS_EN_DEFAUT }
+  }
+  if (ecole.nomCourt === 'CBM') {
+    return { logo: 'CBM', titre: 'COLLEGE BILINGUE LES MASTERS', couleurTitre: '#1f5fa6', couleurFilet: '#1d4ed8', titreItalique: true, delegationsEn: ['CENTER REGIONAL DELEGATION', 'MFOUNDI DIVISIONAL DELEGATION'] }
+  }
+  return {
+    logo: ecole.nomCourt,
+    titre: ecole.nomComplet,
+    couleurTitre: '#b91c1c',
+    couleurFilet: '#b91c1c',
+    titreItalique: false,
+    delegationsEn: [
+      ecole.delegationRegionale ? `DIVISIONAL DELEGATION OF ${ecole.delegationRegionale}` : DELEGATIONS_EN_DEFAUT[0],
+      ecole.delegationDepartementale ? `SUBDIVISIONAL DELEGATION OF ${ecole.delegationDepartementale}` : DELEGATIONS_EN_DEFAUT[1]
+    ]
+  }
+}
 
 // Cherche /logos/<nom>.png puis .jpg puis .jpeg ; à défaut, un badge avec les initiales de l'école.
 function LogoEcole({ nomCourt }) {
@@ -133,7 +153,7 @@ export default function BulletinTemplate({ data }) {
     bulletin, trimestre, anneeScolaire
   } = data
   const ministere = ministereParNiveau(ecole.niveau)
-  const rosaParks = estRosaParksSecondaire(ecole)
+  const entete = enteteEcole(ecole)
   const bulletinManuel = bulletin || {}
   const cocheParAbreviation = (id) => !!bulletinManuel[id]
 
@@ -150,23 +170,23 @@ export default function BulletinTemplate({ data }) {
           <p>DÉLÉGATION RÉGIONALE {ecole.delegationRegionale || 'DU CENTRE'}</p>
           <p>DÉLÉGATION DÉPARTEMENTALE {ecole.delegationDepartementale || 'DU MFOUNDI'}</p>
         </div>
-        <LogoEcole nomCourt={rosaParks ? 'CRP' : ecole.nomCourt} />
+        <LogoEcole nomCourt={entete.logo} />
         <div>
           <p className="font-bold">REPUBLIC OF CAMEROON</p>
           <p className="italic">Peace - Work - Fatherland</p>
           <p className="font-semibold mt-1">{ministere.en}</p>
-          <p>DIVISIONAL DELEGATION {ecole.delegationRegionale ? `OF ${ecole.delegationRegionale}` : 'OF THE CENTER'}</p>
-          <p>SUBDIVISIONAL DELEGATION {ecole.delegationDepartementale ? `OF ${ecole.delegationDepartementale}` : 'OF MFOUNDI'}</p>
+          <p>{entete.delegationsEn[0]}</p>
+          <p>{entete.delegationsEn[1]}</p>
         </div>
       </div>
 
-      {/* Nom de l'école + adresse + filet rouge */}
+      {/* Nom de l'école + coordonnées + filet aux couleurs de l'école */}
       <div className="flex flex-col items-center mt-1">
-        <h1 className="text-2xl font-extrabold text-red-700 tracking-wide text-center uppercase">{rosaParks ? 'COLLEGE ROSA PARKS' : ecole.nomComplet}</h1>
+        <h1 className={`text-2xl font-extrabold tracking-wide text-center uppercase ${entete.titreItalique ? 'italic' : ''}`} style={{ color: entete.couleurTitre }}>{entete.titre}</h1>
         <p className="text-[10px] text-center mt-0.5 italic font-semibold">
           {ecole.adresse} - Tel : {ecole.telephone} - Email : {ecole.email}
         </p>
-        <div className="w-full border-t-4 border-red-700 mt-1" />
+        <div className="w-full mt-1" style={{ borderTop: `4px solid ${entete.couleurFilet}` }} />
       </div>
 
       {/* Titre */}
