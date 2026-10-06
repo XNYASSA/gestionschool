@@ -137,8 +137,10 @@ export async function telechargerPdfDepuisElement(element, nomFichier) {
     const pageHauteurMm = 297
     const imgHauteurMm = (canvas.height * pageLargeurMm) / canvas.width
 
+    // JPEG plutôt que PNG : contourne un bug connu du décodeur PNG interne de jsPDF
+    // ("wrong PNG signature") — le bulletin est sur fond blanc, aucune transparence nécessaire.
     if (imgHauteurMm <= pageHauteurMm) {
-      doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageLargeurMm, imgHauteurMm)
+      doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageLargeurMm, imgHauteurMm)
     } else {
       // Bulletin plus long qu'une page A4 (cas rare, ex. beaucoup de matières) : découpe en
       // tranches d'une page chacune plutôt que de déformer l'image sur une seule page.
@@ -146,13 +148,13 @@ export async function telechargerPdfDepuisElement(element, nomFichier) {
       let y = 0
       let page = 0
       while (y < canvas.height) {
-        const hauteurTranche = Math.min(pxParPage, canvas.height - y)
+        const hauteurTranche = Math.round(Math.min(pxParPage, canvas.height - y))
         const tranche = document.createElement('canvas')
         tranche.width = canvas.width
         tranche.height = hauteurTranche
         tranche.getContext('2d').drawImage(canvas, 0, y, canvas.width, hauteurTranche, 0, 0, canvas.width, hauteurTranche)
         if (page > 0) doc.addPage()
-        doc.addImage(tranche.toDataURL('image/png'), 'PNG', 0, 0, pageLargeurMm, (hauteurTranche * pageLargeurMm) / canvas.width)
+        doc.addImage(tranche.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageLargeurMm, (hauteurTranche * pageLargeurMm) / canvas.width)
         y += hauteurTranche
         page++
       }
