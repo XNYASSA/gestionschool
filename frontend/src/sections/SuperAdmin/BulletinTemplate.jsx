@@ -47,7 +47,7 @@ function enteteEcole(ecole) {
     return { logo: 'CRP', titre: 'COLLEGE ROSA PARKS', couleurTitre: '#b91c1c', couleurFilet: '#b91c1c', titreItalique: false, delegationsEn: DELEGATIONS_EN_DEFAUT }
   }
   if (ecole.nomCourt === 'CBM') {
-    return { logo: 'CBM', titre: 'COLLEGE BILINGUE LES MASTERS', couleurTitre: '#1f5fa6', couleurFilet: '#1d4ed8', titreItalique: true, delegationsEn: ['CENTER REGIONAL DELEGATION', 'MFOUNDI DIVISIONAL DELEGATION'] }
+    return { logo: 'CBM', titre: 'COLLEGE BILINGUE LES MASTERS', couleurTitre: '#0088c8', couleurFilet: '#0088c8', titreItalique: true, delegationsEn: ['CENTER REGIONAL DELEGATION', 'MFOUNDI DIVISIONAL DELEGATION'] }
   }
   return {
     logo: ecole.nomCourt,
