@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useContext } from 'react'
-import { GraduationCap, Loader, ChevronDown, ChevronUp, Eye, Printer, X, Save, ClipboardList } from 'lucide-react'
+import { GraduationCap, Loader, ChevronDown, ChevronUp, Eye, Printer, Download, X, Save, ClipboardList } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import { AuthContext } from '../../context/AuthContext'
 import BulletinTemplate from './BulletinTemplate'
 import ProgrammeClasse from './ProgrammeClasse'
 import { ANNEE_SCOLAIRE_COURANTE, ANNEES_SCOLAIRES } from '../../utils/anneeScolaire'
+import { telechargerPdfDepuisElement, nomFichierSur } from '../../utils/exportTableau'
 
 const TRIMESTRES = [1, 2, 3]
 
@@ -66,6 +67,20 @@ export default function Bulletins({ onNavigate }) {
   const [formDiscipline, setFormDiscipline] = useState(null)
   const [enregistrementDiscipline, setEnregistrementDiscipline] = useState(false)
   const [afficherDiscipline, setAfficherDiscipline] = useState(false)
+  const [telechargementPdf, setTelechargementPdf] = useState(false)
+
+  const telechargerBulletinPdf = async () => {
+    if (!bulletinAffiche) return
+    setTelechargementPdf(true)
+    try {
+      const nom = nomFichierSur(`Bulletin-${bulletinAffiche.eleve.nom}-${bulletinAffiche.eleve.prenom}-T${bulletinAffiche.trimestre}`)
+      await telechargerPdfDepuisElement(document.getElementById('bulletin-print-area'), nom)
+    } catch (err) {
+      alert(err.message || 'Erreur lors de la génération du PDF')
+    } finally {
+      setTelechargementPdf(false)
+    }
+  }
 
   useEffect(() => {
     loadData()
@@ -358,10 +373,17 @@ export default function Bulletins({ onNavigate }) {
                 <ClipboardList className="w-4 h-4" /> Discipline et conseil de classe
               </button>
               <button
-                onClick={() => window.print()}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2"
+                onClick={telechargerBulletinPdf}
+                disabled={telechargementPdf}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center gap-2 disabled:opacity-50"
               >
-                <Printer className="w-4 h-4" /> Imprimer / Télécharger en PDF
+                <Download className="w-4 h-4" /> {telechargementPdf ? 'Génération...' : 'Télécharger en PDF'}
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="px-4 py-2 bg-white text-slate-700 rounded-lg hover:bg-slate-100 transition flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" /> Imprimer
               </button>
               <button
                 onClick={() => setBulletinAffiche(null)}

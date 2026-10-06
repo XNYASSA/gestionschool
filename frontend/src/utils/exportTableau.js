@@ -106,6 +106,31 @@ export async function telechargerPdf(sections, nomFichier) {
   doc.save(nomFichier.endsWith('.pdf') ? nomFichier : `${nomFichier}.pdf`)
 }
 
+// Télécharge un élément du DOM déjà mis en forme (ex. le bulletin, dimensionné en 210mm) tel
+// quel en PDF, sans passer par la boîte de dialogue d'impression du navigateur (qui ajoute ses
+// propres en-tête/pied de page : date, titre de la page, URL, numéro de page).
+export async function telechargerPdfDepuisElement(element, nomFichier) {
+  if (!element) return
+  const { jsPDF } = await import('jspdf')
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  await new Promise((resolve, reject) => {
+    doc.html(element, {
+      x: 0,
+      y: 0,
+      width: 210,
+      windowWidth: element.scrollWidth,
+      autoPaging: 'text',
+      html2canvas: { scale: 2, useCORS: true },
+      callback: (pdf) => {
+        try {
+          pdf.save(nomFichier.endsWith('.pdf') ? nomFichier : `${nomFichier}.pdf`)
+          resolve()
+        } catch (err) { reject(err) }
+      }
+    }).catch(reject)
+  })
+}
+
 export async function telechargerExcel(sections, nomFichier) {
   const { default: ExcelJS } = await import('exceljs')
   const classeur = new ExcelJS.Workbook()
