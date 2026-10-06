@@ -109,26 +109,45 @@ export async function telechargerPdf(sections, nomFichier) {
 // Télécharge un élément du DOM déjà mis en forme (ex. le bulletin, dimensionné en 210mm) tel
 // quel en PDF, sans passer par la boîte de dialogue d'impression du navigateur (qui ajoute ses
 // propres en-tête/pied de page : date, titre de la page, URL, numéro de page).
+//
+// La capture se fait sur un CLONE détaché, hors de la modale d'aperçu (position: fixed +
+// défilement) : html2canvas mesure mal un élément imbriqué dans ce contexte (dimensions nulles
+// ou démesurées selon les cas) et produit des pages vides — bug connu, pas spécifique à ce bulletin.
 export async function telechargerPdfDepuisElement(element, nomFichier) {
   if (!element) return
   const { jsPDF } = await import('jspdf')
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  await new Promise((resolve, reject) => {
-    doc.html(element, {
-      x: 0,
-      y: 0,
-      width: 210,
-      windowWidth: element.scrollWidth,
-      autoPaging: 'text',
-      html2canvas: { scale: 2, useCORS: true },
-      callback: (pdf) => {
-        try {
-          pdf.save(nomFichier.endsWith('.pdf') ? nomFichier : `${nomFichier}.pdf`)
-          resolve()
-        } catch (err) { reject(err) }
-      }
-    }).catch(reject)
-  })
+
+  const conteneur = document.createElement('div')
+  conteneur.style.position = 'fixed'
+  conteneur.style.top = '0'
+  conteneur.style.left = '-10000px'
+  conteneur.style.zIndex = '-1'
+  conteneur.style.background = '#ffffff'
+  const clone = element.cloneNode(true)
+  conteneur.appendChild(clone)
+  document.body.appendChild(conteneur)
+
+  try {
+    const largeurPx = clone.scrollWidth || clone.offsetWidth || 794
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+    await new Promise((resolve, reject) => {
+      doc.html(clone, {
+        x: 0,
+        y: 0,
+        width: 210,
+        windowWidth: largeurPx,
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        callback: (pdf) => {
+          try {
+            pdf.save(nomFichier.endsWith('.pdf') ? nomFichier : `${nomFichier}.pdf`)
+            resolve()
+          } catch (err) { reject(err) }
+        }
+      }).catch(reject)
+    })
+  } finally {
+    document.body.removeChild(conteneur)
+  }
 }
 
 export async function telechargerExcel(sections, nomFichier) {
