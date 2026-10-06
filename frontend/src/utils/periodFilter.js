@@ -8,10 +8,15 @@ export function isInPeriod(date, period, referenceDate = new Date()) {
   if (period === 'jour') {
     return d.toDateString() === now.toDateString()
   }
+  // Semaine calendaire (du lundi au jour de référence inclus), et non les 7 derniers jours glissants :
+  // sinon, en début de mois, "Cette semaine" débordait sur le mois précédent et dépassait "Ce mois".
   if (period === 'semaine') {
-    const weekAgo = new Date(now)
-    weekAgo.setDate(now.getDate() - 7)
-    return d >= weekAgo && d <= now
+    const lundi = new Date(now)
+    lundi.setDate(now.getDate() - ((now.getDay() + 6) % 7))
+    lundi.setHours(0, 0, 0, 0)
+    const finJour = new Date(now)
+    finJour.setHours(23, 59, 59, 999)
+    return d >= lundi && d <= finJour
   }
   if (period === 'mois') {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
