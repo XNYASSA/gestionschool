@@ -125,7 +125,7 @@ export default function BulletinTemplate({ data }) {
   const {
     eleve, ecole, effectif, rang, rangLabel, groupes, coefTotal, nxcTotal, moyenneGenerale, mentionGenerale,
     moyenneEval1, moyenneEval2, programmeDefini, matieresTotal, classe, discipline, professeurPrincipal,
-    chefEtablissement, bulletin, trimestre, anneeScolaire
+    bulletin, trimestre, anneeScolaire
   } = data
   const ministere = ministereParNiveau(ecole.niveau)
   const bulletinManuel = bulletin || {}
@@ -345,9 +345,9 @@ export default function BulletinTemplate({ data }) {
         <tbody>
           <tr>
             <td className="border border-black align-middle p-1.5 h-24"><CourbeProgression eval1={moyenneEval1} eval2={moyenneEval2} /></td>
-            <td className="border border-black align-middle text-center p-1.5 h-24">{professeurPrincipal || <span className="text-slate-400 italic">Non désigné</span>}</td>
+            <td className="border border-black align-bottom text-center p-1.5 h-24">{professeurPrincipal || ''}</td>
             <td className="border border-black align-middle text-center p-1.5 h-24 font-semibold">{bulletinManuel.observationConseil || ''}</td>
-            <td className="border border-black align-middle text-center p-1.5 h-24">{chefEtablissement || <span className="text-slate-400 italic">Non désigné</span>}</td>
+            <td className="border border-black p-1.5 h-24"></td>
           </tr>
         </tbody>
       </table>
