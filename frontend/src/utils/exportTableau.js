@@ -110,12 +110,15 @@ export async function telechargerPdf(sections, nomFichier) {
 // quel en PDF, sans passer par la boîte de dialogue d'impression du navigateur (qui ajoute ses
 // propres en-tête/pied de page : date, titre de la page, URL, numéro de page).
 //
+// Capture en UNE SEULE image (html2canvas) posée sur la page PDF — pas jsPDF.html(), dont le
+// découpage automatique en tranches gère mal les mises en page à tableaux/bordures (pages vides,
+// texte tronqué de façon incohérente, bug connu de cette méthode sur des documents complexes).
 // La capture se fait sur un CLONE détaché, hors de la modale d'aperçu (position: fixed +
-// défilement) : html2canvas mesure mal un élément imbriqué dans ce contexte (dimensions nulles
-// ou démesurées selon les cas) et produit des pages vides — bug connu, pas spécifique à ce bulletin.
+// défilement) : un élément imbriqué dans ce contexte est mal mesuré par html2canvas.
 export async function telechargerPdfDepuisElement(element, nomFichier) {
   if (!element) return
-  const { jsPDF } = await import('jspdf')
+  const [{ jsPDF }, html2canvasModule] = await Promise.all([import('jspdf'), import('html2canvas')])
+  const html2canvas = html2canvasModule.default || html2canvasModule
 
   const conteneur = document.createElement('div')
   conteneur.style.position = 'fixed'
@@ -128,23 +131,33 @@ export async function telechargerPdfDepuisElement(element, nomFichier) {
   document.body.appendChild(conteneur)
 
   try {
-    const largeurPx = clone.scrollWidth || clone.offsetWidth || 794
+    const canvas = await html2canvas(clone, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
     const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-    await new Promise((resolve, reject) => {
-      doc.html(clone, {
-        x: 0,
-        y: 0,
-        width: 210,
-        windowWidth: largeurPx,
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-        callback: (pdf) => {
-          try {
-            pdf.save(nomFichier.endsWith('.pdf') ? nomFichier : `${nomFichier}.pdf`)
-            resolve()
-          } catch (err) { reject(err) }
-        }
-      }).catch(reject)
-    })
+    const pageLargeurMm = 210
+    const pageHauteurMm = 297
+    const imgHauteurMm = (canvas.height * pageLargeurMm) / canvas.width
+
+    if (imgHauteurMm <= pageHauteurMm) {
+      doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageLargeurMm, imgHauteurMm)
+    } else {
+      // Bulletin plus long qu'une page A4 (cas rare, ex. beaucoup de matières) : découpe en
+      // tranches d'une page chacune plutôt que de déformer l'image sur une seule page.
+      const pxParPage = (canvas.width / pageLargeurMm) * pageHauteurMm
+      let y = 0
+      let page = 0
+      while (y < canvas.height) {
+        const hauteurTranche = Math.min(pxParPage, canvas.height - y)
+        const tranche = document.createElement('canvas')
+        tranche.width = canvas.width
+        tranche.height = hauteurTranche
+        tranche.getContext('2d').drawImage(canvas, 0, y, canvas.width, hauteurTranche, 0, 0, canvas.width, hauteurTranche)
+        if (page > 0) doc.addPage()
+        doc.addImage(tranche.toDataURL('image/png'), 'PNG', 0, 0, pageLargeurMm, (hauteurTranche * pageLargeurMm) / canvas.width)
+        y += hauteurTranche
+        page++
+      }
+    }
+    doc.save(nomFichier.endsWith('.pdf') ? nomFichier : `${nomFichier}.pdf`)
   } finally {
     document.body.removeChild(conteneur)
   }
