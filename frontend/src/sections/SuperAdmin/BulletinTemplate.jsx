@@ -78,10 +78,16 @@ function ministereParNiveau(niveauEcole) {
 const rougeSi = (condition) => (condition ? 'text-red-600' : 'text-black')
 const formatNote = (n) => (n === null || n === undefined ? '' : Number(n).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/,00$/, ''))
 
+const format2 = (n) => (n === null || n === undefined ? '' : Number(n).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+
+function Boite({ coche }) {
+  return <span className="inline-block w-3 h-3 border border-black text-center leading-none text-[9px] align-middle">{coche ? '✓' : ''}</span>
+}
+
 function Case({ coche, label }) {
   return (
     <span className="inline-flex items-center gap-1">
-      <span className="inline-block w-3 h-3 border border-black text-center leading-none text-[9px]">{coche ? '✓' : ''}</span>
+      <Boite coche={coche} />
       {label}
     </span>
   )
@@ -162,8 +168,9 @@ export default function BulletinTemplate({ data }) {
         BULLETIN DU {TRIMESTRE_LABELS[trimestre] || `${trimestre}ᵉ`} TRIMESTRE
       </div>
 
-      {/* Infos élève : nom/naissance/matricule/année à gauche, sexe/classe/redoublant au centre, effectif + photo à droite */}
-      <div className="flex justify-between gap-3 text-[11px] mb-2">
+      {/* Infos élève : nom/naissance/matricule/année à gauche, sexe/classe/redoublant au centre,
+          effectif (sur la ligne "Classe"), photo à l'extrémité droite alignée en haut */}
+      <div className="flex items-start gap-3 text-[11px] mb-2">
         <div className="space-y-0.5 flex-1">
           <p><span className="text-slate-700">Nom et prénom :</span> <strong>{eleve.nom} {eleve.prenom}</strong></p>
           <p><span className="text-slate-700">Date de naissance :</span> {formatDateFr(eleve.dateNaissance)}{eleve.lieuNaissance ? ` à ${eleve.lieuNaissance}` : ''}</p>
@@ -175,10 +182,11 @@ export default function BulletinTemplate({ data }) {
           <p><span className="text-slate-700">Classe</span> <strong>{eleve.classe}</strong></p>
           <p className="flex items-center gap-2"><span className="text-slate-700">Redoublant ?</span> <Case coche={eleve.redouble} label="OUI" /> <Case coche={!eleve.redouble} label="NON" /></p>
         </div>
-        <div className="flex flex-col items-center gap-1.5 shrink-0">
-          <p className="text-center"><span className="text-slate-700">Effectif</span><br />{effectif} élèves</p>
-          <PhotoPlaceholder />
+        <div className="space-y-0.5 shrink-0 w-28">
+          <p>&nbsp;</p>
+          <p><span className="text-slate-700">Effectif</span> <span className="ml-2">{effectif} élèves</span></p>
         </div>
+        <PhotoPlaceholder />
       </div>
 
       {/* Tableau des notes, groupé par matière */}
@@ -254,39 +262,72 @@ export default function BulletinTemplate({ data }) {
       </p>
 
       {/* Discipline / Conseil de classe / Travail du trimestre — un seul tableau continu, collé */}
-      <table className="w-full border-collapse border border-black text-[10px] mt-2">
+      {/* 16 colonnes : Discipline (5) | Conseil de classe (7) | Travail (4), disposition du modèle papier */}
+      <table className="w-full border-collapse border border-black text-[10px] mt-2 table-fixed">
+        <colgroup>
+          <col style={{ width: '16%' }} /><col style={{ width: '5.5%' }} /><col style={{ width: '8.5%' }} /><col style={{ width: '5%' }} /><col style={{ width: '5.5%' }} />
+          {ABREVIATIONS_CONSEIL.map(({ id }) => <col key={id} style={{ width: '4.5%' }} />)}
+          <col style={{ width: '9.5%' }} /><col style={{ width: '7%' }} /><col style={{ width: '5%' }} /><col style={{ width: '6.5%' }} />
+        </colgroup>
         <thead>
-          <tr className="bg-slate-100">
-            <th className="border border-black py-1.5 px-1" style={{ width: '30%' }}>DISCIPLINE TRIMESTRE {trimestre}</th>
-            <th className="border border-black py-1.5 px-1" style={{ width: '38%' }}>CONSEIL DE CLASSE TRIMESTRE {trimestre}</th>
-            <th className="border border-black py-1.5 px-1" style={{ width: '32%' }}>TRAVAIL TRIMESTRE {trimestre}</th>
+          <tr className="bg-slate-200">
+            <th className="border border-black py-1 px-1" colSpan={5}>DISCIPLINE TRIMESTRE {trimestre}</th>
+            <th className="border border-black py-1 px-1" colSpan={7}>CONSEIL DE CLASSE TRIMESTRE {trimestre}</th>
+            <th className="border border-black py-1 px-1" colSpan={4}>TRAVAIL TRIMESTRE {trimestre}</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="italic">
           <tr>
-            <td className="border border-black align-top p-2 space-y-1.5">
-              <p><Case coche={bulletinManuel.exclusionDefinitive} label="Exclusion Définitive" /> {bulletinManuel.joursExclusion ? `(${bulletinManuel.joursExclusion} j.)` : ''}</p>
-              <p><Case coche={bulletinManuel.absenteisme} label="Absentéisme" /></p>
-              <p><Case coche={bulletinManuel.conduiteDeplorable} label="Conduite déplorable" /></p>
-              <p><Case coche={bulletinManuel.convocation} label="Convocation" /></p>
-              <p className="pt-1.5 border-t border-slate-300">Absences : <strong>{discipline.absencesJustifiees}</strong> J / <strong>{discipline.absencesNonJustifiees}</strong> NJ</p>
-              <p>Retards : <strong>{discipline.retards}</strong></p>
-            </td>
-            <td className="border border-black align-top p-2 space-y-1.5">
-              <p className="flex flex-wrap gap-x-3 gap-y-1.5">
-                {ABREVIATIONS_CONSEIL.map(({ id, label }) => (
-                  <Case key={id} coche={cocheParAbreviation(id)} label={label} />
-                ))}
-              </p>
-              <p className="pt-1.5 border-t border-slate-300">Nb Moy≥10 : <strong>{classe.nbAuDessus}</strong> — P.Moye : <strong>{formatNote(classe.plusForteMoyenne)}</strong></p>
-              <p>Nb Moy&lt;10 : <strong>{classe.nbEnDessous}</strong> — D.Moye : <strong>{formatNote(classe.plusFaibleMoyenne)}</strong></p>
-            </td>
-            <td className="border border-black align-top p-2 space-y-1.5">
-              <p>Coef : <strong>{coefTotal}</strong> — Total : <strong>{formatNote(nxcTotal)}</strong></p>
-              <p>Rang : <strong>{rangLabel}</strong>/{effectif} — Moy. : <strong className={rougeSi(moyenneGenerale < 10)}>{formatNote(moyenneGenerale)}</strong></p>
-              <p>Moyenne générale (classe) : <strong>{formatNote(classe.moyenneGenerale)}</strong></p>
-              <p>Nombre de matières : <strong>{matieresTotal}</strong></p>
-            </td>
+            <td className="border border-black px-1 py-1"><Case coche={!!bulletinManuel.joursExclusion} label="Exclu(e)" /></td>
+            <td className="border border-black px-1 py-1 text-center">{bulletinManuel.joursExclusion ? `${bulletinManuel.joursExclusion} ` : ''}Jr</td>
+            <td className="border border-black px-1 py-1 text-center not-italic font-semibold">Natures</td>
+            <td className="border border-black px-1 py-1 text-center not-italic font-semibold">J</td>
+            <td className="border border-black px-1 py-1 text-center not-italic font-semibold">NJ</td>
+            {ABREVIATIONS_CONSEIL.map(({ id, label }) => (
+              <td key={id} className="border border-black px-0.5 py-1 text-center font-semibold">{label}</td>
+            ))}
+            <td className="border border-black px-1 py-1">Coef</td>
+            <td className="border border-black px-1 py-1 text-right not-italic">{format2(coefTotal)}</td>
+            <td className="border border-black px-1 py-1">Total</td>
+            <td className="border border-black px-1 py-1 text-right not-italic">{format2(nxcTotal)}</td>
+          </tr>
+          <tr>
+            <td className="border border-black px-1 py-1 text-right">Exclusion Définitive</td>
+            <td className="border border-black px-1 py-1 text-center"><Boite coche={bulletinManuel.exclusionDefinitive} /></td>
+            <td className="border border-black px-1 py-1">Absence</td>
+            <td className="border border-black px-1 py-1 text-center not-italic">{discipline.absencesJustifiees || ''}</td>
+            <td className="border border-black px-1 py-1 text-center not-italic">{discipline.absencesNonJustifiees || ''}</td>
+            {ABREVIATIONS_CONSEIL.map(({ id }) => (
+              <td key={id} className="border border-black px-0.5 py-1 text-center"><Boite coche={cocheParAbreviation(id)} /></td>
+            ))}
+            <td className="border border-black px-1 py-1">Rang</td>
+            <td className="border border-black px-1 py-1 text-center not-italic">{rangLabel}</td>
+            <td className="border border-black px-1 py-1">Moy..</td>
+            <td className={`border border-black px-1 py-1 text-right not-italic ${rougeSi(moyenneGenerale !== null && moyenneGenerale < 10)}`}>{format2(moyenneGenerale)}</td>
+          </tr>
+          <tr>
+            <td className="border border-black px-1 py-1 text-right">Absentéisme</td>
+            <td className="border border-black px-1 py-1 text-center"><Boite coche={bulletinManuel.absenteisme} /></td>
+            <td className="border border-black px-1 py-1">Retards</td>
+            <td className="border border-black px-1 py-1 text-center not-italic" colSpan={2}>{discipline.retards || ''}</td>
+            <td className="border border-black px-1 py-1" colSpan={3}>Nb Moy&gt;=10</td>
+            <td className="border border-black px-1 py-1 text-center not-italic">{classe.nbAuDessus}</td>
+            <td className="border border-black px-1 py-1" colSpan={2}>P Moye...</td>
+            <td className="border border-black px-1 py-1 text-right not-italic">{format2(classe.plusForteMoyenne)}</td>
+            <td className="border border-black px-1 py-1" colSpan={3}>Moyenne Générale</td>
+            <td className="border border-black px-1 py-1 text-right not-italic">{format2(classe.moyenneGenerale)}</td>
+          </tr>
+          <tr>
+            <td className="border border-black px-1 py-1 text-right">Conduite déplorable</td>
+            <td className="border border-black px-1 py-1 text-center"><Boite coche={bulletinManuel.conduiteDeplorable} /></td>
+            <td className="border border-black px-1 py-1" colSpan={2}>Convocation</td>
+            <td className="border border-black px-1 py-1 text-center"><Boite coche={bulletinManuel.convocation} /></td>
+            <td className="border border-black px-1 py-1" colSpan={3}>Nb Moy&lt;10</td>
+            <td className="border border-black px-1 py-1 text-center not-italic">{classe.nbEnDessous}</td>
+            <td className="border border-black px-1 py-1" colSpan={2}>D Moye...</td>
+            <td className="border border-black px-1 py-1 text-right not-italic">{format2(classe.plusFaibleMoyenne)}</td>
+            <td className="border border-black px-1 py-1" colSpan={3}>Nombre Matières</td>
+            <td className="border border-black px-1 py-1 text-right not-italic">{matieresTotal}</td>
           </tr>
         </tbody>
       </table>
