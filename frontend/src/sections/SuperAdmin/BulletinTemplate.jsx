@@ -162,22 +162,23 @@ export default function BulletinTemplate({ data }) {
         BULLETIN DU {TRIMESTRE_LABELS[trimestre] || `${trimestre}ᵉ`} TRIMESTRE
       </div>
 
-      {/* Infos élève */}
+      {/* Infos élève : nom/naissance/matricule/année à gauche, sexe/classe/redoublant au centre, effectif + photo à droite */}
       <div className="flex justify-between gap-3 text-[11px] mb-2">
         <div className="space-y-0.5 flex-1">
           <p><span className="text-slate-700">Nom et prénom :</span> <strong>{eleve.nom} {eleve.prenom}</strong></p>
-          <div className="grid grid-cols-2 gap-x-4">
-            <p><span className="text-slate-700">Date et lieu de nais.</span> {formatDateFr(eleve.dateNaissance)}{eleve.lieuNaissance ? ` à ${eleve.lieuNaissance}` : ''}</p>
-            <p><span className="text-slate-700">Sexe/Gender :</span> {eleve.sexe === 'FEMININ' ? 'FEMININ' : eleve.sexe === 'MASCULIN' ? 'MASCULIN' : ''}</p>
-          </div>
+          <p><span className="text-slate-700">Date de naissance :</span> {formatDateFr(eleve.dateNaissance)}{eleve.lieuNaissance ? ` à ${eleve.lieuNaissance}` : ''}</p>
           <p><span className="text-slate-700">Matricule :</span> {eleve.matricule}</p>
-          <p><span className="text-slate-700">Classe</span> <strong>{eleve.classe}</strong> <span className="text-slate-500 ml-2">Effectif</span> {effectif} élèves</p>
-          <div className="grid grid-cols-2 gap-x-4">
-            <p><span className="text-slate-700">Année scolaire</span> {anneeScolaire}</p>
-            <p className="flex items-center gap-2"><span className="text-slate-700">Redoublant ?</span> <Case coche={eleve.redouble} label="OUI" /> <Case coche={!eleve.redouble} label="NON" /></p>
-          </div>
+          <p><span className="text-slate-700">Année scolaire :</span> {anneeScolaire}</p>
         </div>
-        <PhotoPlaceholder />
+        <div className="space-y-0.5 flex-1">
+          <p><span className="text-slate-700">Sexe/Gender :</span> {eleve.sexe === 'FEMININ' ? 'FEMININ' : eleve.sexe === 'MASCULIN' ? 'MASCULIN' : ''}</p>
+          <p><span className="text-slate-700">Classe</span> <strong>{eleve.classe}</strong></p>
+          <p className="flex items-center gap-2"><span className="text-slate-700">Redoublant ?</span> <Case coche={eleve.redouble} label="OUI" /> <Case coche={!eleve.redouble} label="NON" /></p>
+        </div>
+        <div className="flex flex-col items-center gap-1.5 shrink-0">
+          <p className="text-center"><span className="text-slate-700">Effectif</span><br />{effectif} élèves</p>
+          <PhotoPlaceholder />
+        </div>
       </div>
 
       {/* Tableau des notes, groupé par matière */}
@@ -252,116 +253,63 @@ export default function BulletinTemplate({ data }) {
         Nbr jour = Nombre de jour d'exclusion, PN = Première note, DN = Dernière note.
       </p>
 
-      {/* Discipline / Conseil de classe / Travail du trimestre */}
-      <div className="grid grid-cols-3 gap-2 mt-2 text-[8px]">
-        <div className="border border-black">
-          <p className="font-bold text-center border-b border-black py-1 bg-slate-100">DISCIPLINE TRIMESTRE {trimestre}</p>
-          <table className="w-full border-collapse">
-            <tbody>
-              <tr>
-                <td className="border border-black px-1 py-0.5" colSpan={2}><Case coche={false} label="Exclu(e)" /></td>
-                <td className="border border-black px-1 py-0.5 text-center">Jr</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-1 py-0.5" colSpan={2}><Case coche={bulletinManuel.exclusionDefinitive} label="Exclusion Définitive" /></td>
-                <td className="border border-black px-1 py-0.5 text-center">{bulletinManuel.joursExclusion || ''}</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-1 py-0.5" colSpan={3}><Case coche={bulletinManuel.absenteisme} label="Absentéisme" /></td>
-              </tr>
-              <tr>
-                <td className="border border-black px-1 py-0.5" colSpan={3}><Case coche={bulletinManuel.conduiteDeplorable} label="Conduite déplorable" /></td>
-              </tr>
-              <tr>
-                <td className="border border-black px-1 py-0.5" colSpan={3}><Case coche={bulletinManuel.convocation} label="Convocation" /></td>
-              </tr>
-              <tr className="bg-slate-50 font-semibold">
-                <td className="border border-black px-1 py-0.5">Natures</td>
-                <td className="border border-black px-1 py-0.5 text-center">J</td>
-                <td className="border border-black px-1 py-0.5 text-center">NJ</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-1 py-0.5">Absence</td>
-                <td className="border border-black px-1 py-0.5 text-center">{discipline.absencesJustifiees}</td>
-                <td className="border border-black px-1 py-0.5 text-center">{discipline.absencesNonJustifiees}</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-1 py-0.5">Retards</td>
-                <td className="border border-black px-1 py-0.5 text-center" colSpan={2}>{discipline.retards}</td>
-              </tr>
-            </tbody>
-          </table>
-          {!discipline.appelFait && <p className="text-amber-600 italic px-1 py-0.5 text-[7px]">Appel non renseigné sur la période</p>}
-        </div>
-
-        <div className="border border-black">
-          <p className="font-bold text-center border-b border-black py-1 bg-slate-100">CONSEIL DE CLASSE TRIMESTRE {trimestre}</p>
-          <table className="w-full border-collapse">
-            <tbody>
-              <tr>
+      {/* Discipline / Conseil de classe / Travail du trimestre — un seul tableau continu, collé */}
+      <table className="w-full border-collapse border border-black text-[10px] mt-2">
+        <thead>
+          <tr className="bg-slate-100">
+            <th className="border border-black py-1.5 px-1" style={{ width: '30%' }}>DISCIPLINE TRIMESTRE {trimestre}</th>
+            <th className="border border-black py-1.5 px-1" style={{ width: '38%' }}>CONSEIL DE CLASSE TRIMESTRE {trimestre}</th>
+            <th className="border border-black py-1.5 px-1" style={{ width: '32%' }}>TRAVAIL TRIMESTRE {trimestre}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className="border border-black align-top p-2 space-y-1.5">
+              <p><Case coche={bulletinManuel.exclusionDefinitive} label="Exclusion Définitive" /> {bulletinManuel.joursExclusion ? `(${bulletinManuel.joursExclusion} j.)` : ''}</p>
+              <p><Case coche={bulletinManuel.absenteisme} label="Absentéisme" /></p>
+              <p><Case coche={bulletinManuel.conduiteDeplorable} label="Conduite déplorable" /></p>
+              <p><Case coche={bulletinManuel.convocation} label="Convocation" /></p>
+              <p className="pt-1.5 border-t border-slate-300">Absences : <strong>{discipline.absencesJustifiees}</strong> J / <strong>{discipline.absencesNonJustifiees}</strong> NJ</p>
+              <p>Retards : <strong>{discipline.retards}</strong></p>
+            </td>
+            <td className="border border-black align-top p-2 space-y-1.5">
+              <p className="flex flex-wrap gap-x-3 gap-y-1.5">
                 {ABREVIATIONS_CONSEIL.map(({ id, label }) => (
-                  <td key={id} className="border border-black px-0.5 py-0.5 text-center">
-                    <Case coche={cocheParAbreviation(id)} label={label} />
-                  </td>
+                  <Case key={id} coche={cocheParAbreviation(id)} label={label} />
                 ))}
-              </tr>
-              <tr>
-                <td className="border border-black px-1 py-0.5" colSpan={4}>Nb Moy≥10 <strong>{classe.nbAuDessus}</strong></td>
-                <td className="border border-black px-1 py-0.5" colSpan={3}>P.Moye <strong>{formatNote(classe.plusForteMoyenne)}</strong></td>
-              </tr>
-              <tr>
-                <td className="border border-black px-1 py-0.5" colSpan={4}>Nb Moy&lt;10 <strong>{classe.nbEnDessous}</strong></td>
-                <td className="border border-black px-1 py-0.5" colSpan={3}>D.Moye <strong>{formatNote(classe.plusFaibleMoyenne)}</strong></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              </p>
+              <p className="pt-1.5 border-t border-slate-300">Nb Moy≥10 : <strong>{classe.nbAuDessus}</strong> — P.Moye : <strong>{formatNote(classe.plusForteMoyenne)}</strong></p>
+              <p>Nb Moy&lt;10 : <strong>{classe.nbEnDessous}</strong> — D.Moye : <strong>{formatNote(classe.plusFaibleMoyenne)}</strong></p>
+            </td>
+            <td className="border border-black align-top p-2 space-y-1.5">
+              <p>Coef : <strong>{coefTotal}</strong> — Total : <strong>{formatNote(nxcTotal)}</strong></p>
+              <p>Rang : <strong>{rangLabel}</strong>/{effectif} — Moy. : <strong className={rougeSi(moyenneGenerale < 10)}>{formatNote(moyenneGenerale)}</strong></p>
+              <p>Moyenne générale (classe) : <strong>{formatNote(classe.moyenneGenerale)}</strong></p>
+              <p>Nombre de matières : <strong>{matieresTotal}</strong></p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
-        <div className="border border-black">
-          <p className="font-bold text-center border-b border-black py-1 bg-slate-100">TRAVAIL TRIMESTRE {trimestre}</p>
-          <table className="w-full border-collapse">
-            <tbody>
-              <tr>
-                <td className="border border-black px-1 py-0.5">Coef <strong>{coefTotal}</strong></td>
-                <td className="border border-black px-1 py-0.5">Total <strong>{formatNote(nxcTotal)}</strong></td>
-              </tr>
-              <tr>
-                <td className="border border-black px-1 py-0.5">Rang <strong>{rangLabel}</strong>/{effectif}</td>
-                <td className={`border border-black px-1 py-0.5 ${rougeSi(moyenneGenerale < 10)}`}>Moy. <strong>{formatNote(moyenneGenerale)}</strong></td>
-              </tr>
-              <tr>
-                <td className="border border-black px-1 py-0.5" colSpan={2}>Moyenne Générale (classe) <strong>{formatNote(classe.moyenneGenerale)}</strong></td>
-              </tr>
-              <tr>
-                <td className="border border-black px-1 py-0.5" colSpan={2}>Nombre Matières <strong>{matieresTotal}</strong></td>
-              </tr>
-              <tr>
-                <td className="border border-black px-1 py-0.5" colSpan={2}>Mention <strong className={rougeSi(moyenneGenerale < 10)}>{mentionGenerale}</strong></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Courbe de progression / Visas / Observation */}
-      <div className="grid grid-cols-4 gap-2 mt-2 text-[9px]">
-        <div className="border border-black p-1.5">
-          <p className="font-bold text-center border-b border-black pb-1 mb-1">COURBE PROGRESSION</p>
-          <CourbeProgression eval1={moyenneEval1} eval2={moyenneEval2} />
-        </div>
-        <div className="border border-black p-1.5 h-24">
-          <p className="font-bold text-center border-b border-black pb-1 mb-1">VISA PROF. PRINCIPAL</p>
-          <p className="text-center mt-4">{professeurPrincipal || <span className="text-slate-400 italic">Non désigné</span>}</p>
-        </div>
-        <div className="border border-black p-1.5 h-24">
-          <p className="font-bold text-center border-b border-black pb-1 mb-1">OBSERVATION DU CONSEIL</p>
-          <p className="text-center mt-2 font-semibold">{bulletinManuel.observationConseil || ''}</p>
-        </div>
-        <div className="border border-black p-1.5 h-24">
-          <p className="font-bold text-center border-b border-black pb-1 mb-1">VISA CHEF ÉTABLISSEMENT</p>
-          <p className="text-center mt-4">{chefEtablissement || <span className="text-slate-400 italic">Non désigné</span>}</p>
-        </div>
-      </div>
+      {/* Courbe de progression / Visas / Observation — même principe, un seul tableau continu */}
+      <table className="w-full border-collapse border border-black text-[10px] mt-2">
+        <thead>
+          <tr className="bg-slate-100">
+            <th className="border border-black py-1.5 px-1">COURBE PROGRESSION</th>
+            <th className="border border-black py-1.5 px-1">VISA PROF. PRINCIPAL</th>
+            <th className="border border-black py-1.5 px-1">OBSERVATION DU CONSEIL</th>
+            <th className="border border-black py-1.5 px-1">VISA CHEF ÉTABLISSEMENT</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className="border border-black align-middle p-1.5 h-24"><CourbeProgression eval1={moyenneEval1} eval2={moyenneEval2} /></td>
+            <td className="border border-black align-middle text-center p-1.5 h-24">{professeurPrincipal || <span className="text-slate-400 italic">Non désigné</span>}</td>
+            <td className="border border-black align-middle text-center p-1.5 h-24 font-semibold">{bulletinManuel.observationConseil || ''}</td>
+            <td className="border border-black align-middle text-center p-1.5 h-24">{chefEtablissement || <span className="text-slate-400 italic">Non désigné</span>}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   )
 }
