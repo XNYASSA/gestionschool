@@ -1,8 +1,8 @@
 import { useContext, useState, useEffect, lazy, Suspense } from 'react'
 import { AuthContext } from '../context/AuthContext'
-import { LogOut, TrendingUp, AlertCircle, Menu, Search, ArrowLeft } from 'lucide-react'
+import { LogOut, TrendingUp, AlertCircle, Menu, Search, ArrowLeft, ChevronLeft, ChevronRight, CalendarDays, Wallet } from 'lucide-react'
 import { apiClient } from '../api/client'
-import { isInPeriod, PERIOD_LABELS } from '../utils/periodFilter'
+import { isInPeriod, bornesPeriode, decalerPeriode, libellePeriode } from '../utils/periodFilter'
 import { formatFCFA } from '../utils/formatters'
 import SidebarSuperAdmin, { MENU_PAR_ROLE } from '../components/SidebarSuperAdmin'
 
@@ -300,7 +300,17 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
     if (rechercheEleve.trim()) onRechercherEleve?.(rechercheEleve.trim())
   }
 
-  const fraisPeriode = frais.filter(f => f.montantPaye > 0 && isInPeriod(f.datePayement || f.createdAt, period))
+  // Jour de référence du filtre (aujourd'hui par défaut) : la période affichée est le jour, la
+  // semaine (lundi → dimanche) ou le mois qui le contient.
+  const [dateRef, setDateRef] = useState(() => new Date())
+  const { debut: debutPeriode } = bornesPeriode(period, dateRef)
+  const periodeFuture = bornesPeriode(period, decalerPeriode(period, dateRef, 1)).debut > new Date()
+  const estPeriodeCourante = isInPeriod(new Date(), period, dateRef)
+  const libelle = libellePeriode(period, dateRef)
+  const versIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const aujourdhuiIso = versIso(new Date())
+
+  const fraisPeriode = frais.filter(f => f.montantPaye > 0 && isInPeriod(f.datePayement || f.createdAt, period, dateRef))
   const inscriptions = fraisPeriode.filter(f => !/^tranche\d+$/.test(f.tranche)).reduce((sum, f) => sum + f.montantPaye, 0)
   const pensions = fraisPeriode.filter(f => /^tranche\d+$/.test(f.tranche)).reduce((sum, f) => sum + f.montantPaye, 0)
   const totalEntrees = inscriptions + pensions
@@ -308,34 +318,121 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
   // Salaires : montant mensuel actuel du personnel actif, indépendant de la période
   const totalSalaires = personnelActif.reduce((sum, p) => sum + (p.salaireMensuel || 0), 0)
 
-  const depensesPeriode = depenses.filter(d => isInPeriod(d.dateDepense, period))
+  const depensesPeriode = depenses.filter(d => isInPeriod(d.dateDepense, period, dateRef))
   const totalFixes = depensesPeriode.filter(d => d.type === 'FIXE').reduce((sum, d) => sum + d.montant, 0)
   const totalVariables = depensesPeriode.filter(d => d.type === 'VARIABLE').reduce((sum, d) => sum + d.montant, 0)
   const totalSorties = totalSalaires + totalFixes + totalVariables
 
   const resultatNet = totalEntrees - totalSorties
 
-  // Montant restant à percevoir : indépendant de la période, c'est une photo
-  // de la dette actuelle des élèves (dû - déjà payé), toutes échéances confondues.
+  // Situation globale, indépendante du filtre : ce qui a été perçu depuis le début, et la dette
+  // actuelle des élèves inscrits (dû - déjà payé), toutes échéances confondues.
+  const totalPercu = frais.reduce((sum, f) => sum + (f.montantPaye || 0), 0)
+  const totalAttendu = frais.reduce((sum, f) => sum + (f.montantDu || 0), 0)
   const resteAPercevoir = frais.reduce((sum, f) => sum + Math.max(0, f.montantDu - f.montantPaye), 0)
+  const tauxRecouvrement = totalAttendu > 0 ? Math.min(100, Math.round((totalPercu / totalAttendu) * 100)) : 0
 
   return (
     <div className="space-y-6">
-      {/* Sélecteur de période */}
-      <div className="flex gap-2">
-        {['jour', 'semaine', 'mois'].map(p => (
-          <button
-            key={p}
-            onClick={() => setPeriod(p)}
-            className={`px-4 py-2 rounded-lg transition ${
-              period === p
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            {PERIOD_LABELS[p]}
-          </button>
-        ))}
+      {/* Situation globale en temps réel (non filtrée) */}
+      {showFinances && (
+        <div className="bg-white rounded-lg shadow-md p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-emerald-600" /> Situation globale des frais
+            </h2>
+            <span className="text-xs text-slate-500">En temps réel, toutes périodes confondues — élèves actuellement inscrits</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-lg border-l-4 border-emerald-500 bg-emerald-50 p-4">
+              <p className="text-sm text-slate-600">Total perçu</p>
+              <p className="text-xl md:text-2xl font-bold text-emerald-700 break-words">{formatFCFA(totalPercu)}</p>
+            </div>
+            <div className="rounded-lg border-l-4 border-amber-500 bg-amber-50 p-4">
+              <p className="text-sm text-slate-600">Reste à percevoir</p>
+              <p className="text-xl md:text-2xl font-bold text-amber-700 break-words">{formatFCFA(resteAPercevoir)}</p>
+            </div>
+            <div className="rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4">
+              <p className="text-sm text-slate-600">Total attendu</p>
+              <p className="text-xl md:text-2xl font-bold text-blue-700 break-words">{formatFCFA(totalAttendu)}</p>
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="flex justify-between text-xs text-slate-600 mb-1">
+              <span>Taux de recouvrement</span>
+              <span className="font-semibold">{tauxRecouvrement} %</span>
+            </div>
+            <div className="h-2.5 rounded-full bg-slate-200 overflow-hidden">
+              <div className="h-full bg-emerald-500" style={{ width: `${tauxRecouvrement}%` }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filtre de période : jour / semaine / mois + date choisie */}
+      <div className="bg-white rounded-lg shadow-md p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden">
+            {[['jour', 'Jour'], ['semaine', 'Semaine'], ['mois', 'Mois']].map(([p, label]) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-4 py-2 text-sm font-medium transition ${period === p ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-100'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setDateRef(decalerPeriode(period, dateRef, -1))}
+              className="p-2 rounded-lg border border-slate-300 hover:bg-slate-100"
+              title="Période précédente"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            {period === 'mois' ? (
+              <input
+                type="month"
+                value={versIso(debutPeriode).slice(0, 7)}
+                max={aujourdhuiIso.slice(0, 7)}
+                onChange={(e) => e.target.value && setDateRef(new Date(`${e.target.value}-01T12:00:00`))}
+                className="px-3 py-2 border border-slate-300 rounded-lg"
+              />
+            ) : (
+              <input
+                type="date"
+                value={versIso(dateRef)}
+                max={aujourdhuiIso}
+                onChange={(e) => e.target.value && setDateRef(new Date(`${e.target.value}T12:00:00`))}
+                className="px-3 py-2 border border-slate-300 rounded-lg"
+              />
+            )}
+            <button
+              onClick={() => setDateRef(decalerPeriode(period, dateRef, 1))}
+              disabled={periodeFuture}
+              className="p-2 rounded-lg border border-slate-300 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Période suivante"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {!estPeriodeCourante && (
+            <button
+              onClick={() => setDateRef(new Date())}
+              className="px-3 py-2 text-sm rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200"
+            >
+              Revenir à aujourd'hui
+            </button>
+          )}
+        </div>
+        <p className="text-sm text-slate-700 flex items-center gap-2">
+          <CalendarDays className="w-4 h-4 text-blue-600" />
+          Période affichée : <strong>{libelle}</strong>
+          {period === 'semaine' && <span className="text-xs text-slate-500">(semaine du lundi au dimanche)</span>}
+        </p>
       </div>
 
       {/* Recherche rapide d'un élève par nom */}
@@ -413,7 +510,7 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
             >
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="w-5 h-5 text-green-600" />
-                <h2 className="text-lg font-bold text-slate-900">Entrées d'argent</h2>
+                <h2 className="text-lg font-bold text-slate-900">Sommes collectées sur la période</h2>
               </div>
               <div className="space-y-3">
                 <FinanceRow label="Frais d'inscription" amount={formatFCFA(inscriptions)} color="green" />
@@ -455,7 +552,7 @@ function DashboardOverview({ stats, frais = [], depenses = [], personnelActif = 
               resultatNet >= 0 ? 'from-blue-600 to-blue-700' : 'from-red-600 to-red-700'
             } ${onNavigate ? 'cursor-pointer hover:brightness-110 transition' : ''}`}
           >
-            <h2 className="text-lg font-bold mb-2">Résultat net ({PERIOD_LABELS[period]})</h2>
+            <h2 className="text-lg font-bold mb-2">Résultat net — {libelle}</h2>
             <p className="text-2xl md:text-4xl font-bold break-words">{resultatNet >= 0 ? '+' : ''}{formatFCFA(resultatNet)}</p>
             <p className="text-sm font-semibold text-white/90 mt-1">
               {resultatNet >= 0 ? '📈 Vous gagnez de l\'argent sur cette période' : '📉 Vous perdez de l\'argent sur cette période'}
