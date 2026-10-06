@@ -2,16 +2,14 @@
 // en-tête MINESEC/MINEDUB, tableau des notes groupé par matière, bloc discipline / conseil de
 // classe / travail du trimestre, courbe de progression, visas).
 //
-// Mise en page alignée au détail près sur le modèle papier (en-tête à 3 colonnes avec logo au
-// centre, ordre exact des champs de la fiche élève, bloc discipline/conseil/travail reconstruit
-// en mini-tableaux à la place de simples lignes de texte).
+// Langue : les sections anglophones (école dont le nom court contient "ANGLOPHONE") ont un bulletin
+// entièrement en anglais (textes fixes, mentions anglaises du barème, nombres à point décimal) ;
+// l'en-tête gouvernemental reste bilingue dans les deux cas.
 //
 // Données non disponibles dans l'application, signalées ici plutôt que devinées :
 //  - "Compétence..." par matière : aucune compétence réelle n'est saisie nulle part — texte fixe.
 //  - Colonne "NC" : toujours à 0 (son usage exact sur le modèle papier n'est pas connu).
 //  - Photo de l'élève : pas de système de dépôt de photo — silhouette générique.
-//  - Signatures / cachet (Prof. Principal, Chef d'établissement) : pas de système de signature
-//    numérique — seul le nom est affiché.
 //  - Discipline (absences/retards) : calculée depuis l'appel (Présences) sur une période de
 //    trimestre estimée par défaut (voir backend/src/utils/bulletinData.js) — à confirmer par école.
 //  - Exclusion / conseil de classe (TH, EN, FEL...) et observation : saisie manuelle, à renseigner
@@ -20,21 +18,60 @@ import { useState } from 'react'
 
 const LOGO_EXTENSIONS = ['png', 'jpg', 'jpeg']
 
-const TRIMESTRE_LABELS = { 1: 'PREMIER', 2: 'DEUXIÈME', 3: 'TROISIÈME' }
+const CONSEIL_IDS = ['tableauHonneur', 'encouragement', 'felicitations', 'avertissementTravail', 'blameTravail', 'avertissementConduite', 'blameConduite']
 
-const ABREVIATIONS_CONSEIL = [
-  { id: 'tableauHonneur', label: 'TH' },
-  { id: 'encouragement', label: 'EN' },
-  { id: 'felicitations', label: 'FEL' },
-  { id: 'avertissementTravail', label: 'AT' },
-  { id: 'blameTravail', label: 'BT' },
-  { id: 'avertissementConduite', label: 'AC' },
-  { id: 'blameConduite', label: 'BC' }
-]
+const TEXTES = {
+  fr: {
+    locale: 'fr-FR',
+    titre: (t) => `BULLETIN DU ${({ 1: 'PREMIER', 2: 'DEUXIÈME', 3: 'TROISIÈME' })[t] || `${t}ᵉ`} TRIMESTRE`,
+    nom: 'Nom et prénom :', naissance: 'Date de naissance :', lieuPrefixe: 'à', matricule: 'Matricule :', annee: 'Année scolaire :',
+    sexe: 'Sexe/Gender :', sexes: { FEMININ: 'FEMININ', MASCULIN: 'MASCULIN' }, classe: 'Classe', redoublant: 'Redoublant ?', oui: 'OUI', non: 'NON',
+    effectif: 'Effectif', eleves: 'élèves',
+    colonnes: ['MATIÈRES', 'COMPÉTENCES', 'EVAL1', 'EVAL2', 'Note', 'Coef', 'NxC', 'NC', 'APC', 'Mention'],
+    competence: 'Compétence...', groupe: (n) => `GROUPE ${n} / MOY =`, moyennesPeriodes: 'Moyennes des périodes',
+    programmeNonDefini: "Le programme de cette classe (matières et coefficients) n'est pas encore défini",
+    legende: "ABS = Absences, CON = Consignes, EXP = Expulsion au cours, T.H. = Tableau d'honneur, ENC = Encouragement, FEL = Félicitation, A.T. = Avertissement Travail, B.T. = Blâme Travail, A.C. = Avertissement Conduite, B.C. = Blâme Conduite, EXC = Exclusion, Nbr jour = Nombre de jour d'exclusion, PN = Première note, DN = Dernière note.",
+    discipline: (t) => `DISCIPLINE TRIMESTRE ${t}`, conseil: (t) => `CONSEIL DE CLASSE TRIMESTRE ${t}`, travail: (t) => `TRAVAIL TRIMESTRE ${t}`,
+    exclu: 'Exclu(e)', jours: 'Jr', natures: 'Natures', justifiees: 'J', nonJustifiees: 'NJ',
+    exclusionDefinitive: 'Exclusion Définitive', absence: 'Absence', absenteisme: 'Absentéisme', retards: 'Retards',
+    conduiteDeplorable: 'Conduite déplorable', convocation: 'Convocation',
+    abreviationsConseil: ['TH', 'EN', 'FEL', 'AT', 'BT', 'AC', 'BC'],
+    coef: 'Coef', total: 'Total', rang: 'Rang', moy: 'Moy..', nbMoySup: 'Nb Moy>=10', nbMoyInf: 'Nb Moy<10',
+    pMoy: 'P Moye...', dMoy: 'D Moye...', moyenneGenerale: 'Moyenne Générale', nombreMatieres: 'Nombre Matières',
+    courbe: 'COURBE PROGRESSION', visaPP: 'VISA PROF. PRINCIPAL', observation: 'OBSERVATION DU CONSEIL', visaChef: 'VISA CHEF ÉTABLISSEMENT',
+    rangLabel: (r) => (r === 1 ? '1er' : `${r}è`)
+  },
+  en: {
+    locale: 'en-GB',
+    titre: (t) => `${({ 1: 'FIRST', 2: 'SECOND', 3: 'THIRD' })[t] || `TERM ${t}`} TERM REPORT CARD`,
+    nom: 'Name :', naissance: 'Date of birth :', lieuPrefixe: 'at', matricule: 'Registration No :', annee: 'Academic year :',
+    sexe: 'Gender :', sexes: { FEMININ: 'FEMALE', MASCULIN: 'MALE' }, classe: 'Class', redoublant: 'Repeater ?', oui: 'YES', non: 'NO',
+    effectif: 'Enrolment', eleves: 'students',
+    colonnes: ['SUBJECTS', 'COMPETENCES', 'EVAL1', 'EVAL2', 'Mark', 'Coef', 'MxC', 'NC', 'APC', 'Remark'],
+    competence: 'Competence...', groupe: (n) => `GROUP ${n} / AVG =`, moyennesPeriodes: 'Period averages',
+    programmeNonDefini: 'The programme of this class (subjects and coefficients) has not been defined yet',
+    legende: 'ABS = Absences, DET = Detentions, EXP = Expulsion from class, H.R. = Honour roll, ENC = Encouragement, CONG = Congratulations, W.W. = Warning for work, B.W. = Blame for work, W.C. = Warning for conduct, B.C. = Blame for conduct, EXC = Exclusion, No. days = Number of days of exclusion, FM = First mark, LM = Last mark.',
+    discipline: (t) => `DISCIPLINE TERM ${t}`, conseil: (t) => `CLASS COUNCIL TERM ${t}`, travail: (t) => `ACADEMIC WORK TERM ${t}`,
+    exclu: 'Excluded', jours: 'Days', natures: 'Type', justifiees: 'J', nonJustifiees: 'NJ',
+    exclusionDefinitive: 'Permanent exclusion', absence: 'Absence', absenteisme: 'Absenteeism', retards: 'Lateness',
+    conduiteDeplorable: 'Poor conduct', convocation: 'Parent summons',
+    abreviationsConseil: ['HR', 'ENC', 'CONG', 'WW', 'BW', 'WC', 'BC'],
+    coef: 'Coef', total: 'Total', rang: 'Rank', moy: 'Avg..', nbMoySup: 'No. Avg>=10', nbMoyInf: 'No. Avg<10',
+    pMoy: 'Best avg...', dMoy: 'Lowest avg...', moyenneGenerale: 'General Average', nombreMatieres: 'No. of Subjects',
+    courbe: 'PROGRESS CURVE', visaPP: "CLASS MASTER'S VISA", observation: "CLASS COUNCIL'S REMARK", visaChef: "PRINCIPAL'S VISA",
+    rangLabel: (r) => {
+      if (!r) return ''
+      const fin = r % 100 >= 11 && r % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[r % 10] || 'th'
+      return `${r}${fin}`
+    }
+  }
+}
 
-function formatDateFr(iso) {
+const langueEcole = (ecole) => (/ANGLOPHONE/i.test(ecole.nomCourt || '') ? 'en' : 'fr')
+
+function formatDate(iso, locale) {
   if (!iso) return ''
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 // Identité visuelle de l'en-tête, reprise des en-têtes papier fournis par chaque établissement.
@@ -101,9 +138,6 @@ function ministereParNiveau(niveauEcole) {
 }
 
 const rougeSi = (condition) => (condition ? 'text-red-600' : 'text-black')
-const formatNote = (n) => (n === null || n === undefined ? '' : Number(n).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/,00$/, ''))
-
-const format2 = (n) => (n === null || n === undefined ? '' : Number(n).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 
 function Boite({ coche }) {
   return <span className="inline-block w-3 h-3 border border-black text-center leading-none text-[9px] align-middle">{coche ? '✓' : ''}</span>
@@ -148,19 +182,25 @@ function CourbeProgression({ eval1, eval2 }) {
 
 export default function BulletinTemplate({ data }) {
   const {
-    eleve, ecole, effectif, rang, rangLabel, groupes, coefTotal, nxcTotal, moyenneGenerale, mentionGenerale,
+    eleve, ecole, effectif, rang, groupes, coefTotal, nxcTotal, moyenneGenerale,
     moyenneEval1, moyenneEval2, programmeDefini, matieresTotal, classe, discipline, professeurPrincipal,
     bulletin, trimestre, anneeScolaire
   } = data
+  const langue = langueEcole(ecole)
+  const t = TEXTES[langue]
   const ministere = ministereParNiveau(ecole.niveau)
   const entete = enteteEcole(ecole)
   const bulletinManuel = bulletin || {}
-  const cocheParAbreviation = (id) => !!bulletinManuel[id]
+  const cocheConseil = (id) => !!bulletinManuel[id]
+  const mentionDe = (o) => (langue === 'en' ? o.mentionEn || o.mention : o.mention)
+
+  const formatNote = (n) => (n === null || n === undefined ? '' : Number(n).toLocaleString(t.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/[.,]00$/, ''))
+  const format2 = (n) => (n === null || n === undefined ? '' : Number(n).toLocaleString(t.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 
   const totalColonnes = 10
 
   return (
-    <div className="bg-white text-black mx-auto" style={{ width: '210mm', minHeight: '297mm', padding: '8mm', fontFamily: 'Arial, sans-serif' }}>
+    <div lang={langue} className="bg-white text-black mx-auto" style={{ width: '210mm', minHeight: '297mm', padding: '8mm', fontFamily: 'Arial, sans-serif' }}>
       {/* En-tête bilingue : FR | logo | EN */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-[9px] text-center leading-tight">
         <div>
@@ -190,27 +230,25 @@ export default function BulletinTemplate({ data }) {
       </div>
 
       {/* Titre */}
-      <div className="text-center font-bold text-lg underline mt-2 mb-2">
-        BULLETIN DU {TRIMESTRE_LABELS[trimestre] || `${trimestre}ᵉ`} TRIMESTRE
-      </div>
+      <div className="text-center font-bold text-lg underline mt-2 mb-2">{t.titre(trimestre)}</div>
 
       {/* Infos élève : nom/naissance/matricule/année à gauche, sexe/classe/redoublant au centre,
           effectif (sur la ligne "Classe"), photo à l'extrémité droite alignée en haut */}
       <div className="flex items-start gap-3 text-[11px] mb-2">
         <div className="space-y-0.5 flex-1">
-          <p><span className="text-slate-700">Nom et prénom :</span> <strong>{eleve.nom} {eleve.prenom}</strong></p>
-          <p><span className="text-slate-700">Date de naissance :</span> {formatDateFr(eleve.dateNaissance)}{eleve.lieuNaissance ? ` à ${eleve.lieuNaissance}` : ''}</p>
-          <p><span className="text-slate-700">Matricule :</span> {eleve.matricule}</p>
-          <p><span className="text-slate-700">Année scolaire :</span> {anneeScolaire}</p>
+          <p><span className="text-slate-700">{t.nom}</span> <strong>{eleve.nom} {eleve.prenom}</strong></p>
+          <p><span className="text-slate-700">{t.naissance}</span> {formatDate(eleve.dateNaissance, t.locale)}{eleve.lieuNaissance ? ` ${t.lieuPrefixe} ${eleve.lieuNaissance}` : ''}</p>
+          <p><span className="text-slate-700">{t.matricule}</span> {eleve.matricule}</p>
+          <p><span className="text-slate-700">{t.annee}</span> {anneeScolaire}</p>
         </div>
         <div className="space-y-0.5 flex-1">
-          <p><span className="text-slate-700">Sexe/Gender :</span> {eleve.sexe === 'FEMININ' ? 'FEMININ' : eleve.sexe === 'MASCULIN' ? 'MASCULIN' : ''}</p>
-          <p><span className="text-slate-700">Classe</span> <strong>{eleve.classe}</strong></p>
-          <p className="flex items-center gap-2"><span className="text-slate-700">Redoublant ?</span> <Case coche={eleve.redouble} label="OUI" /> <Case coche={!eleve.redouble} label="NON" /></p>
+          <p><span className="text-slate-700">{t.sexe}</span> {t.sexes[eleve.sexe] || ''}</p>
+          <p><span className="text-slate-700">{t.classe}</span> <strong>{eleve.classe}</strong></p>
+          <p className="flex items-center gap-2"><span className="text-slate-700">{t.redoublant}</span> <Case coche={eleve.redouble} label={t.oui} /> <Case coche={!eleve.redouble} label={t.non} /></p>
         </div>
         <div className="space-y-0.5 shrink-0 w-28">
           <p>&nbsp;</p>
-          <p><span className="text-slate-700">Effectif</span> <span className="ml-2">{effectif} élèves</span></p>
+          <p><span className="text-slate-700">{t.effectif}</span> <span className="ml-2">{effectif} {t.eleves}</span></p>
         </div>
         <PhotoPlaceholder />
       </div>
@@ -219,24 +257,15 @@ export default function BulletinTemplate({ data }) {
       <table className="w-full border-collapse border border-black text-[9.5px]">
         <thead>
           <tr className="bg-slate-200">
-            <th className="border border-black px-1 py-1 text-left">MATIÈRES</th>
-            <th className="border border-black px-1 py-1 text-left">COMPÉTENCES</th>
-            <th className="border border-black px-1 py-1 w-10">EVAL1</th>
-            <th className="border border-black px-1 py-1 w-10">EVAL2</th>
-            <th className="border border-black px-1 py-1 w-10">Note</th>
-            <th className="border border-black px-1 py-1 w-8">Coef</th>
-            <th className="border border-black px-1 py-1 w-12">NxC</th>
-            <th className="border border-black px-1 py-1 w-7">NC</th>
-            <th className="border border-black px-1 py-1 w-10">APC</th>
-            <th className="border border-black px-1 py-1 w-20">Mention</th>
+            {t.colonnes.map((titre, i) => (
+              <th key={titre} className={`border border-black px-1 py-1 ${i < 2 ? 'text-left' : ''} ${['', '', 'w-10', 'w-10', 'w-10', 'w-8', 'w-12', 'w-7', 'w-10', 'w-20'][i]}`}>{titre}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {!programmeDefini ? (
             <tr>
-              <td colSpan={totalColonnes} className="border border-black px-2 py-4 text-center text-slate-400">
-                Le programme de cette classe (matières et coefficients) n'est pas encore défini
-              </td>
+              <td colSpan={totalColonnes} className="border border-black px-2 py-4 text-center text-slate-400">{t.programmeNonDefini}</td>
             </tr>
           ) : (
             groupes.map(groupe => (
@@ -247,7 +276,7 @@ export default function BulletinTemplate({ data }) {
                       {l.matiere}
                       {l.enseignant && <span className="block text-[8px] text-slate-500 font-normal normal-case">{l.enseignant}</span>}
                     </td>
-                    <td className="border border-black px-1 py-0.5 text-slate-400 italic">Compétence...</td>
+                    <td className="border border-black px-1 py-0.5 text-slate-400 italic">{t.competence}</td>
                     <td className={`border border-black px-1 py-0.5 text-center font-semibold ${rougeSi(l.eval1 !== null && l.eval1 < 10)}`}>{formatNote(l.eval1)}</td>
                     <td className={`border border-black px-1 py-0.5 text-center font-semibold ${rougeSi(l.eval2 !== null && l.eval2 < 10)}`}>{formatNote(l.eval2)}</td>
                     <td className={`border border-black px-1 py-0.5 text-center font-semibold ${rougeSi(l.note !== null && l.note < 10)}`}>{formatNote(l.note)}</td>
@@ -255,25 +284,25 @@ export default function BulletinTemplate({ data }) {
                     <td className={`border border-black px-1 py-0.5 text-center ${rougeSi(l.note !== null && l.note < 10)}`}>{formatNote(l.nxc)}</td>
                     <td className="border border-black px-1 py-0.5 text-center">0</td>
                     <td className={`border border-black px-1 py-0.5 text-center ${rougeSi(l.note !== null && l.note < 10)}`}>{l.apc}</td>
-                    <td className={`border border-black px-1 py-0.5 ${rougeSi(l.note !== null && l.note < 10)}`}>{l.mention}</td>
+                    <td className={`border border-black px-1 py-0.5 ${rougeSi(l.note !== null && l.note < 10)}`}>{mentionDe(l)}</td>
                   </tr>
                 ))}
                 <tr key={`${groupe.nom}-total`} className="bg-slate-100 font-semibold">
                   <td className="border border-black px-1 py-0.5" colSpan={2}>
-                    GROUPE {groupe.numero} / MOY = <span className={rougeSi(groupe.moyenne !== null && groupe.moyenne < 10)}>{formatNote(groupe.moyenne)}</span>
+                    {t.groupe(groupe.numero)} <span className={rougeSi(groupe.moyenne !== null && groupe.moyenne < 10)}>{formatNote(groupe.moyenne)}</span>
                   </td>
                   <td className="border border-black" colSpan={3}></td>
                   <td className="border border-black px-1 py-0.5 text-center">{groupe.coefTotal}</td>
                   <td className="border border-black px-1 py-0.5 text-center">{formatNote(groupe.nxcTotal)}</td>
                   <td className="border border-black" colSpan={2}></td>
-                  <td className={`border border-black px-1 py-0.5 ${rougeSi(groupe.moyenne !== null && groupe.moyenne < 10)}`}>{groupe.mention}</td>
+                  <td className={`border border-black px-1 py-0.5 ${rougeSi(groupe.moyenne !== null && groupe.moyenne < 10)}`}>{mentionDe(groupe)}</td>
                 </tr>
               </>
             ))
           )}
           {programmeDefini && (
             <tr className="bg-slate-100 font-semibold">
-              <td className="border border-black px-1 py-1" colSpan={2}>Moyennes des périodes</td>
+              <td className="border border-black px-1 py-1" colSpan={2}>{t.moyennesPeriodes}</td>
               <td className="border border-black px-1 py-1 text-center">{formatNote(moyenneEval1)}</td>
               <td className="border border-black px-1 py-1 text-center">{formatNote(moyenneEval2)}</td>
               <td className="border border-black" colSpan={6}></td>
@@ -281,78 +310,74 @@ export default function BulletinTemplate({ data }) {
           )}
         </tbody>
       </table>
-      <p className="text-[7px] text-slate-500 italic leading-tight mt-0.5">
-        ABS = Absences, CON = Consignes, EXP = Expulsion au cours, T.H. = Tableau d'honneur, ENC = Encouragement, FEL = Félicitation,
-        A.T. = Avertissement Travail, B.T. = Blâme Travail, A.C. = Avertissement Conduite, B.C. = Blâme Conduite, EXC = Exclusion,
-        Nbr jour = Nombre de jour d'exclusion, PN = Première note, DN = Dernière note.
-      </p>
+      <p className="text-[7px] text-slate-500 italic leading-tight mt-0.5">{t.legende}</p>
 
       {/* Discipline / Conseil de classe / Travail du trimestre — un seul tableau continu, collé */}
       {/* 16 colonnes : Discipline (5) | Conseil de classe (7) | Travail (4), disposition du modèle papier */}
       <table className="w-full border-collapse border border-black text-[10px] mt-2 table-fixed">
         <colgroup>
           <col style={{ width: '16%' }} /><col style={{ width: '5.5%' }} /><col style={{ width: '8.5%' }} /><col style={{ width: '5%' }} /><col style={{ width: '5.5%' }} />
-          {ABREVIATIONS_CONSEIL.map(({ id }) => <col key={id} style={{ width: '4.5%' }} />)}
+          {CONSEIL_IDS.map(id => <col key={id} style={{ width: '4.5%' }} />)}
           <col style={{ width: '9.5%' }} /><col style={{ width: '7%' }} /><col style={{ width: '5%' }} /><col style={{ width: '6.5%' }} />
         </colgroup>
         <thead>
           <tr className="bg-slate-200">
-            <th className="border border-black py-1 px-1" colSpan={5}>DISCIPLINE TRIMESTRE {trimestre}</th>
-            <th className="border border-black py-1 px-1" colSpan={7}>CONSEIL DE CLASSE TRIMESTRE {trimestre}</th>
-            <th className="border border-black py-1 px-1" colSpan={4}>TRAVAIL TRIMESTRE {trimestre}</th>
+            <th className="border border-black py-1 px-1" colSpan={5}>{t.discipline(trimestre)}</th>
+            <th className="border border-black py-1 px-1" colSpan={7}>{t.conseil(trimestre)}</th>
+            <th className="border border-black py-1 px-1" colSpan={4}>{t.travail(trimestre)}</th>
           </tr>
         </thead>
         <tbody className="italic">
           <tr>
-            <td className="border border-black px-1 py-1"><Case coche={!!bulletinManuel.joursExclusion} label="Exclu(e)" /></td>
-            <td className="border border-black px-1 py-1 text-center">{bulletinManuel.joursExclusion ? `${bulletinManuel.joursExclusion} ` : ''}Jr</td>
-            <td className="border border-black px-1 py-1 text-center not-italic font-semibold">Natures</td>
-            <td className="border border-black px-1 py-1 text-center not-italic font-semibold">J</td>
-            <td className="border border-black px-1 py-1 text-center not-italic font-semibold">NJ</td>
-            {ABREVIATIONS_CONSEIL.map(({ id, label }) => (
-              <td key={id} className="border border-black px-0.5 py-1 text-center font-semibold">{label}</td>
+            <td className="border border-black px-1 py-1"><Case coche={!!bulletinManuel.joursExclusion} label={t.exclu} /></td>
+            <td className="border border-black px-1 py-1 text-center">{bulletinManuel.joursExclusion ? `${bulletinManuel.joursExclusion} ` : ''}{t.jours}</td>
+            <td className="border border-black px-1 py-1 text-center not-italic font-semibold">{t.natures}</td>
+            <td className="border border-black px-1 py-1 text-center not-italic font-semibold">{t.justifiees}</td>
+            <td className="border border-black px-1 py-1 text-center not-italic font-semibold">{t.nonJustifiees}</td>
+            {t.abreviationsConseil.map((label, i) => (
+              <td key={CONSEIL_IDS[i]} className="border border-black px-0.5 py-1 text-center font-semibold">{label}</td>
             ))}
-            <td className="border border-black px-1 py-1">Coef</td>
+            <td className="border border-black px-1 py-1">{t.coef}</td>
             <td className="border border-black px-1 py-1 text-right not-italic">{format2(coefTotal)}</td>
-            <td className="border border-black px-1 py-1">Total</td>
+            <td className="border border-black px-1 py-1">{t.total}</td>
             <td className="border border-black px-1 py-1 text-right not-italic">{format2(nxcTotal)}</td>
           </tr>
           <tr>
-            <td className="border border-black px-1 py-1 text-right">Exclusion Définitive</td>
+            <td className="border border-black px-1 py-1 text-right">{t.exclusionDefinitive}</td>
             <td className="border border-black px-1 py-1 text-center"><Boite coche={bulletinManuel.exclusionDefinitive} /></td>
-            <td className="border border-black px-1 py-1">Absence</td>
+            <td className="border border-black px-1 py-1">{t.absence}</td>
             <td className="border border-black px-1 py-1 text-center not-italic">{discipline.absencesJustifiees || ''}</td>
             <td className="border border-black px-1 py-1 text-center not-italic">{discipline.absencesNonJustifiees || ''}</td>
-            {ABREVIATIONS_CONSEIL.map(({ id }) => (
-              <td key={id} className="border border-black px-0.5 py-1 text-center"><Boite coche={cocheParAbreviation(id)} /></td>
+            {CONSEIL_IDS.map(id => (
+              <td key={id} className="border border-black px-0.5 py-1 text-center"><Boite coche={cocheConseil(id)} /></td>
             ))}
-            <td className="border border-black px-1 py-1">Rang</td>
-            <td className="border border-black px-1 py-1 text-center not-italic">{rangLabel}</td>
-            <td className="border border-black px-1 py-1">Moy..</td>
+            <td className="border border-black px-1 py-1">{t.rang}</td>
+            <td className="border border-black px-1 py-1 text-center not-italic">{t.rangLabel(rang)}</td>
+            <td className="border border-black px-1 py-1">{t.moy}</td>
             <td className={`border border-black px-1 py-1 text-right not-italic ${rougeSi(moyenneGenerale !== null && moyenneGenerale < 10)}`}>{format2(moyenneGenerale)}</td>
           </tr>
           <tr>
-            <td className="border border-black px-1 py-1 text-right">Absentéisme</td>
+            <td className="border border-black px-1 py-1 text-right">{t.absenteisme}</td>
             <td className="border border-black px-1 py-1 text-center"><Boite coche={bulletinManuel.absenteisme} /></td>
-            <td className="border border-black px-1 py-1">Retards</td>
+            <td className="border border-black px-1 py-1">{t.retards}</td>
             <td className="border border-black px-1 py-1 text-center not-italic" colSpan={2}>{discipline.retards || ''}</td>
-            <td className="border border-black px-1 py-1" colSpan={3}>Nb Moy&gt;=10</td>
+            <td className="border border-black px-1 py-1" colSpan={3}>{t.nbMoySup}</td>
             <td className="border border-black px-1 py-1 text-center not-italic">{classe.nbAuDessus}</td>
-            <td className="border border-black px-1 py-1" colSpan={2}>P Moye...</td>
+            <td className="border border-black px-1 py-1" colSpan={2}>{t.pMoy}</td>
             <td className="border border-black px-1 py-1 text-right not-italic">{format2(classe.plusForteMoyenne)}</td>
-            <td className="border border-black px-1 py-1" colSpan={3}>Moyenne Générale</td>
+            <td className="border border-black px-1 py-1" colSpan={3}>{t.moyenneGenerale}</td>
             <td className="border border-black px-1 py-1 text-right not-italic">{format2(classe.moyenneGenerale)}</td>
           </tr>
           <tr>
-            <td className="border border-black px-1 py-1 text-right">Conduite déplorable</td>
+            <td className="border border-black px-1 py-1 text-right">{t.conduiteDeplorable}</td>
             <td className="border border-black px-1 py-1 text-center"><Boite coche={bulletinManuel.conduiteDeplorable} /></td>
-            <td className="border border-black px-1 py-1" colSpan={2}>Convocation</td>
+            <td className="border border-black px-1 py-1" colSpan={2}>{t.convocation}</td>
             <td className="border border-black px-1 py-1 text-center"><Boite coche={bulletinManuel.convocation} /></td>
-            <td className="border border-black px-1 py-1" colSpan={3}>Nb Moy&lt;10</td>
+            <td className="border border-black px-1 py-1" colSpan={3}>{t.nbMoyInf}</td>
             <td className="border border-black px-1 py-1 text-center not-italic">{classe.nbEnDessous}</td>
-            <td className="border border-black px-1 py-1" colSpan={2}>D Moye...</td>
+            <td className="border border-black px-1 py-1" colSpan={2}>{t.dMoy}</td>
             <td className="border border-black px-1 py-1 text-right not-italic">{format2(classe.plusFaibleMoyenne)}</td>
-            <td className="border border-black px-1 py-1" colSpan={3}>Nombre Matières</td>
+            <td className="border border-black px-1 py-1" colSpan={3}>{t.nombreMatieres}</td>
             <td className="border border-black px-1 py-1 text-right not-italic">{matieresTotal}</td>
           </tr>
         </tbody>
@@ -362,10 +387,10 @@ export default function BulletinTemplate({ data }) {
       <table className="w-full border-collapse border border-black text-[10px] mt-2">
         <thead>
           <tr className="bg-slate-100">
-            <th className="border border-black py-1.5 px-1">COURBE PROGRESSION</th>
-            <th className="border border-black py-1.5 px-1">VISA PROF. PRINCIPAL</th>
-            <th className="border border-black py-1.5 px-1">OBSERVATION DU CONSEIL</th>
-            <th className="border border-black py-1.5 px-1">VISA CHEF ÉTABLISSEMENT</th>
+            <th className="border border-black py-1.5 px-1">{t.courbe}</th>
+            <th className="border border-black py-1.5 px-1">{t.visaPP}</th>
+            <th className="border border-black py-1.5 px-1">{t.observation}</th>
+            <th className="border border-black py-1.5 px-1">{t.visaChef}</th>
           </tr>
         </thead>
         <tbody>

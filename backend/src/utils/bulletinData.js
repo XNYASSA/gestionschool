@@ -61,7 +61,7 @@ export async function resultatsEleve(prisma, classe, eleveId, trimestre, anneeSc
     const nxcTotal = Number(notees.reduce((s, l) => s + l.nxc, 0).toFixed(2))
     const moyenneGroupe = coefTotal > 0 ? Number((nxcTotal / coefTotal).toFixed(2)) : null
     const mentionGroupe = mentionPourNote(bareme.lignes, moyenneGroupe)
-    return { numero: index + 1, nom, lignes: lignesGroupe, coefTotal, nxcTotal, moyenne: moyenneGroupe, mention: mentionGroupe?.mentionFr || '' }
+    return { numero: index + 1, nom, lignes: lignesGroupe, coefTotal, nxcTotal, moyenne: moyenneGroupe, mention: mentionGroupe?.mentionFr || '', mentionEn: mentionGroupe?.mentionEn || '' }
   })
 
   const notees = lignes.filter(l => l.note !== null)
@@ -161,6 +161,7 @@ export async function construireBulletin(prisma, eleve, trimestre, anneeScolaire
     nxcTotal: resultats.nxcTotal,
     moyenneGenerale: resultats.moyenneGenerale,
     mentionGenerale: mentionGenerale?.mentionFr || '',
+    mentionGeneraleEn: mentionGenerale?.mentionEn || '',
     apcGenerale: mentionGenerale?.apc || '',
     bareme: bareme.lignes,
     moyenneEval1: resultats.moyenneEval1,
