@@ -263,9 +263,10 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
           <div className="flex items-start gap-2 text-amber-900 text-sm">
             <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
             <span>
-              <strong>État civil incomplet pour {etatCivil.incomplets} élève{etatCivil.incomplets > 1 ? 's' : ''} sur {etatCivil.total}</strong>
+              <strong>Vous pouvez télécharger la liste dès maintenant</strong> : les informations manquantes sont simplement laissées vides, tous les élèves figurent dans le fichier.
+              {' '}Pour information, l'état civil est incomplet pour {etatCivil.incomplets} élève{etatCivil.incomplets > 1 ? 's' : ''} sur {etatCivil.total}
               {' '}({etatCivil.sansDate} sans date de naissance, {etatCivil.sansLieu} sans lieu de naissance, {etatCivil.sansSexe} sans sexe).
-              Ces cases resteront vides dans la liste exportée : complétez-les avec le crayon ✏️ de la ligne, ou par import (colonne « Lieu de naissance »).
+              Vous pourrez les compléter ensuite avec le crayon ✏️ de la ligne ou par import (colonne « Lieu de naissance »).
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -297,7 +298,7 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
           <div>
             <h3 className="font-bold text-slate-900">Élèves ({filteredEleves.length})</h3>
             <p className="text-xs text-slate-500">
-              L'export reprend les élèves affichés (choisissez l'école et la classe ci-dessus) avec leur état civil et leur parent. L'Excel ajoute le lien de parenté, l'email et l'adresse.
+              L'export reprend les élèves affichés (choisissez l'école et la classe ci-dessus) avec leur état civil et leur parent, même si certaines informations manquent (cases laissées vides). L'Excel ajoute le lien de parenté, l'email et l'adresse.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
