@@ -52,12 +52,14 @@ async function fusionner(groupe, garde, libelle) {
   const donnees = {}
   if (manquant(garde.nomParent) && premierRenseigne('nomParent')) donnees.nomParent = premierRenseigne('nomParent')
   if (manquant(garde.telephoneParent) && premierRenseigne('telephoneParent')) donnees.telephoneParent = premierRenseigne('telephoneParent')
-  for (const champ of ['sexe', 'dateNaissance', 'lieuParente', 'emailParent', 'adresseParent', 'filiere']) {
+  for (const champ of ['sexe', 'dateNaissance', 'lieuNaissance', 'lieuParente', 'emailParent', 'adresseParent', 'filiere']) {
     if (garde[champ] === null || garde[champ] === undefined || garde[champ] === '') {
       const v = groupe.map(e => e[champ]).find(x => x !== null && x !== undefined && x !== '')
       if (v !== undefined) donnees[champ] = v
     }
   }
+  // redouble : booléen sans "valeur manquante" propre — si une seule copie a été cochée, l'information prévaut
+  if (!garde.redouble && groupe.some(e => e.redouble)) donnees.redouble = true
 
   const maxParPoste = new Map()
   groupe.forEach(e => e.inscriptionsFrais.forEach(f => maxParPoste.set(f.tranche, Math.max(maxParPoste.get(f.tranche) || 0, f.montantPaye))))
