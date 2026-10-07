@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Search, Plus, Eye, Edit2, Trash2, X, Loader, AlertTriangle } from 'lucide-react'
 import { apiClient } from '../../api/client'
 import BoutonsExport from '../../components/BoutonsExport'
-import { exportListeEleves } from '../../utils/exportListes'
+import { exportListeEleves, telechargerFichierACompleter } from '../../utils/exportListes'
 import { estManquant, informationsManquantes, valeurOuVide } from '../../utils/infosEleve'
 import { filieresPourClasse, typeTechnique } from '../../utils/filieres'
 import { calculerSignalements, niveauMax, STYLE_SIGNALEMENT } from '../../utils/signalements'
@@ -32,6 +32,9 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
   const [filterEcole, setFilterEcole] = useState('')
   const [filterClasse, setFilterClasse] = useState('')
   const [seulementIncomplets, setSeulementIncomplets] = useState(initialIncomplets)
+  const [seulementEtatCivilIncomplet, setSeulementEtatCivilIncomplet] = useState(false)
+  const [tableauUnique, setTableauUnique] = useState(false)
+  const [preparationFichier, setPreparationFichier] = useState(false)
 
   const [showModal, setShowModal] = useState(false)
   const [modalMode, setModalMode] = useState('view') // view, create, edit
@@ -72,6 +75,9 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
   // Signalements (informations manquantes et incohérences) de tous les élèves
   const signalements = useMemo(() => calculerSignalements(eleves), [eleves])
 
+  // État civil exigé par l'export (assurances) : date de naissance, lieu de naissance et sexe
+  const etatCivilManquant = (e) => !e.dateNaissance || !String(e.lieuNaissance ?? '').trim() || !e.sexe
+
   const filteredEleves = useMemo(() => {
     return eleves.filter(e => {
       if (searchTerm) {
@@ -83,9 +89,34 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
       if (filterEcole && e.classe?.ecoleId !== filterEcole) return false
       if (filterClasse && e.classeId !== filterClasse) return false
       if (seulementIncomplets && !signalements.has(e.id)) return false
+      if (seulementEtatCivilIncomplet && !etatCivilManquant(e)) return false
       return true
     })
-  }, [eleves, searchTerm, filterEcole, filterClasse, seulementIncomplets, signalements])
+  }, [eleves, searchTerm, filterEcole, filterClasse, seulementIncomplets, seulementEtatCivilIncomplet, signalements])
+
+  const telechargerAcompleter = async () => {
+    setPreparationFichier(true)
+    try {
+      const nomEcole = ecoles.find(e => e.id === filterEcole)?.nomCourt
+      await telechargerFichierACompleter(filteredEleves, nomEcole)
+    } catch (err) {
+      alert('Erreur lors de la préparation du fichier : ' + (err.message || err))
+    } finally {
+      setPreparationFichier(false)
+    }
+  }
+
+  // Combien d'élèves de la sélection (école / classe, hors recherche) ont un état civil incomplet
+  const etatCivil = useMemo(() => {
+    const selection = eleves.filter(e => (!filterEcole || e.classe?.ecoleId === filterEcole) && (!filterClasse || e.classeId === filterClasse))
+    return {
+      total: selection.length,
+      sansDate: selection.filter(e => !e.dateNaissance).length,
+      sansLieu: selection.filter(e => !String(e.lieuNaissance ?? '').trim()).length,
+      sansSexe: selection.filter(e => !e.sexe).length,
+      incomplets: selection.filter(etatCivilManquant).length
+    }
+  }, [eleves, filterEcole, filterClasse])
 
   // Élèves de la sélection (école / classe choisies) auxquels il manque une information obligatoire
   const nombreIncomplets = useMemo(() => eleves.filter(e => {
@@ -227,17 +258,67 @@ export default function ListeEleves({ showStatutPaiement = true, initialSearch =
         </div>
       )}
 
+      {etatCivil.incomplets > 0 && (
+        <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-start gap-2 text-amber-900 text-sm">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+            <span>
+              <strong>État civil incomplet pour {etatCivil.incomplets} élève{etatCivil.incomplets > 1 ? 's' : ''} sur {etatCivil.total}</strong>
+              {' '}({etatCivil.sansDate} sans date de naissance, {etatCivil.sansLieu} sans lieu de naissance, {etatCivil.sansSexe} sans sexe).
+              Ces cases resteront vides dans la liste exportée : complétez-les avec le crayon ✏️ de la ligne, ou par import (colonne « Lieu de naissance »).
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSeulementEtatCivilIncomplet(!seulementEtatCivilIncomplet)}
+              className="px-3 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-medium"
+            >
+              {seulementEtatCivilIncomplet ? 'Afficher tous les élèves' : 'Afficher uniquement ces élèves'}
+            </button>
+            <button
+              onClick={telechargerAcompleter}
+              disabled={!filterEcole || filteredEleves.length === 0 || preparationFichier}
+              title={filterEcole ? '' : "Choisissez d'abord une école ci-dessus"}
+              className="px-3 py-2 bg-white text-amber-800 border border-amber-400 rounded-lg hover:bg-amber-100 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {preparationFichier ? 'Préparation...' : 'Télécharger le fichier à compléter (Excel)'}
+            </button>
+          </div>
+          <p className="basis-full text-xs text-amber-900">
+            Fichier à compléter : choisissez une école, téléchargez le fichier (cases vides surlignées en jaune), remplissez sexe (M/F), date (JJ/MM/AAAA) et lieu
+            <strong> sans modifier le nom, le prénom ni la classe</strong>, puis réimportez-le dans <em>Élèves → Importer des élèves</em>. Seules les cases remplies sont mises à jour ; les paiements ne sont pas touchés.
+          </p>
+        </div>
+      )}
+
       {/* Tableau */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="bg-slate-50 border-b border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-bold text-slate-900">Élèves ({filteredEleves.length})</h3>
-            <p className="text-xs text-slate-500">L'export reprend les élèves affichés, une page par classe.</p>
+            <p className="text-xs text-slate-500">
+              L'export reprend les élèves affichés (choisissez l'école et la classe ci-dessus) avec leur état civil et leur parent. L'Excel ajoute le lien de parenté, l'email et l'adresse.
+            </p>
           </div>
-          <BoutonsExport
-            disabled={filteredEleves.length === 0}
-            construire={() => exportListeEleves(filteredEleves, { critere: searchTerm ? `Recherche : « ${searchTerm} »` : '' })}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={tableauUnique ? 'unique' : 'classe'}
+              onChange={(e) => setTableauUnique(e.target.value === 'unique')}
+              className="px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              title="Présentation de l'export"
+            >
+              <option value="classe">Une page / feuille par classe</option>
+              <option value="unique">Un seul tableau (colonne Classe)</option>
+            </select>
+            <BoutonsExport
+              disabled={filteredEleves.length === 0}
+              construire={(type) => exportListeEleves(filteredEleves, {
+                critere: [searchTerm && `Recherche : « ${searchTerm} »`, seulementEtatCivilIncomplet && 'Élèves à état civil incomplet uniquement'].filter(Boolean).join(' — '),
+                format: type,
+                tableauUnique
+              })}
+            />
+          </div>
         </div>
         {loading ? (
           <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-2">

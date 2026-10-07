@@ -2,15 +2,15 @@ import { useState } from 'react'
 import { Printer, FileDown, FileSpreadsheet, Loader } from 'lucide-react'
 import { imprimerSections, telechargerPdf, telechargerExcel } from '../utils/exportTableau'
 
-// Boutons Imprimer / PDF / Excel. `construire` est appelée au clic et retourne
-// { sections, nomFichier } (voir utils/exportTableau.js).
+// Boutons Imprimer / PDF / Excel. `construire(type)` est appelée au clic ('imprimer', 'pdf' ou 'excel')
+// et retourne { sections, nomFichier } (voir utils/exportTableau.js).
 export default function BoutonsExport({ construire, disabled = false, excel = true }) {
   const [enCours, setEnCours] = useState('')
 
   const lancer = async (type) => {
     setEnCours(type)
     try {
-      const { sections, nomFichier } = construire()
+      const { sections, nomFichier } = construire(type)
       if (type === 'imprimer') imprimerSections(sections)
       else if (type === 'pdf') await telechargerPdf(sections, nomFichier)
       else await telechargerExcel(sections, nomFichier)

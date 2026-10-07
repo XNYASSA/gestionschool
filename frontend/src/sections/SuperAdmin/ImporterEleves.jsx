@@ -6,30 +6,20 @@ import { construireGroupes } from '../../utils/grouperScolarite'
 import { typeTechnique } from '../../utils/filieres'
 import BoutonsExport from '../../components/BoutonsExport'
 import { formatFCFA } from '../../utils/formatters'
+import { COLONNES_MODELE } from '../../utils/modeleImport'
 
-const COLONNES = [
-  { titre: 'Matricule (optionnel)', cle: 'matricule' },
-  { titre: 'Nom*', cle: 'nom' },
-  { titre: 'Prénom*', cle: 'prenom' },
-  { titre: 'Sexe (M/F)', cle: 'sexe' },
-  { titre: 'Date de naissance (JJ/MM/AAAA)', cle: 'dateNaissance' },
-  { titre: 'Classe*', cle: 'classe' },
-  { titre: 'Nom du parent/tuteur*', cle: 'nomParent' },
-  { titre: 'Lien de parenté', cle: 'lieuParente' },
-  { titre: 'Téléphone du parent*', cle: 'telephoneParent' },
-  { titre: 'Email du parent', cle: 'emailParent' },
-  { titre: 'Adresse du parent', cle: 'adresseParent' },
-  { titre: 'Inscription déjà payée (FCFA)', cle: 'inscription' },
-  { titre: 'Tranche 1 déjà payée (FCFA)', cle: 'tranche1' },
-  { titre: 'Tranche 2 déjà payée (FCFA)', cle: 'tranche2' },
-  { titre: 'Tranche 3 déjà payée (FCFA)', cle: 'tranche3' }
-]
+const COLONNES = COLONNES_MODELE
 
-const EXEMPLE = ['', 'Nkomo', 'Jean', 'M', '15/03/2015', '6ème A', 'Marie Nkomo', 'Mère', '677123456', '', '', '21000', '', '', '']
+const EXEMPLE = ['', 'Nkomo', 'Jean', 'M', '15/03/2015', 'Yaoundé', '6ème A', 'Marie Nkomo', 'Mère', '677123456', '', '', '21000', '', '', '']
 
 const TAILLE_LOT = 100
 
 function formatDate(valeur) {
+  // Date Excel stockée comme nombre (numéro de série, base 30/12/1899) quand la cellule est au format texte
+  if (typeof valeur === 'number' && valeur > 1 && valeur < 100000) {
+    const d = new Date(Math.round((valeur - 25569) * 86400 * 1000))
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+  }
   if (valeur instanceof Date) {
     const jj = String(valeur.getDate()).padStart(2, '0')
     const mm = String(valeur.getMonth() + 1).padStart(2, '0')

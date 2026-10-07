@@ -31,7 +31,7 @@ export async function importerLignesEleves(prisma, ecoleId, lignes) {
     const numeroLigne = i + 1
     const ligne = lignes[i] || {}
     try {
-      const { matricule: matriculeFourni, nom, prenom, sexe, dateNaissance, classe, filiere, nomParent, lieuParente, telephoneParent, emailParent, adresseParent, inscription, tranche1, tranche2, tranche3 } = ligne
+      const { matricule: matriculeFourni, nom, prenom, sexe, dateNaissance, lieuNaissance, classe, filiere, nomParent, lieuParente, telephoneParent, emailParent, adresseParent, inscription, tranche1, tranche2, tranche3 } = ligne
       const montantsPostes = { inscription, tranche1, tranche2, tranche3 }
 
       if (!nom || !classe) {
@@ -57,9 +57,15 @@ export async function importerLignesEleves(prisma, ecoleId, lignes) {
       let dateNaissanceParsed = null
       if (dateNaissance) {
         dateNaissanceParsed = new Date(dateNaissance)
-        if (isNaN(dateNaissanceParsed.getTime())) {
-          throw new Error(`Date de naissance invalide : "${dateNaissance}"`)
+        const annee = dateNaissanceParsed.getUTCFullYear()
+        if (isNaN(dateNaissanceParsed.getTime()) || annee < 1900 || dateNaissanceParsed > new Date()) {
+          throw new Error(`Date de naissance invalide : "${dateNaissance}" (attendu JJ/MM/AAAA)`)
         }
+      }
+
+      const lieuNaissanceTrim = String(lieuNaissance ?? '').trim()
+      if (lieuNaissanceTrim.length > 100) {
+        throw new Error('Lieu de naissance trop long (100 caractères maximum)')
       }
 
       const nomTrim = String(nom).trim()
@@ -69,9 +75,15 @@ export async function importerLignesEleves(prisma, ecoleId, lignes) {
       // Reconnaît un élève déjà importé (même nom + prénom + classe) pour le
       // mettre à jour au lieu de le dupliquer — le fichier de la secrétaire
       // grossit au fil de l'année et est réimporté en entier à chaque fois.
-      const eleveExistant = await prisma.eleve.findFirst({
+      let eleveExistant = await prisma.eleve.findFirst({
         where: { classeId: classeTrouvee.id, nom: nomTrim, prenom: prenomTrim }
       })
+      // Un nom enregistré avec un espace en début ou fin (anciens imports) doit être reconnu aussi :
+      // sinon un fichier réimporté créerait un doublon de l'élève.
+      if (!eleveExistant) {
+        const candidats = await prisma.eleve.findMany({ where: { classeId: classeTrouvee.id } })
+        eleveExistant = candidats.find(c => c.nom.trim() === nomTrim && c.prenom.trim() === prenomTrim) || null
+      }
 
       // Un matricule déjà porté par un autre élève (les numéros des fichiers ne sont pas uniques
       // entre sections) reçoit un suffixe plutôt que de bloquer l'import de l'élève.
@@ -95,6 +107,7 @@ export async function importerLignesEleves(prisma, ecoleId, lignes) {
             ...(sexeNormalise && { sexe: sexeNormalise }),
             ...(String(filiere ?? '').trim() && { filiere: String(filiere).trim() }),
             ...(dateNaissanceParsed && { dateNaissance: dateNaissanceParsed }),
+            ...(lieuNaissanceTrim && { lieuNaissance: lieuNaissanceTrim }),
             ...(parentFourni && { nomParent: parentFourni }),
             ...(lieuParente && { lieuParente }),
             ...(telephoneFourni && { telephoneParent: telephoneFourni }),
@@ -136,6 +149,7 @@ export async function importerLignesEleves(prisma, ecoleId, lignes) {
           prenom: prenomTrim,
           sexe: sexeNormalise,
           dateNaissance: dateNaissanceParsed,
+          lieuNaissance: lieuNaissanceTrim || null,
           classeId: classeTrouvee.id,
           filiere: String(filiere ?? '').trim() || null,
           nomParent: parentFourni || NON_RENSEIGNE,
