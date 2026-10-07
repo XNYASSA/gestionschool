@@ -364,10 +364,10 @@ class APIClient {
     return this.request(`/matieres/ecole/${ecoleId}`)
   }
 
-  async createMatiere(nom, ecoleId, coefficient) {
+  async createMatiere(nom, ecoleId, coefficient, extra = {}) {
     return this.request('/matieres', {
       method: 'POST',
-      body: JSON.stringify({ nom, ecoleId, coefficient })
+      body: JSON.stringify({ nom, ecoleId, coefficient, ...extra })
     })
   }
 

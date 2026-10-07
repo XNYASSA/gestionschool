@@ -43,7 +43,7 @@ const CASES_CONSEIL = [
 
 export default function Bulletins({ onNavigate }) {
   const { user } = useContext(AuthContext)
-  const peutModifierProgramme = ['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE'].includes(user?.roleAPI)
+  const peutModifierProgramme = ['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE'].includes(user?.roleAPI)
 
   const [ecoles, setEcoles] = useState([])
   const [classes, setClasses] = useState([])

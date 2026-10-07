@@ -265,7 +265,7 @@ export default function ProgrammeClasse({ classeId, ecoleId, peutModifier, onAjo
                 <Save className="w-4 h-4" /> {saving ? 'Enregistrement...' : 'Enregistrer le programme'}
               </button>
             ) : (
-              <span className="text-xs text-slate-500">Consultation seule : seul le Principal ou la Directrice peut modifier le programme.</span>
+              <span className="text-xs text-slate-500">Consultation seule : vous n'avez pas le droit de modifier le programme.</span>
             )}
           </div>
         </>

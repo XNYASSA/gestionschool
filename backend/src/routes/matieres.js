@@ -1,5 +1,6 @@
 import express from 'express'
 import { verifyToken, checkRole } from '../middleware/auth.js'
+import { getEcoleIdsScope } from '../utils/ecoleScope.js'
 
 const router = express.Router()
 
@@ -29,19 +30,43 @@ router.get('/ecole/:ecoleId', verifyToken, async (req, res) => {
   }
 })
 
-// CREATE MATIERE (Admin only)
-router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
+// Vérifie que l'utilisateur (hors Super Admin) est affecté à l'école visée
+async function verifierEcoleAutorisee(req, ecoleId) {
+  const ecoleIds = await getEcoleIdsScope(req.prisma, req.user)
+  return !ecoleIds || ecoleIds.includes(ecoleId)
+}
+
+// CREATE MATIERE (Super Admin, Principal, Directrice — pour une école qui leur est affectée)
+router.post('/', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
   try {
-    const { nom, ecoleId, coefficient, departement } = req.body
+    const { ecoleId, coefficient } = req.body
+    const nom = String(req.body.nom ?? '').trim()
+    const abreviation = String(req.body.abreviation ?? '').trim()
+    const departement = String(req.body.departement ?? '').trim()
 
     if (!nom || !ecoleId) {
       return res.status(400).json({ error: 'Les champs nom et ecoleId sont obligatoires' })
+    }
+    if (nom.length > 100 || abreviation.length > 20 || departement.length > 60) {
+      return res.status(400).json({ error: 'Nom, abréviation ou département trop long' })
+    }
+    if (!(await verifierEcoleAutorisee(req, ecoleId))) {
+      return res.status(403).json({ error: "Cette école ne fait pas partie de celles qui vous sont affectées" })
+    }
+
+    const ecole = await req.prisma.ecole.findUnique({ where: { id: ecoleId }, select: { id: true } })
+    if (!ecole) return res.status(404).json({ error: 'École non trouvée' })
+
+    const existantes = await req.prisma.matiere.findMany({ where: { ecoleId }, select: { nom: true } })
+    if (existantes.some(m => m.nom.trim().toLowerCase() === nom.toLowerCase())) {
+      return res.status(409).json({ error: `La matière « ${nom} » existe déjà dans cette école` })
     }
 
     const matiere = await req.prisma.matiere.create({
       data: {
         nom,
         ecoleId,
+        abreviation: abreviation || null,
         coefficient: coefficient ?? 0,
         departement: departement || null // regroupement affiché sur le bulletin ("GROUPE 1", "GROUPE 2"...)
       },
@@ -58,6 +83,14 @@ router.post('/', verifyToken, checkRole(['SUPER_ADMIN']), async (req, res) => {
 router.put('/:id', verifyToken, checkRole(['SUPER_ADMIN', 'PRINCIPAL', 'DIRECTRICE', 'ENSEIGNANT']), async (req, res) => {
   try {
     const { nom, coefficient, departement } = req.body
+
+    if (req.user.role === 'PRINCIPAL' || req.user.role === 'DIRECTRICE') {
+      const existante = await req.prisma.matiere.findUnique({ where: { id: req.params.id }, select: { ecoleId: true } })
+      if (!existante) return res.status(404).json({ error: 'Matière non trouvée' })
+      if (!(await verifierEcoleAutorisee(req, existante.ecoleId))) {
+        return res.status(403).json({ error: "Cette matière appartient à une école qui ne vous est pas affectée" })
+      }
+    }
 
     if (req.user.role === 'ENSEIGNANT') {
       if (nom !== undefined || departement !== undefined) {

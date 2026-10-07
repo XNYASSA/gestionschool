@@ -91,11 +91,12 @@ router.get('/:classeId', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE', 'SEC
   }
 })
 
-// ENREGISTRER LE PROGRAMME D'UNE CLASSE (Principal/Directrice, Super Admin)
+// ENREGISTRER LE PROGRAMME D'UNE CLASSE (Principal/Directrice, et Secrétaire qui les assiste
+// en cas d'empêchement — dans les écoles qui lui sont affectées, vérifié par chargerClasseAutorisee)
 // Reçoit la liste des matières COCHÉES ; toute matière absente de la liste est
 // retirée du programme. Un enseignant ayant déjà saisi des notes ou des leçons
 // n'est jamais retiré silencieusement (cascade) : l'opération est refusée.
-router.put('/:classeId', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE']), async (req, res) => {
+router.put('/:classeId', verifyToken, checkRole(['PRINCIPAL', 'DIRECTRICE', 'SECRETAIRE']), async (req, res) => {
   try {
     const classe = await chargerClasseAutorisee(req, req.params.classeId)
     const demandees = req.body.matieres
